@@ -1,0 +1,29 @@
+{
+  "name": "notemoji",
+  "version": "1.0.0",
+  "description": "Notion-style emoji icons for notes and folders in the Obsidian file explorer.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "npm run typecheck && node esbuild.config.mjs production",
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/run.mjs",
+    "test:plugin": "node --test tests/load/plugin-load.test.mjs",
+    "test:browser": "node tests/browser/build.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "emoji",
+    "icons",
+    "file-explorer"
+  ],
+  "author": "Finn-Christopher",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "^0.24.0",
+    "obsidian": "^1.7.2",
+    "typescript": "^5.6.0"
+  }
+}

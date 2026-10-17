@@ -1,0 +1,20 @@
+# Build artifacts
+main.js
+*.js.map
+
+# Dependencies
+node_modules/
+
+# Test build output
+.test-build/
+
+# Local Obsidian test vault (not part of the plugin)
+testvault notemoji/
+
+# Obsidian runtime data
+data.json
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

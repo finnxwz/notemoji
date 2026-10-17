@@ -1,0 +1,92 @@
+/* ---------------------------------------------------------------------------
+   Emoji icon in the file explorer.
+
+   The node is inserted as a flex sibling directly before the name element
+   (`.tree-item-inner`) of a `.nav-file-title` / `.nav-folder-title`, so the
+   alignment, indentation, ellipsis behaviour and row height of the tree stay
+   exactly as they are in plain Obsidian.
+   --------------------------------------------------------------------------- */
+
+.notemoji-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	width: 1.45em;
+	height: 1.2em;
+	margin-inline-end: 0.3em;
+	font-size: 1.1em;
+	line-height: 1;
+	font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+	/* Clicks should keep selecting the item, not hit the icon. */
+	pointer-events: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Emoji input modal
+   --------------------------------------------------------------------------- */
+
+.modal.notemoji-modal {
+	width: min(26rem, 90vw);
+}
+
+.notemoji-modal .notemoji-description {
+	margin-block-end: 0.9em;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	overflow-wrap: anywhere;
+}
+
+.notemoji-modal .notemoji-input-row {
+	display: flex;
+	align-items: center;
+	gap: 0.6em;
+}
+
+.notemoji-modal .notemoji-preview {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	width: 2.4em;
+	height: 2.4em;
+	font-size: 1.4em;
+	line-height: 1;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-secondary);
+	font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+}
+
+.notemoji-modal .notemoji-preview.is-empty {
+	color: var(--text-faint);
+	font-family: inherit;
+	font-size: 1.1em;
+}
+
+.notemoji-modal .notemoji-input {
+	flex: 1 1 auto;
+	min-width: 6em;
+}
+
+.notemoji-modal .notemoji-hint {
+	min-height: 1.5em;
+	margin-block-start: 0.6em;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.notemoji-modal .notemoji-hint.is-error {
+	color: var(--text-error);
+}
+
+.notemoji-modal .notemoji-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.6em;
+	margin-block-start: 0.4em;
+}
+
+.notemoji-modal .notemoji-actions .notemoji-remove {
+	margin-inline-end: auto;
+}
