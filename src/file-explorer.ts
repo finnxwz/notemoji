@@ -170,11 +170,13 @@ export class FileExplorerRenderer {
 			return;
 		}
 
-		const iconEl = titleEl.ownerDocument.createElement("span");
-		iconEl.className = ICON_CLASS;
-		iconEl.textContent = emoji;
-		iconEl.setAttribute(EMOJI_ATTRIBUTE, emoji);
-		iconEl.setAttribute("aria-hidden", "true");
+		// Built with Obsidian's own element helper. `createSpan` appends the node,
+		// so it is moved to its final position right below.
+		const iconEl = titleEl.createSpan({
+			cls: ICON_CLASS,
+			text: emoji,
+			attr: { [EMOJI_ATTRIBUTE]: emoji, "aria-hidden": "true" },
+		});
 
 		// Keep the emoji immediately before the name, after the folder chevron.
 		const anchor =

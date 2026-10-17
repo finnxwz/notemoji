@@ -1,6 +1,6 @@
 {
   "name": "notemoji",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Notion-style emoji icons for notes and folders in the Obsidian file explorer.",
   "main": "main.js",
   "scripts": {

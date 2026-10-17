@@ -44,6 +44,43 @@ async function scenario(name: string, fn: () => Promise<void> | void): Promise<v
 	}
 }
 
+// ------------------------------------------------- Obsidian DOM helper polyfill
+
+/**
+ * The plugin builds elements with Obsidian's `createEl` helpers, which the app
+ * adds to `HTMLElement`. Outside of Obsidian the harness installs a minimal
+ * equivalent so the renderer can be driven as it is in the app.
+ */
+function installObsidianDomHelpers(): void {
+	interface DomInfo {
+		cls?: string;
+		text?: string;
+		attr?: Record<string, string>;
+	}
+
+	function createEl(this: HTMLElement, tag: string, info?: DomInfo): HTMLElement {
+		const el = this.ownerDocument.createElement(tag);
+		if (info?.cls) el.className = info.cls;
+		if (info?.text !== undefined) el.textContent = info.text;
+		if (info?.attr) {
+			for (const [name, value] of Object.entries(info.attr)) el.setAttribute(name, value);
+		}
+		this.appendChild(el);
+		return el;
+	}
+
+	const helpers = HTMLElement.prototype as unknown as Record<string, unknown>;
+	helpers.createEl = createEl;
+	helpers.createDiv = function (this: HTMLElement, info?: DomInfo): HTMLElement {
+		return createEl.call(this, "div", info);
+	};
+	helpers.createSpan = function (this: HTMLElement, info?: DomInfo): HTMLElement {
+		return createEl.call(this, "span", info);
+	};
+}
+
+installObsidianDomHelpers();
+
 // ---------------------------------------------------------------- fake Obsidian
 
 function createItem(name: string, kind: "file" | "folder"): FakeFileItem {

@@ -24,8 +24,37 @@ const EMOJI_CORE = /[\p{Extended_Pictographic}\p{Regional_Indicator}]|[0-9#*]\uF
  */
 const FORBIDDEN_ICON_CHARS = /[\p{L}\p{N}\p{P}\p{Z}\p{C}]/u;
 
-/** Modifiers, joiners, selectors and tag characters, i.e. emoji parts without a base. */
-const EMOJI_SERIES_ONLY = /^[\p{M}\u200D\u20E3\uFE0E\uFE0F\u{1F3FB}-\u{1F3FF}\u{E0020}-\u{E007F}]+$/u;
+/** Combining marks, tested per character to avoid a misleading character class. */
+const COMBINING_MARK = /\p{M}/u;
+
+/** True for a single code point that is emoji part and needs a base character. */
+function isEmojiPart(codePoint: number): boolean {
+	// Zero width joiner, combining enclosing keycap, text and emoji variation selectors.
+	if (
+		codePoint === 0x200d ||
+		codePoint === 0x20e3 ||
+		codePoint === 0xfe0e ||
+		codePoint === 0xfe0f
+	) {
+		return true;
+	}
+	// Skin tone modifiers.
+	if (codePoint >= 0x1f3fb && codePoint <= 0x1f3ff) return true;
+	// Tag characters, used by subdivision flags.
+	if (codePoint >= 0xe0020 && codePoint <= 0xe007f) return true;
+	// Combining marks without a base character.
+	return COMBINING_MARK.test(String.fromCodePoint(codePoint));
+}
+
+/** True when a cluster consists only of emoji parts, i.e. has no base character. */
+function isEmojiPartsOnly(cluster: string): boolean {
+	if (cluster === "") return false;
+	for (const character of cluster) {
+		const codePoint = character.codePointAt(0);
+		if (codePoint === undefined || !isEmojiPart(codePoint)) return false;
+	}
+	return true;
+}
 
 /**
  * Fallback pattern that matches a leading emoji sequence. Only used when
@@ -110,7 +139,7 @@ export function firstGrapheme(text: string): string {
 export function isEmojiLike(cluster: string): boolean {
 	if (cluster.length === 0) return false;
 	if (EMOJI_CORE.test(cluster)) return true;
-	if (EMOJI_SERIES_ONLY.test(cluster)) return false;
+	if (isEmojiPartsOnly(cluster)) return false;
 	return !FORBIDDEN_ICON_CHARS.test(cluster);
 }
 
