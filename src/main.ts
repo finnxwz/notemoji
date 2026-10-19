@@ -114,12 +114,17 @@ export default class NotemojiPlugin extends Plugin {
 		void this.loadEmojiFont();
 		// Prepare the picker while Obsidian is idle: parse the emoji list and
 		// pre-render the emoji images, so even the first picker is smooth.
-		this.warmUpTimer = window.setTimeout(() => {
-			this.warmUpTimer = null;
-			this.warmedUp = true;
-			warmUpCatalog();
-			this.sprites.rebuild();
-		}, WARM_UP_DELAY_MS);
+		this.warmUpTimer = window.setTimeout(() => this.warmUp(), WARM_UP_DELAY_MS);
+	}
+
+	/** Prepares the picker once: the emoji list and the pre-rendered emoji images. */
+	private warmUp(): void {
+		if (this.warmUpTimer !== null) window.clearTimeout(this.warmUpTimer);
+		this.warmUpTimer = null;
+		if (this.warmedUp) return;
+		this.warmedUp = true;
+		warmUpCatalog();
+		this.sprites.rebuild();
 	}
 
 	/** The font-family list Notemoji's emoji currently use, as the browser resolves it. */
@@ -250,6 +255,8 @@ export default class NotemojiPlugin extends Plugin {
 	// ------------------------------------------------------------------ actions
 
 	openPicker(file: TAbstractFile): void {
+		// Opened before the startup preparation ran: start it now.
+		this.warmUp();
 		const current = this.icons.get(file.path) ?? "";
 		new PickerModal(this.app, {
 			title: `${current === "" ? "Set" : "Change"} ${describeItem(file)} emoji`,
