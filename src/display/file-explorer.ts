@@ -1,6 +1,12 @@
 import type { App } from "obsidian";
 import type { FileExplorerView } from "../internals";
-import { IconSource, renderIcon } from "./icon-source";
+import { renderIcon } from "./icon-source";
+import type { IconSource } from "./icon-source";
+
+/** What the explorer needs on top of `IconSource`: every path that has an icon. */
+export interface ExplorerSource extends IconSource {
+	entries(): Iterable<[path: string, icon: string]>;
+}
 
 /** Marker class of the emoji nodes owned by this plugin. */
 const ICON_CLASS = "notemoji-icon";
@@ -29,14 +35,14 @@ const SYNC_DELAY_MS = 50;
  */
 export class FileExplorerRenderer {
 	private readonly app: App;
-	private readonly source: IconSource;
+	private readonly source: ExplorerSource;
 	private readonly views = new Set<FileExplorerView>();
 	private readonly observers = new Map<HTMLElement, MutationObserver>();
 	private timer: number | null = null;
 	private attachToken = 0;
 	private disposed = false;
 
-	constructor(app: App, source: IconSource) {
+	constructor(app: App, source: ExplorerSource) {
 		this.app = app;
 		this.source = source;
 	}
@@ -139,15 +145,13 @@ export class FileExplorerRenderer {
 		if (this.disposed) return;
 
 		const decorated = new Set<HTMLElement>();
-		for (const view of this.views) {
-			for (const [path, item] of Object.entries(view.fileItems ?? {})) {
-				const emoji = this.source.get(path);
-				if (emoji === undefined) continue;
-
-				const titleEl = item.selfEl;
+		// Walks the items that have an icon (usually few) rather than every
+		// file in the vault, so large vaults stay cheap.
+		for (const [path, emoji] of this.source.entries()) {
+			for (const view of this.views) {
+				const titleEl = view.fileItems?.[path]?.selfEl;
 				if (!titleEl) continue;
-
-				this.applyIcon(titleEl, item.innerEl ?? null, emoji);
+				this.applyIcon(titleEl, view.fileItems?.[path]?.innerEl ?? null, emoji);
 				decorated.add(titleEl);
 			}
 		}

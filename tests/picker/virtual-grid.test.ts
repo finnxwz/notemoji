@@ -42,8 +42,8 @@ afterEach(() => {
 describe("VirtualGrid", () => {
 	it("renders only the rows near the visible area", () => {
 		setup();
-		// 320 px viewport + 240 px overscan → 14 rows of 10.
-		expect(tiles()).toHaveLength(140);
+		// 320 px viewport + one viewport of overscan below → 16 rows of 10.
+		expect(tiles()).toHaveLength(160);
 		expect(tiles()[0].textContent).toBe("0");
 		expect(
 			grid.scrollEl
@@ -56,9 +56,10 @@ describe("VirtualGrid", () => {
 		setup();
 		grid.scrollTo(4000);
 		const values = tiles().map((el) => Number(el.textContent));
-		expect(Math.min(...values)).toBe(940);
+		expect(Math.min(...values)).toBe(920);
 		expect(Math.max(...values)).toBeLessThan(1200);
-		expect(tiles().length).toBeLessThanOrEqual(200);
+		// One viewport plus one above and one below: 24 rows of 10.
+		expect(tiles().length).toBeLessThanOrEqual(240);
 		expect(scrolled).toBeGreaterThan(0);
 	});
 

@@ -38,6 +38,11 @@ export class IconService {
 		return this.data.icons.get(path);
 	}
 
+	/** Every path that has an icon, with the icon. */
+	entries(): Iterable<[string, string]> {
+		return this.data.icons.entries();
+	}
+
 	/** Subscribes to icon changes; returns an unsubscribe function. */
 	onChange(listener: () => void): () => void {
 		this.listeners.add(listener);

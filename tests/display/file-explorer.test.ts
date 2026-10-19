@@ -72,6 +72,7 @@ beforeEach(() => {
 
 	renderer = new FileExplorerRenderer(app.asApp, {
 		get: (path) => store.get(path),
+		entries: () => store.entries(),
 		url: (file) => `app://icons/${file}`,
 	});
 });

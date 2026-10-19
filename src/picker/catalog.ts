@@ -48,6 +48,11 @@ export function getCatalog(): EmojiCategory[] {
 	return catalog;
 }
 
+/** Prepares the catalog and the name lookup ahead of time (e.g. while Obsidian is idle). */
+export function warmUpCatalog(): void {
+	findEntry("");
+}
+
 /** The catalog entry of an emoji, e.g. to show its name. */
 export function findEntry(emoji: string): EmojiEntry | undefined {
 	if (!byEmoji) {

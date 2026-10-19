@@ -1,7 +1,10 @@
 import type { GridItem, GridLayout, GridRow } from "./grid-layout";
 
-/** Extra space rendered above and below the visible area, so fast scrolling stays filled. */
-const OVERSCAN_PX = 240;
+/**
+ * Extra space rendered above and below the visible area (at least this, or
+ * one viewport), so fast scrolling and touch flicks stay filled.
+ */
+const MIN_OVERSCAN_PX = 240;
 /** Used when the element has no size yet (hidden, or a test environment without layout). */
 const FALLBACK_VIEWPORT_PX = 320;
 
@@ -50,9 +53,11 @@ export class VirtualGrid {
 		const layout = this.layout;
 		if (!layout) return;
 		const top = this.scrollEl.scrollTop;
+		const height = this.viewportHeight;
+		const overscan = Math.max(MIN_OVERSCAN_PX, height);
 		const [first, last] = layout.rowsBetween(
-			Math.max(0, top - OVERSCAN_PX),
-			top + this.viewportHeight + OVERSCAN_PX,
+			Math.max(0, top - overscan),
+			top + height + overscan,
 		);
 
 		for (const [index, rowEl] of this.rendered) {

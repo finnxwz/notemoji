@@ -1,18 +1,21 @@
 import { Menu, normalizePath, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
 import { confirm } from "./confirm-modal";
-import { FileExplorerRenderer } from "./display/file-explorer";
-import type { IconSource } from "./display/icon-source";
+import { ExplorerSource, FileExplorerRenderer } from "./display/file-explorer";
 import { TitleDecorations } from "./display/titles";
 import { NotemojiSettings, parseData, PluginData, serializeData } from "./icons/data";
 import { CustomIconLibrary } from "./icons/custom-icons";
 import { EmojiFonts } from "./icons/emoji-font";
 import type { EmojiSet } from "./icons/emoji-sets";
 import { IconService, isNote } from "./icons/icon-service";
+import { warmUpCatalog } from "./picker/catalog";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings";
 
 /** Coalescing window for title updates (ms); workspace events come in bursts. */
 const TITLE_SYNC_DELAY_MS = 30;
+
+/** Delay after startup before the emoji list is prepared for the picker (ms). */
+const WARM_UP_DELAY_MS = 3000;
 
 /** How an item is called in menus. */
 function describeItem(file: TAbstractFile): "note" | "file" | "folder" {
@@ -28,6 +31,7 @@ export default class NotemojiPlugin extends Plugin {
 	private explorer!: FileExplorerRenderer;
 	private titles!: TitleDecorations;
 	private titleTimer: number | null = null;
+	private warmUpTimer: number | null = null;
 
 	/** Serialised save queue; a newer snapshot is never overwritten by an older one. */
 	private saveQueue: Promise<void> = Promise.resolve();
@@ -48,8 +52,9 @@ export default class NotemojiPlugin extends Plugin {
 		);
 		this.emojiFonts.attach(document);
 
-		const source: IconSource = {
+		const source: ExplorerSource = {
 			get: (path) => this.icons.get(path),
+			entries: () => this.icons.entries(),
 			url: (file) => this.customIcons.url(file),
 		};
 		this.explorer = new FileExplorerRenderer(this.app, source);
@@ -64,6 +69,7 @@ export default class NotemojiPlugin extends Plugin {
 
 	onunload(): void {
 		if (this.titleTimer !== null) window.clearTimeout(this.titleTimer);
+		if (this.warmUpTimer !== null) window.clearTimeout(this.warmUpTimer);
 		this.emojiFonts?.unload();
 		this.explorer?.dispose();
 		this.titles?.dispose();
@@ -97,6 +103,11 @@ export default class NotemojiPlugin extends Plugin {
 		this.explorer.attach();
 		this.scheduleTitleSync();
 		void this.loadEmojiFont();
+		// Parse the emoji list while Obsidian is idle, so even the first picker opens instantly.
+		this.warmUpTimer = window.setTimeout(() => {
+			this.warmUpTimer = null;
+			warmUpCatalog();
+		}, WARM_UP_DELAY_MS);
 	}
 
 	// ------------------------------------------------------------------ emoji font
@@ -269,6 +280,7 @@ export default class NotemojiPlugin extends Plugin {
 
 	private scheduleTitleSync(): void {
 		if (this.titleTimer !== null) window.clearTimeout(this.titleTimer);
+		if (this.warmUpTimer !== null) window.clearTimeout(this.warmUpTimer);
 		this.titleTimer = window.setTimeout(() => {
 			this.titleTimer = null;
 			try {
