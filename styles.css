@@ -381,6 +381,8 @@ body.notemoji-custom-font {
 }
 
 .notemoji-style-name {
+	flex: 1 1 auto;
+	min-width: 0;
 	font-weight: var(--font-semibold);
 }
 
@@ -442,11 +444,6 @@ body.notemoji-custom-font {
 .notemoji-styles .notemoji-style-card.is-busy {
 	cursor: progress;
 	opacity: 0.7;
-}
-
-.notemoji-style-name {
-	flex: 1 1 auto;
-	min-width: 0;
 }
 
 .notemoji-style-actions {
