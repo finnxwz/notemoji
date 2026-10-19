@@ -568,9 +568,22 @@ export class MarkdownView extends FileView {
 export class WorkspaceLeaf {
 	app: App;
 	view: View;
+	/** The split the leaf lives in (main area, sidebar, pop-out). */
+	root: unknown = null;
+	/** View state while the leaf is deferred (not loaded yet). */
+	state: Record<string, unknown> = {};
+
 	constructor(app: App) {
 		this.app = app;
 		this.view = new View(this);
+	}
+
+	getRoot(): unknown {
+		return this.root;
+	}
+
+	getViewState(): { type: string; state: Record<string, unknown> } {
+		return { type: this.view.getViewType(), state: this.state };
 	}
 }
 

@@ -1,10 +1,14 @@
 import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
 import { confirm } from "./confirm-modal";
 import { FileExplorerRenderer } from "./display/file-explorer";
+import { TitleDecorations } from "./display/titles";
 import { parseData, PluginData, serializeData } from "./icons/data";
 import { ICON_PROPERTY, IconService, isNote } from "./icons/icon-service";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings";
+
+/** Coalescing window for title updates (ms); workspace events come in bursts. */
+const TITLE_SYNC_DELAY_MS = 30;
 
 /** How an item is called in menus. */
 function describeItem(file: TAbstractFile): "note" | "file" | "folder" {
@@ -16,6 +20,8 @@ export default class NotemojiPlugin extends Plugin {
 	icons!: IconService;
 	private data!: PluginData;
 	private explorer!: FileExplorerRenderer;
+	private titles!: TitleDecorations;
+	private titleTimer: number | null = null;
 
 	/** Serialised save queue; a newer snapshot is never overwritten by an older one. */
 	private saveQueue: Promise<void> = Promise.resolve();
@@ -33,7 +39,9 @@ export default class NotemojiPlugin extends Plugin {
 				}),
 		});
 
-		this.explorer = new FileExplorerRenderer(this.app, (path) => this.icons.get(path));
+		const lookup = (path: string) => this.icons.get(path);
+		this.explorer = new FileExplorerRenderer(this.app, lookup);
+		this.titles = new TitleDecorations(this.app, lookup, (file) => this.openPicker(file));
 		this.register(this.icons.onChange(() => this.refresh()));
 
 		this.addSettingTab(new NotemojiSettingTab(this));
@@ -43,7 +51,9 @@ export default class NotemojiPlugin extends Plugin {
 	}
 
 	onunload(): void {
+		if (this.titleTimer !== null) window.clearTimeout(this.titleTimer);
 		this.explorer?.dispose();
+		this.titles?.dispose();
 	}
 
 	/** Reloads data.json after it was changed on disk, e.g. by sync. */
@@ -64,6 +74,7 @@ export default class NotemojiPlugin extends Plugin {
 	private initialize(): void {
 		this.icons.indexNotes();
 		this.explorer.attach();
+		this.scheduleTitleSync();
 	}
 
 	// ------------------------------------------------------------------ wiring
@@ -71,15 +82,27 @@ export default class NotemojiPlugin extends Plugin {
 	private registerEvents(): void {
 		const { workspace, vault, metadataCache } = this.app;
 
-		// The file explorer may be closed, moved or re-created at any time.
-		this.registerEvent(workspace.on("layout-change", () => this.explorer.attach()));
+		// The file explorer may be closed, moved or re-created at any time, and
+		// tabs, views and their titles change with the layout.
+		this.registerEvent(
+			workspace.on("layout-change", () => {
+				this.explorer.attach();
+				this.scheduleTitleSync();
+			}),
+		);
+		this.registerEvent(workspace.on("active-leaf-change", () => this.scheduleTitleSync()));
+		this.registerEvent(workspace.on("file-open", () => this.scheduleTitleSync()));
 
 		this.registerEvent(
 			vault.on("rename", (file, oldPath) => this.icons.handleRename(file, oldPath)),
 		);
 		this.registerEvent(vault.on("delete", (file) => this.icons.handleDelete(file)));
 		this.registerEvent(
-			metadataCache.on("changed", (file) => this.icons.handleMetadataChange(file)),
+			metadataCache.on("changed", (file) => {
+				this.icons.handleMetadataChange(file);
+				// The reading view may have re-rendered the note's title.
+				this.scheduleTitleSync();
+			}),
 		);
 
 		this.registerEvent(
@@ -175,6 +198,19 @@ export default class NotemojiPlugin extends Plugin {
 
 	private refresh(): void {
 		this.explorer.scheduleSync();
+		this.scheduleTitleSync();
+	}
+
+	private scheduleTitleSync(): void {
+		if (this.titleTimer !== null) window.clearTimeout(this.titleTimer);
+		this.titleTimer = window.setTimeout(() => {
+			this.titleTimer = null;
+			try {
+				this.titles.sync(this.icons.settings);
+			} catch (error) {
+				console.error("[notemoji] Could not render title emoji.", error);
+			}
+		}, TITLE_SYNC_DELAY_MS);
 	}
 
 	private async readData(): Promise<unknown> {

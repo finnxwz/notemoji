@@ -3,11 +3,14 @@ import { flush } from "./fake-app";
 import {
 	ButtonComponent,
 	DropdownComponent,
+	MarkdownView,
 	notices,
 	openModals,
 	settingsCreated,
+	TFile,
 	TFolder,
 	ToggleComponent,
+	WorkspaceLeaf,
 } from "./obsidian";
 import { loadPlugin } from "./plugin-harness";
 
@@ -259,5 +262,34 @@ describe("settings tab", () => {
 		button.click();
 		await flush();
 		expect(harness.lastSaved()?.icons).toEqual({ Alive: "🌱" });
+	});
+});
+
+describe("titles", () => {
+	it("renders on load, follows changes and cleans up on unload", async () => {
+		const harness = await loadPlugin({ frontmatter: { "A.md": { icon: "🚀" } } });
+		const leaf = new WorkspaceLeaf(harness.app.asApp);
+		leaf.root = harness.app.workspace.rootSplit;
+		const view = new MarkdownView(leaf);
+		view.file = harness.app.vault.add("A.md") as TFile;
+		leaf.view = view;
+		document.body.appendChild(view.containerEl);
+		const titleEl = view.containerEl.createDiv({ cls: "inline-title", text: "A" });
+		harness.app.workspace.leaves.push(leaf);
+
+		harness.app.workspace.trigger("layout-change");
+		await flush(50);
+		const icon = () => titleEl.previousElementSibling?.textContent;
+		expect(icon()).toBe("🚀");
+
+		harness.app.metadataCache.set(view.file, { icon: "🌱" });
+		await flush(50);
+		expect(icon()).toBe("🌱");
+
+		titleEl.previousElementSibling!.querySelector("button")!.click();
+		expect(picker().options.current).toBe("🌱");
+
+		harness.unload();
+		expect(document.querySelector(".notemoji-title-icon")).toBeNull();
 	});
 });

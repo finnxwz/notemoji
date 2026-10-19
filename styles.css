@@ -177,3 +177,50 @@ body {
 .notemoji-picker-footer-name::first-letter {
 	text-transform: uppercase;
 }
+
+/* ---------------------------------------------------------------------------
+   Titles: note title, tab title, view header title
+
+   Display-only emoji are drawn from the `data-notemoji` attribute, so they are
+   never part of Obsidian's (editable) title text.
+   --------------------------------------------------------------------------- */
+
+.inline-title[data-notemoji]::before,
+.workspace-tab-header-inner-title[data-notemoji]::before,
+.view-header-title[data-notemoji]::before {
+	content: attr(data-notemoji);
+	margin-inline-end: 0.3em;
+	font-family: var(--notemoji-font);
+	font-weight: normal;
+}
+
+/* Large emoji above the note title ("Large, above the title"). */
+.notemoji-title-icon {
+	display: flex;
+	margin-block: 0.5em 0.1em;
+	user-select: none;
+}
+
+.notemoji-title-icon .notemoji-title-icon-button {
+	height: auto;
+	padding: 0 0.05em;
+	background: none;
+	border: none;
+	box-shadow: none;
+	font-family: var(--notemoji-font);
+	font-size: calc(var(--inline-title-size, 2em) * 1.6);
+	line-height: 1.15;
+	border-radius: var(--radius-m);
+	cursor: var(--cursor);
+	transition: background-color 120ms ease;
+}
+
+.notemoji-title-icon .notemoji-title-icon-button:hover,
+.notemoji-title-icon .notemoji-title-icon-button:focus-visible {
+	background-color: var(--background-modifier-hover);
+}
+
+/* Follows Obsidian's "Show inline title" setting. */
+body:not(.show-inline-title) .notemoji-title-icon {
+	display: none;
+}
