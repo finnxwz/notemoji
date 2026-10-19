@@ -303,9 +303,8 @@ export class PickerModal extends Modal {
 		} else if (item.kind === "custom") {
 			renderIcon(tileEl, item.value, this.customUrl);
 		} else {
+			// Explained in the footer on hover, like every tile (no tooltip).
 			tileEl.addClass("is-upload");
-			// The one labelled tile: its icon alone does not say what it does.
-			tileEl.setAttr("aria-label", item.name);
 			setIcon(tileEl, "image-plus");
 		}
 	}

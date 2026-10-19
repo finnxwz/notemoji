@@ -95,10 +95,10 @@ async function playScene(page, still) {
 	await pause(page, 600);
 	await click(page, '.notemoji-picker-tab[data-section="custom"]');
 	await pause(page, 600);
-	await glide(page, ".notemoji-picker-upload");
+	await glide(page, ".notemoji-picker-emoji.is-upload");
 	await pause(page, 500);
 	await still("custom");
-	await page.locator(".notemoji-picker-upload-input").setInputFiles(uploadFile);
+	await page.locator(".notemoji-picker .notemoji-hidden-input").setInputFiles(uploadFile);
 	await page.mouse.move(820, 520, { steps: 18 });
 	await pause(page, 1800);
 }

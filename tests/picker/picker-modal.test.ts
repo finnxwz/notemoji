@@ -115,10 +115,11 @@ describe("browsing", () => {
 		expect(picker.tile("🏁")).toBeUndefined();
 	});
 
-	it("labels no emoji tile, so Obsidian shows no tooltips while hovering", async () => {
+	it("labels no tile, so Obsidian shows no tooltips while hovering", async () => {
 		const picker = await open();
-		const labelled = picker.tiles().filter((el) => el.hasAttribute("aria-label"));
-		expect(labelled.map((el) => el.hasClass("is-upload"))).toEqual([true]);
+		expect(picker.tiles().filter((el) => el.hasAttribute("aria-label"))).toEqual([]);
+		picker.query(".is-upload")!.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+		expect(picker.footer()).toBe("Upload an image (PNG, SVG and more)");
 	});
 
 	it("lists recently used icons first, with their own tab", async () => {
