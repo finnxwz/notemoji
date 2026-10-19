@@ -2,7 +2,7 @@ import { App, Menu, Modal, Notice, Platform, setIcon } from "obsidian";
 import { IconSource, renderIcon } from "../display/icon-source";
 import { parseEmojiInput } from "../icons/emoji";
 import { CUSTOM_EXTENSIONS, customValue, parseIcon } from "../icons/icon-value";
-import { EmojiEntry, findEntry, getCatalog, searchEmoji } from "./catalog";
+import { EmojiCategory, EmojiEntry, findEntry, getCatalog, searchEmoji } from "./catalog";
 
 /** The user's own icon library, as the picker needs it. */
 export interface CustomIcons {
@@ -65,6 +65,10 @@ export class PickerModal extends Modal {
 	private uploadEl!: HTMLInputElement;
 
 	private customFiles: string[] = [];
+	/** Categories still to render, one per animation frame. */
+	private pending: EmojiCategory[] = [];
+	private pendingFrame: number | null = null;
+	private scrollFrame: number | null = null;
 	private tiles: Tile[] = [];
 	private activeIndex = -1;
 	/** Set once the arrow keys moved the selection: ←/→ then move tiles, not the caret. */
@@ -128,11 +132,26 @@ export class PickerModal extends Modal {
 		});
 		// Right-click, or long-press on touch screens.
 		this.bodyEl.addEventListener("contextmenu", (event) => this.showTileMenu(event));
-		this.bodyEl.addEventListener("scroll", () => this.highlightTab(), { passive: true });
+		// At most one tab update per frame while scrolling.
+		this.bodyEl.addEventListener(
+			"scroll",
+			() => {
+				if (this.scrollFrame !== null) return;
+				this.scrollFrame = window.requestAnimationFrame(() => {
+					this.scrollFrame = null;
+					this.highlightTab();
+				});
+			},
+			{ passive: true },
+		);
 
 		const footerEl = contentEl.createDiv({ cls: "notemoji-picker-footer" });
 		this.footerIconEl = footerEl.createDiv({ cls: "notemoji-picker-footer-emoji" });
 		this.footerNameEl = footerEl.createDiv({ cls: "notemoji-picker-footer-name" });
+
+		// Shown right away; the custom icon list follows when it is read.
+		this.renderTabs();
+		this.render();
 
 		// On phones the keyboard would cover most of the grid; tap to search instead.
 		if (!Platform.isMobile) this.searchEl.focus();
@@ -141,6 +160,8 @@ export class PickerModal extends Modal {
 	}
 
 	onClose(): void {
+		this.cancelPending();
+		if (this.scrollFrame !== null) window.cancelAnimationFrame(this.scrollFrame);
 		this.contentEl.empty();
 	}
 
@@ -151,14 +172,21 @@ export class PickerModal extends Modal {
 	// ------------------------------------------------------------------ rendering
 
 	private async loadCustomIcons(): Promise<void> {
+		let files: string[];
 		try {
-			this.customFiles = await this.options.custom.list();
+			files = await this.options.custom.list();
 		} catch (error) {
 			console.error("[notemoji] Could not list custom icons.", error);
-			this.customFiles = [];
+			files = [];
 		}
-		this.renderTabs();
+		const recentBefore = this.recent().length;
+		const changed = files.join("\n") !== this.customFiles.join("\n");
+		this.customFiles = files;
+		if (!changed) return;
+		if (this.recent().length !== recentBefore) this.renderTabs();
+		const scrollTop = this.bodyEl.scrollTop;
 		this.render();
+		this.bodyEl.scrollTop = scrollTop;
 	}
 
 	/** Recent entries that can still be shown (custom icons may have been deleted). */
@@ -186,6 +214,7 @@ export class PickerModal extends Modal {
 
 	/** Rebuilds the grid for the current query. */
 	private render(): void {
+		this.cancelPending();
 		this.bodyEl.empty();
 		this.tiles = [];
 		this.activeIndex = -1;
@@ -215,10 +244,40 @@ export class PickerModal extends Modal {
 		setIcon(uploadEl, "image-plus");
 		uploadEl.addEventListener("click", () => this.uploadEl.click());
 
-		for (const category of getCatalog()) {
-			const gridEl = this.createSection(category.id, category.label);
-			for (const entry of category.entries) this.addEntry(gridEl, entry);
-		}
+		// The first category right away, the others one per frame: the picker
+		// opens instantly instead of building ~1,900 tiles before showing.
+		const [first, ...rest] = getCatalog();
+		if (first) this.renderCategory(first);
+		this.pending = rest;
+		this.scheduleNext();
+	}
+
+	private renderCategory(category: EmojiCategory): void {
+		const gridEl = this.createSection(category.id, category.label);
+		for (const entry of category.entries) this.addEntry(gridEl, entry);
+	}
+
+	private scheduleNext(): void {
+		if (this.pending.length === 0) return;
+		this.pendingFrame = window.requestAnimationFrame(() => {
+			this.pendingFrame = null;
+			const next = this.pending.shift();
+			if (next) this.renderCategory(next);
+			this.scheduleNext();
+		});
+	}
+
+	/** Renders every category that is still queued (before jumping or keyboard navigation). */
+	private flushPending(): void {
+		if (this.pendingFrame !== null) window.cancelAnimationFrame(this.pendingFrame);
+		this.pendingFrame = null;
+		for (const category of this.pending.splice(0)) this.renderCategory(category);
+	}
+
+	private cancelPending(): void {
+		if (this.pendingFrame !== null) window.cancelAnimationFrame(this.pendingFrame);
+		this.pendingFrame = null;
+		this.pending = [];
 	}
 
 	private renderSearch(query: string): void {
@@ -255,8 +314,15 @@ export class PickerModal extends Modal {
 		return sectionEl.createDiv({ cls: "notemoji-picker-grid" });
 	}
 
+	/** Fast path for catalog emoji: plain text, no parsing (they are known to be valid). */
 	private addEntry(gridEl: HTMLElement, entry: EmojiEntry): void {
-		this.addTile(gridEl, entry.emoji, entry.name);
+		const el = gridEl.createEl("button", {
+			cls: "notemoji-picker-emoji",
+			text: entry.emoji,
+			attr: { "aria-label": entry.name, "data-index": this.tiles.length, tabindex: -1 },
+		});
+		if (entry.emoji === this.options.current) el.addClass("is-current");
+		this.tiles.push({ value: entry.emoji, name: entry.name, el });
 	}
 
 	private addTile(gridEl: HTMLElement, value: string, name: string): void {
@@ -327,6 +393,7 @@ export class PickerModal extends Modal {
 			case "ArrowDown":
 			case "ArrowUp":
 				event.preventDefault();
+				this.flushPending();
 				this.navigating = true;
 				this.moveVertically(event.key === "ArrowDown" ? 1 : -1);
 				break;
@@ -393,6 +460,7 @@ export class PickerModal extends Modal {
 			this.searchEl.value = "";
 			this.render();
 		}
+		this.flushPending();
 		const sectionEl = this.bodyEl.querySelector<HTMLElement>(`[data-section="${sectionId}"]`);
 		if (sectionEl) this.bodyEl.scrollTop = sectionEl.offsetTop - this.bodyEl.offsetTop;
 		this.highlightTab(sectionId);

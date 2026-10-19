@@ -192,6 +192,7 @@ function showSettings(): void {
 
 /** Lets the recorder switch the note title mode. */
 Object.assign(window, {
+	demoAdapter: app.vault.adapter,
 	showSettings,
 	demoReady: true,
 	setIconOf(path: string, value: string) {

@@ -118,9 +118,10 @@ export default class NotemojiPlugin extends Plugin {
 		if (this.data.settings.emojiStyle === set.id) await this.loadEmojiFont();
 	}
 
+	/** Deletes a downloaded set; deleting the active one switches to system emoji. */
 	async deleteEmojiSet(set: EmojiSet): Promise<void> {
 		await this.emojiFonts.deleteSet(set);
-		if (this.data.settings.emojiStyle === set.id) await this.loadEmojiFont();
+		if (this.data.settings.emojiStyle === set.id) await this.setEmojiStyle("system");
 	}
 
 	/** Installs your own font file and uses it. Throws with a message for the user. */

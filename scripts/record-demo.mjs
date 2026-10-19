@@ -153,6 +153,47 @@ try {
 		await stills.page.evaluate(() => window.showSettings());
 		await pause(stills.page, 300);
 		await stills.page.screenshot({ path: path.join(buildDir, "check-settings.png") });
+
+		// Switch between real, downloaded styles (fonts cached by `npm run set-previews`).
+		const fontsDir = path.join(buildDir, "fonts");
+		for (const file of ["twemoji.ttf", "openmoji.woff2", "noto-color.ttf", "noto-mono.ttf"]) {
+			const data = await readFile(path.join(fontsDir, file)).catch(() => null);
+			if (!data) continue;
+			await stills.page.evaluate(
+				({ file, base64 }) => {
+					const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+					window.demoAdapter.files.set(
+						`.obsidian/plugins/notemoji/fonts/${file}`,
+						bytes.buffer,
+					);
+				},
+				{ file, base64: data.toString("base64") },
+			);
+		}
+		const switches = [];
+		for (const style of [
+			"twemoji",
+			"openmoji",
+			"noto-color",
+			"noto-mono",
+			"system",
+			"twemoji",
+		]) {
+			await stills.page.click(`.notemoji-style-card[data-style="${style}"]`);
+			await pause(stills.page, 400);
+			const file = path.join(buildDir, `check-switch-${switches.length}-${style}.png`);
+			await stills.page.evaluate(() =>
+				document.querySelector(".demo-settings").addClass("is-hidden"),
+			);
+			await stills.page.screenshot({
+				path: file,
+				clip: { x: 60, y: 60, width: 260, height: 260 },
+			});
+			await stills.page.evaluate(() =>
+				document.querySelector(".demo-settings").removeClass("is-hidden"),
+			);
+			switches.push(file);
+		}
 		await stills.page.evaluate(() => document.querySelector(".demo-settings")?.remove());
 		await rightClick(stills.page, '[data-path="Projects"]');
 		await pause(stills.page, 300);

@@ -2,8 +2,15 @@ import { DataAdapter, normalizePath, requestUrl } from "obsidian";
 import { EMOJI_SETS, EmojiSet, findEmojiSet } from "./emoji-sets";
 import { isFontFileName } from "./icon-value";
 
-/** CSS font family under which the chosen emoji font is registered. */
+/**
+ * Prefix of the CSS font family the chosen emoji font is registered under.
+ * Every load gets a new family (`Notemoji Emoji 1`, `… 2`), so switching
+ * styles always re-renders: browsers may keep drawing cached glyphs when a
+ * family is merely swapped for another file.
+ */
 export const EMOJI_FONT_FAMILY = "Notemoji Emoji";
+/** CSS variable on <body> naming the active family (see styles.css). */
+export const EMOJI_FONT_VARIABLE = "--notemoji-custom-family";
 /** Body class that switches Notemoji's emoji to the chosen font (see styles.css). */
 export const EMOJI_FONT_CLASS = "notemoji-custom-font";
 
@@ -61,6 +68,8 @@ const browserDownloader: Downloader = {
  */
 export class EmojiFonts {
 	private face: FontFace | null = null;
+	/** Family the current face is registered under (browsers may report `face.family` quoted). */
+	private family = "";
 	private readonly documents = new Set<Document>();
 	/** Only the most recent `apply` may change the font. */
 	private generation = 0;
@@ -86,8 +95,9 @@ export class EmojiFonts {
 		}
 		try {
 			const url = this.adapter.getResourcePath(path);
-			const face = await this.loader(EMOJI_FONT_FAMILY, `url(${JSON.stringify(url)})`);
-			if (generation === this.generation) this.use(face);
+			const family = `${EMOJI_FONT_FAMILY} ${generation}`;
+			const face = await this.loader(family, `url(${JSON.stringify(url)})`);
+			if (generation === this.generation) this.use(face, family);
 		} catch (error) {
 			console.error(`[notemoji] Could not load the emoji font "${path}".`, error);
 			if (generation === this.generation) this.unload();
@@ -158,6 +168,7 @@ export class EmojiFonts {
 		this.documents.add(doc);
 		if (!this.face) return;
 		doc.fonts.add(this.face);
+		doc.body.setCssProps({ [EMOJI_FONT_VARIABLE]: JSON.stringify(this.family) });
 		doc.body.addClass(EMOJI_FONT_CLASS);
 	}
 
@@ -166,13 +177,15 @@ export class EmojiFonts {
 		for (const doc of this.documents) {
 			if (this.face) doc.fonts.delete(this.face);
 			doc.body.removeClass(EMOJI_FONT_CLASS);
+			doc.body.setCssProps({ [EMOJI_FONT_VARIABLE]: "" });
 		}
 		this.face = null;
 	}
 
-	private use(face: FontFace): void {
+	private use(face: FontFace, family: string): void {
 		this.unload();
 		this.face = face;
+		this.family = family;
 		for (const doc of this.documents) this.attach(doc);
 	}
 

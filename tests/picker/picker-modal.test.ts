@@ -36,7 +36,11 @@ async function open(options: Partial<PickerOptions> = {}) {
 		custom,
 	});
 	modal.open();
-	await flush();
+	// Categories after the first render one per frame; wait until all are there.
+	for (let i = 0; i < 100; i++) {
+		await flush(5);
+		if (modal.contentEl.querySelector('.notemoji-picker-section[data-section="flags"]')) break;
+	}
 	const query = <T extends HTMLElement = HTMLElement>(selector: string) =>
 		modal.contentEl.querySelector<T>(selector);
 	const search = query<HTMLInputElement>(".notemoji-picker-search")!;
@@ -284,5 +288,50 @@ describe("focus", () => {
 		Platform.isMobile = true;
 		const picker = await open();
 		expect(document.activeElement).not.toBe(picker.search);
+	});
+});
+
+describe("fast opening", () => {
+	it("shows emoji right away, before the custom icon list is read", () => {
+		let resolveList: (files: string[]) => void = () => {};
+		const custom = {
+			...fakeCustom(),
+			list: () => new Promise<string[]>((resolve) => (resolveList = resolve)),
+		};
+		const modal = new PickerModal(createFakeApp().asApp, {
+			title: "Set note emoji",
+			current: "",
+			recent: [],
+			custom: custom,
+			onSubmit: () => {},
+		});
+		modal.open();
+		const tiles = modal.contentEl.querySelectorAll(".notemoji-picker-emoji");
+		expect(tiles.length).toBeGreaterThan(50);
+		expect(tiles.length).toBeLessThan(1800);
+		resolveList([]);
+		modal.close();
+	});
+
+	it("renders a category immediately when its tab is clicked", () => {
+		const modal = new PickerModal(createFakeApp().asApp, {
+			title: "Set note emoji",
+			current: "",
+			recent: [],
+			custom: fakeCustom(),
+			onSubmit: () => {},
+		});
+		modal.open();
+		const flags = modal.contentEl.querySelector<HTMLElement>(
+			'.notemoji-picker-tab[data-section="flags"]',
+		)!;
+		flags.click();
+		expect(
+			modal.contentEl.querySelector('.notemoji-picker-section[data-section="flags"]'),
+		).not.toBeNull();
+		expect(modal.contentEl.querySelectorAll(".notemoji-picker-emoji").length).toBeGreaterThan(
+			1800,
+		);
+		modal.close();
 	});
 });

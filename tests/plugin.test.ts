@@ -399,16 +399,16 @@ describe("emoji style", () => {
 		await flush(10);
 		const card = (id: string) =>
 			tab.containerEl.querySelector<HTMLElement>(`.notemoji-style-card[data-style="${id}"]`)!;
-		const details = () =>
-			settingsCreated.find((entry) => entry.settingEl.hasClass("notemoji-style-details"))!;
-		const setting = (name: string) =>
-			[...settingsCreated].reverse().find((entry) => entry.nameEl.textContent === name);
-		return { tab, card, details, setting };
+		const action = (id: string, label: string) =>
+			card(id).querySelector<HTMLElement>(`.notemoji-style-action[aria-label="${label}"]`);
+		const caption = () =>
+			tab.containerEl.querySelector(".notemoji-styles-caption")?.textContent ?? "";
+		return { tab, card, action, caption };
 	}
 
 	it("shows a card with a preview for every style, in a sensible order", async () => {
 		const harness = await loadPlugin();
-		const { tab, card } = await openSettings(harness);
+		const { tab, card, caption } = await openSettings(harness);
 		const cards = Array.from(
 			tab.containerEl.querySelectorAll<HTMLElement>(".notemoji-style-card"),
 		);
@@ -427,35 +427,60 @@ describe("emoji style", () => {
 			);
 		}
 		expect(card("noto-mono").querySelector("img")!.hasClass("is-monochrome")).toBe(true);
-		expect(card("twemoji").textContent).toContain("1.4 MB download");
-		expect(card("system").querySelector(".notemoji-style-sample")).not.toBeNull();
+		expect(card("twemoji").textContent).toContain("1.4 MB");
+		expect(card("twemoji").getAttribute("title")).toContain("CC-BY 4.0");
+		expect(caption()).toContain("Your device's own emoji");
 	});
 
-	it("uses system emoji until a chosen set is downloaded, and downloads only on request", async () => {
+	it("downloads a set from its card (only on click) and selects it", async () => {
 		const harness = await loadPlugin();
 		let settings = await openSettings(harness);
-		settings.card("twemoji").click();
-		await flush(10);
-		expect(harness.lastSaved()?.settings).toMatchObject({ emojiStyle: "twemoji" });
 		expect(network.requests).toEqual([]);
-		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
-
-		settings = await openSettings(harness);
-		expect(settings.card("twemoji").hasClass("is-selected")).toBe(true);
-		expect(settings.details().descEl.textContent).toContain("Not on this device yet");
-		const downloadButton = settings.details().components[0] as ButtonComponent;
-		expect(downloadButton.buttonEl.textContent).toBe("Download");
+		expect(settings.action("twemoji", "Download")).not.toBeNull();
 
 		network.responses.set(twemoji.url, download);
 		mockChecksum(twemoji.sha256);
-		await downloadButton.click();
+		settings.action("twemoji", "Download")!.click();
+		await flush(20);
 		expect(network.requests).toEqual([twemoji.url]);
 		expect(harness.app.vault.adapter.files.has(`${FONTS}/twemoji.ttf`)).toBe(true);
+		expect(harness.lastSaved()?.settings).toMatchObject({ emojiStyle: "twemoji" });
 		expect(document.body.hasClass("notemoji-custom-font")).toBe(true);
-		expect(notices.at(-1)).toBe("Twemoji is ready.");
-
-		settings = await openSettings(harness);
+		expect(settings.card("twemoji").hasClass("is-selected")).toBe(true);
 		expect(settings.card("twemoji").textContent).toContain("Downloaded");
+		expect(settings.action("twemoji", "Download")).toBeNull();
+
+		// Switching to another downloaded or built-in style needs no network.
+		settings.card("system").click();
+		await flush(20);
+		expect(harness.lastSaved()?.settings).toMatchObject({ emojiStyle: "system" });
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
+		settings = await openSettings(harness);
+		settings.card("twemoji").click();
+		await flush(20);
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(true);
+		expect(network.requests).toHaveLength(1);
+	});
+
+	it("clicking a card that is not downloaded downloads it too", async () => {
+		const harness = await loadPlugin();
+		const settings = await openSettings(harness);
+		network.responses.set(twemoji.url, download);
+		mockChecksum(twemoji.sha256);
+		settings.card("twemoji").click();
+		await flush(20);
+		expect(network.requests).toEqual([twemoji.url]);
+		expect(harness.lastSaved()?.settings).toMatchObject({ emojiStyle: "twemoji" });
+	});
+
+	it("keeps the current style when a download fails", async () => {
+		const harness = await loadPlugin();
+		const settings = await openSettings(harness);
+		settings.action("twemoji", "Download")!.click();
+		await flush(20);
+		expect(notices.at(-1)).toMatch(/Could not download Twemoji/);
+		expect(settings.card("system").hasClass("is-selected")).toBe(true);
+		expect(harness.app.vault.adapter.files.size).toBe(0);
 	});
 
 	it("refuses a download that is not the pinned file", async () => {
@@ -469,17 +494,18 @@ describe("emoji style", () => {
 		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
 	});
 
-	it("lists other downloaded styles and deletes them", async () => {
-		const harness = await loadPlugin({ data: { settings: { emojiStyle: "system" } } });
+	it("deletes a download from its card; deleting the active one switches to system emoji", async () => {
+		const harness = await loadPlugin({ data: { settings: { emojiStyle: "twemoji" } } });
 		harness.app.vault.adapter.files.set(`${FONTS}/twemoji.ttf`, new ArrayBuffer(2048));
-		const { setting } = await openSettings(harness);
-		const other = setting("Other downloaded styles")!;
-		expect(other.descEl.textContent).toContain("Twemoji (2 KB)");
-		await (other.components[0] as ButtonComponent).click();
+		const settings = await openSettings(harness);
+		settings.action("twemoji", "Delete download")!.click();
+		await flush(20);
 		expect(harness.app.vault.adapter.files.size).toBe(0);
+		expect(harness.lastSaved()?.settings).toMatchObject({ emojiStyle: "system" });
+		expect(settings.card("system").hasClass("is-selected")).toBe(true);
 	});
 
-	it("installs and removes an own font file", async () => {
+	it("installs and removes an own font file from its card", async () => {
 		const harness = await loadPlugin();
 		await harness.plugin.setOwnEmojiFont("Mine.ttf", new Uint8Array(8).buffer);
 		expect(harness.lastSaved()?.settings).toMatchObject({
@@ -490,17 +516,25 @@ describe("emoji style", () => {
 
 		const settings = await openSettings(harness);
 		expect(settings.card("file").querySelector(".notemoji-style-sample.is-own")).not.toBeNull();
-		const buttons = settings.details().components as ButtonComponent[];
-		expect(buttons.map((button) => button.buttonEl.textContent)).toEqual([
-			"Change font",
-			"Remove font",
-		]);
-		await buttons[1].click();
+		expect(settings.action("file", "Change font")).not.toBeNull();
+		settings.action("file", "Remove font")!.click();
+		await flush(20);
 		expect(harness.lastSaved()?.settings).toMatchObject({
 			emojiStyle: "system",
 			emojiFont: "",
 		});
 		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
+	});
+
+	it("selects with the keyboard", async () => {
+		const harness = await loadPlugin();
+		harness.app.vault.adapter.files.set(`${FONTS}/openmoji.woff2`, new ArrayBuffer(8));
+		const settings = await openSettings(harness);
+		settings
+			.card("openmoji")
+			.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+		await flush(20);
+		expect(harness.lastSaved()?.settings).toMatchObject({ emojiStyle: "openmoji" });
 	});
 
 	it("asks before using a very large font file", async () => {

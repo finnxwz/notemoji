@@ -51,7 +51,7 @@ export const EMOJI_SETS: readonly EmojiSet[] = [
 	},
 	{
 		id: "noto-mono",
-		name: "Noto Emoji (black and white)",
+		name: "Noto Emoji Mono",
 		credit: "Noto Emoji by Google, SIL Open Font License 1.1.",
 		url: "https://raw.githubusercontent.com/google/fonts/b979dba422e445492b0eb9951ac52ee0b4d648c3/ofl/notoemoji/NotoEmoji%5Bwght%5D.ttf",
 		sha256: "de6c18832938afc99caf132b39d6a30a19bac7f2e812e28db2535b4608d27551",

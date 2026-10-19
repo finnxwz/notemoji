@@ -26,7 +26,8 @@ function setup(options: { broken?: boolean; hash?: string; offline?: boolean } =
 	const loader = vi.fn((family: string) =>
 		options.broken
 			? Promise.reject(new Error("bad font"))
-			: Promise.resolve({ family } as unknown as FontFace),
+			: // Like Chromium, which reports family names with spaces in quotes.
+				Promise.resolve({ family: JSON.stringify(family) } as unknown as FontFace),
 	);
 	let lastUrl = "";
 	const downloader = {
@@ -95,7 +96,7 @@ describe("downloadable sets", () => {
 		await fonts.apply("twemoji", "");
 		// Loaded from the file by URL, so large fonts are not copied into memory.
 		expect(loader).toHaveBeenCalledWith(
-			EMOJI_FONT_FAMILY,
+			expect.stringMatching(new RegExp(`^${EMOJI_FONT_FAMILY} \\d+$`)),
 			`url("app://local/${FOLDER}/twemoji.ttf")`,
 		);
 		expect(uses(main) && uses(popout)).toBe(true);
@@ -137,6 +138,19 @@ describe("downloadable sets", () => {
 		await broken.fonts.download(twemoji);
 		await broken.fonts.apply("twemoji", "");
 		expect(broken.fonts.active).toBe(false);
+	});
+
+	it("registers every load under a new family, so switching always re-renders", async () => {
+		const { fonts, main } = setup();
+		await fonts.download(twemoji);
+		await fonts.apply("twemoji", "");
+		const first = main.body.style.getPropertyValue("--notemoji-custom-family");
+		await fonts.apply("twemoji", "");
+		const second = main.body.style.getPropertyValue("--notemoji-custom-family");
+		expect(first).toMatch(/^"Notemoji Emoji \d+"$/);
+		expect(second).not.toBe(first);
+		await fonts.apply("system", "");
+		expect(main.body.style.getPropertyValue("--notemoji-custom-family")).toBe("");
 	});
 
 	it("lets only the latest choice win when switching quickly", async () => {

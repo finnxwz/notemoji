@@ -427,3 +427,7 @@ select.dropdown {
 	border-radius: 4px;
 	padding: 4px 8px;
 }
+
+.demo-settings.is-hidden {
+	display: none;
+}

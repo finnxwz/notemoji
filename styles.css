@@ -276,7 +276,7 @@ body:not(.show-inline-title) .notemoji-title-icon {
 /* Emoji style: an emoji font chosen in the settings, with the system's emoji as fallback. */
 body.notemoji-custom-font {
 	--notemoji-font:
-		"Notemoji Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+		var(--notemoji-custom-family), "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
 		"Segoe UI Symbol", sans-serif;
 }
 
@@ -374,10 +374,62 @@ body.notemoji-custom-font {
 }
 
 .notemoji-style-sample.is-own {
-	font-family: "Notemoji Emoji", sans-serif;
+	font-family: var(--notemoji-custom-family), sans-serif;
 }
 
 .notemoji-style-hint {
 	color: var(--text-faint);
 	font-size: var(--font-ui-small);
+}
+
+/* Sections out of view are not laid out or painted until scrolled near. */
+.notemoji-picker-section {
+	content-visibility: auto;
+	contain-intrinsic-size: auto 320px;
+}
+
+.notemoji-styles .notemoji-style-card:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+}
+
+.notemoji-styles .notemoji-style-card.is-busy {
+	cursor: progress;
+	opacity: 0.7;
+}
+
+.notemoji-style-name {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.notemoji-style-actions {
+	display: flex;
+	gap: 2px;
+	margin-block: -4px;
+}
+
+.notemoji-style-actions .notemoji-style-action {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: auto;
+	padding: 2px 6px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.notemoji-style-actions .notemoji-style-action:hover {
+	color: var(--text-normal);
+}
+
+.notemoji-style-action-icon {
+	display: inline-flex;
+	--icon-size: var(--icon-xs);
+}
+
+.notemoji-styles-caption {
+	padding-block-end: var(--size-4-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
 }
