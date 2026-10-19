@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { flush } from "./fake-app";
 import {
 	ButtonComponent,
@@ -91,7 +91,12 @@ describe("commands", () => {
 		await flush();
 		expect(harness.lastSaved()).toEqual({
 			version: 2,
-			settings: { noteTitle: "off", showInTabs: true, showInViewHeader: false },
+			settings: {
+				noteTitle: "off",
+				showInTabs: true,
+				showInViewHeader: false,
+				emojiFont: "",
+			},
 			icons: { "Notes/A.md": "🚀" },
 			recent: ["🚀"],
 		});
@@ -211,6 +216,7 @@ describe("settings tab", () => {
 			noteTitle: "above",
 			showInTabs: false,
 			showInViewHeader: false,
+			emojiFont: "",
 		});
 	});
 
@@ -350,5 +356,58 @@ describe("custom icons", () => {
 		await answer("Delete all");
 		expect(harness.app.vault.adapter.files.size).toBe(0);
 		expect(harness.lastSaved()?.icons).toEqual({});
+	});
+});
+
+describe("emoji font", () => {
+	const FONTS = ".obsidian/plugins/notemoji/fonts";
+
+	beforeEach(() => {
+		// Browser font APIs, as far as Notemoji uses them.
+		vi.stubGlobal(
+			"FontFace",
+			class {
+				load() {
+					return Promise.resolve(this);
+				}
+			},
+		);
+		if (!("fonts" in document) || !document.fonts) {
+			Object.defineProperty(document, "fonts", { value: new Set(), configurable: true });
+		}
+		document.body.removeClass("notemoji-custom-font");
+	});
+
+	it("installs a font from the settings, loads it on start and can switch back", async () => {
+		const harness = await loadPlugin();
+		await harness.plugin.setEmojiFont("Twemoji.ttf", new Uint8Array(8).buffer);
+		expect(harness.app.vault.adapter.files.has(`${FONTS}/Twemoji.ttf`)).toBe(true);
+		expect(harness.lastSaved()?.settings).toMatchObject({ emojiFont: "Twemoji.ttf" });
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(true);
+
+		settingsCreated.length = 0;
+		harness.fake.settingTabs[0].display();
+		const setting = settingsCreated.find((entry) => entry.nameEl.textContent === "Emoji font")!;
+		expect(setting.descEl.textContent).toContain("Twemoji.ttf");
+		const useSystem = setting.components[1] as ButtonComponent;
+		expect(useSystem.buttonEl.textContent).toBe("Use system emoji");
+
+		await useSystem.click();
+		expect(harness.app.vault.adapter.files.size).toBe(0);
+		expect(harness.lastSaved()?.settings).toMatchObject({ emojiFont: "" });
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
+	});
+
+	it("falls back to the system's emoji when the font file is missing (e.g. not synced yet)", async () => {
+		const harness = await loadPlugin({ data: { settings: { emojiFont: "Twemoji.ttf" } } });
+		expect(harness.plugin.emojiFont.active).toBe(false);
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
+		expect(notices).toEqual([]);
+
+		// Once the file arrives, the next start (or sync reload) picks it up.
+		harness.app.vault.adapter.files.set(`${FONTS}/Twemoji.ttf`, new ArrayBuffer(8));
+		expect(await harness.plugin.emojiFont.load("Twemoji.ttf")).toBe(true);
+		harness.unload();
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
 	});
 });

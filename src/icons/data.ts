@@ -1,4 +1,4 @@
-import { normalizeIcon } from "./icon-value";
+import { isFontFileName, normalizeIcon } from "./icon-value";
 import { IconStore } from "./icon-store";
 
 /**
@@ -23,12 +23,15 @@ export interface NotemojiSettings {
 	showInTabs: boolean;
 	/** Emoji in front of the title in the view header (top bar). */
 	showInViewHeader: boolean;
+	/** File name of the emoji font in the plugin's fonts folder, or "" for the system's emoji. */
+	emojiFont: string;
 }
 
 export const DEFAULT_SETTINGS: Readonly<NotemojiSettings> = {
 	noteTitle: "off",
 	showInTabs: true,
 	showInViewHeader: false,
+	emojiFont: "",
 };
 
 export interface PluginData {
@@ -60,6 +63,9 @@ function readSettings(raw: unknown): NotemojiSettings {
 	}
 	if (typeof raw.showInTabs === "boolean") settings.showInTabs = raw.showInTabs;
 	if (typeof raw.showInViewHeader === "boolean") settings.showInViewHeader = raw.showInViewHeader;
+	if (typeof raw.emojiFont === "string" && isFontFileName(raw.emojiFont)) {
+		settings.emojiFont = raw.emojiFont;
+	}
 	return settings;
 }
 

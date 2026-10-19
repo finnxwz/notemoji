@@ -37,8 +37,17 @@ describe("parseData", () => {
 			noteTitle: "inline",
 			showInTabs: false,
 			showInViewHeader: false,
+			emojiFont: "",
 		});
 		expect(parseData({ settings: { noteTitle: "huge" } }).settings.noteTitle).toBe("off");
+	});
+
+	it("reads the emoji font and ignores invalid names", () => {
+		expect(parseData({ settings: { emojiFont: "Twemoji.ttf" } }).settings.emojiFont).toBe(
+			"Twemoji.ttf",
+		);
+		expect(parseData({ settings: { emojiFont: "../x.ttf" } }).settings.emojiFont).toBe("");
+		expect(parseData({ settings: { emojiFont: 3 } }).settings.emojiFont).toBe("");
 	});
 
 	it("cleans the recent list", () => {

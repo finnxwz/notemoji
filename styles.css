@@ -253,10 +253,6 @@ body:not(.show-inline-title) .notemoji-title-icon {
 	background: var(--notemoji-image) center / contain no-repeat;
 }
 
-.notemoji-picker-upload-input {
-	display: none;
-}
-
 .notemoji-picker .notemoji-picker-upload {
 	display: flex;
 	align-items: center;
@@ -275,4 +271,15 @@ body:not(.show-inline-title) .notemoji-title-icon {
 .notemoji-picker .notemoji-picker-upload:hover {
 	color: var(--text-normal);
 	border-color: var(--interactive-accent);
+}
+
+/* Emoji style: an emoji font chosen in the settings, with the system's emoji as fallback. */
+body.notemoji-custom-font {
+	--notemoji-font:
+		"Notemoji Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+		"Segoe UI Symbol", sans-serif;
+}
+
+.notemoji-hidden-input {
+	display: none;
 }

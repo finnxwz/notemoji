@@ -66,3 +66,13 @@ export function uniqueFileName(original: string, taken: ReadonlySet<string>): st
 		if (!lowerTaken.has(name.toLowerCase())) return name;
 	}
 }
+
+export const FONT_EXTENSIONS = ["ttf", "otf", "woff", "woff2"] as const;
+
+/** A plain font file name with a supported extension. */
+export function isFontFileName(name: string): boolean {
+	if (name.length === 0 || name.length > 100 || /[/\\:*?"<>|]/.test(name)) return false;
+	if (name.startsWith(".") || !name.includes(".")) return false;
+	const extension = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+	return (FONT_EXTENSIONS as readonly string[]).includes(extension);
+}

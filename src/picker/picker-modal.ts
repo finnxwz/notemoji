@@ -108,7 +108,7 @@ export class PickerModal extends Modal {
 		}
 
 		this.uploadEl = contentEl.createEl("input", {
-			cls: "notemoji-picker-upload-input",
+			cls: "notemoji-hidden-input notemoji-picker-upload-input",
 			attr: { type: "file", accept: ACCEPT, multiple: true },
 		});
 		this.uploadEl.addEventListener("change", () => void this.upload());

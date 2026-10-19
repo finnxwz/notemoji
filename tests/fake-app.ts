@@ -30,6 +30,10 @@ export class FakeAdapter {
 		this.folders.add(path);
 		return Promise.resolve();
 	}
+	readBinary(path: string): Promise<ArrayBuffer> {
+		const data = this.files.get(path);
+		return data ? Promise.resolve(data) : Promise.reject(new Error(`No file ${path}`));
+	}
 	writeBinary(path: string, data: ArrayBuffer): Promise<void> {
 		this.files.set(path, data);
 		return Promise.resolve();

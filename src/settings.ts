@@ -1,6 +1,7 @@
 import { Notice, PluginSettingTab, Setting } from "obsidian";
 import { confirm } from "./confirm-modal";
 import { formatBytes } from "./icons/custom-icons";
+import { FONT_EXTENSIONS } from "./icons/icon-value";
 import type { NoteTitleMode } from "./icons/data";
 import type NotemojiPlugin from "./main";
 
@@ -55,8 +56,65 @@ export class NotemojiSettingTab extends PluginSettingTab {
 					.onChange((value) => plugin.updateSettings({ showInViewHeader: value })),
 			);
 
+		this.displayEmojiStyle(containerEl);
 		this.displayCustomIcons(containerEl);
 		this.displayStoredData(containerEl);
+	}
+
+	private displayEmojiStyle(containerEl: HTMLElement): void {
+		const { plugin } = this;
+		const font = plugin.icons.settings.emojiFont;
+		new Setting(containerEl).setName("Emoji style").setHeading();
+
+		const fileInput = containerEl.createEl("input", {
+			cls: "notemoji-hidden-input",
+			attr: {
+				type: "file",
+				accept: FONT_EXTENSIONS.map((extension) => `.${extension}`).join(","),
+			},
+		});
+		fileInput.addEventListener("change", () => {
+			const file = fileInput.files?.[0];
+			fileInput.value = "";
+			if (!file) return;
+			void file
+				.arrayBuffer()
+				.then((data) => plugin.setEmojiFont(file.name, data))
+				.then(
+					() => new Notice(`Notemoji now uses "${file.name}" for its emoji.`),
+					(error: unknown) =>
+						new Notice(
+							error instanceof Error ? error.message : "Could not use this font.",
+						),
+				)
+				.finally(() => this.display());
+		});
+
+		const setting = new Setting(containerEl)
+			.setName("Emoji font")
+			.setDesc(
+				font === ""
+					? "Uses your system's emoji. Choose a font file (TTF, OTF, WOFF or WOFF2) to show Notemoji's emoji in another style. Emoji in your notes are not affected."
+					: `Uses "${font}" for Notemoji's emoji. Emoji the font does not contain are shown with your system's emoji. Emoji in your notes are not affected.`,
+			)
+			.addButton((button) =>
+				button
+					.setButtonText(font === "" ? "Choose font" : "Change font")
+					.onClick(() => fileInput.click()),
+			);
+		if (font !== "") {
+			setting.addButton((button) =>
+				button.setButtonText("Use system emoji").onClick(async () => {
+					try {
+						await plugin.clearEmojiFont();
+					} catch (error) {
+						console.error("[notemoji] Could not remove the emoji font.", error);
+						new Notice("Could not remove the emoji font.");
+					}
+					this.display();
+				}),
+			);
+		}
 	}
 
 	private displayCustomIcons(containerEl: HTMLElement): void {

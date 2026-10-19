@@ -18,6 +18,8 @@ never modified.
   your notes, and follow them when you rename or move them in Obsidian.
 - **Your own icons.** Upload PNG, JPG, GIF, WebP or SVG images in the picker and use them
   just like emoji.
+- **Your emoji style.** Prefer Twemoji or Noto over your system's emoji? Add the font file in
+  the settings and Notemoji shows its emoji in that style on every device.
 - **Folders and other files too.** Folders, PDFs, images and canvases can have an emoji as well.
 - **Any emoji.** Flags, skin tones, keycaps and family sequences (`🇩🇪`, `👍🏽`, `1️⃣`,
   `👨‍👩‍👧‍👦`) stay intact. Symbols such as `★` or `✓` work as well.
@@ -39,13 +41,14 @@ never modified.
 
 ## ⚙️ Settings
 
-| Setting                       | Default | What it does                                                                              |
-| ----------------------------- | ------- | ----------------------------------------------------------------------------------------- |
-| Emoji at note title           | Off     | Or _Large, above the title_ (click it to change the emoji), or _Inline, before the title_ |
-| Emoji in tab titles           | On      | The emoji in front of each tab's name                                                     |
-| Emoji in view header title    | Off     | The emoji in front of the title in the bar at the top of a tab                            |
-| Custom icons                  | –       | Shows how many custom icons you have and their size; _Delete all_ removes them            |
-| Remove emoji of missing files | –       | Cleans up emoji of notes, folders and files that no longer exist                          |
+| Setting                       | Default      | What it does                                                                              |
+| ----------------------------- | ------------ | ----------------------------------------------------------------------------------------- |
+| Emoji at note title           | Off          | Or _Large, above the title_ (click it to change the emoji), or _Inline, before the title_ |
+| Emoji in tab titles           | On           | The emoji in front of each tab's name                                                     |
+| Emoji in view header title    | Off          | The emoji in front of the title in the bar at the top of a tab                            |
+| Emoji font                    | System emoji | A font file (TTF, OTF, WOFF, WOFF2) that changes how Notemoji's emoji look                |
+| Custom icons                  | –            | Shows how many custom icons you have and their size; _Delete all_ removes them            |
+| Remove emoji of missing files | –            | Cleans up emoji of notes, folders and files that no longer exist                          |
 
 ## 💻 Installation
 
@@ -66,6 +69,12 @@ never modified.
   together with the plugin when you uninstall it. They reach your other devices if your sync
   copies plugin folders (with Obsidian Sync: _Installed community plugins_). Images are shown
   as they are: a black icon stays black, also in a dark theme.
+- **Emoji fonts** only change Notemoji's emoji (explorer, titles, tabs, picker); emoji in your
+  notes stay as they are. Emoji the font does not contain fall back to your system's emoji.
+  Free fonts include [Twemoji](https://github.com/jdecked/twemoji) (CC-BY 4.0) and
+  [Noto Color Emoji](https://github.com/googlefonts/noto-emoji) (OFL). Apple's emoji may only
+  be used on Apple devices, where Notemoji shows them anyway. The font file is stored in
+  `.obsidian/plugins/notemoji/fonts/`.
 - **Upgrading from 1.x:** your emoji keep working as they are.
 - **The note title emoji** follows Obsidian's _Show inline title_ setting.
 - **Emoji look** comes from your operating system's font. Some systems, notably Windows, show
