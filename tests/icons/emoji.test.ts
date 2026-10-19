@@ -4,7 +4,6 @@ import {
 	firstGrapheme,
 	isEmojiLike,
 	parseEmojiInput,
-	parseIconValue,
 	sanitizeStoredEmoji,
 } from "../../src/icons/emoji";
 
@@ -129,34 +128,6 @@ describe("sanitizeStoredEmoji", () => {
 	it("rejects anything that is not a usable emoji", () => {
 		for (const value of [null, undefined, 42, true, {}, [], "hello", ""]) {
 			assert.equal(sanitizeStoredEmoji(value), undefined);
-		}
-	});
-});
-
-describe("parseIconValue", () => {
-	it("accepts exactly one emoji", () => {
-		assert.deepEqual(parseIconValue("🚀"), { kind: "emoji", emoji: "🚀" });
-		assert.deepEqual(parseIconValue(" 👨‍👩‍👧‍👦 "), { kind: "emoji", emoji: "👨‍👩‍👧‍👦" });
-		assert.deepEqual(parseIconValue("★"), { kind: "emoji", emoji: "★" });
-	});
-
-	it("treats missing and empty values as none", () => {
-		for (const value of [undefined, null, "", "  "]) {
-			assert.deepEqual(parseIconValue(value), { kind: "none" });
-		}
-	});
-
-	it("never claims values that belong to someone else", () => {
-		for (const value of [
-			"LiHome",
-			"custom:rocket.svg",
-			"lucide:rocket",
-			"🚀 launch",
-			"🚀🎉",
-			42,
-			["🚀"],
-		]) {
-			assert.equal(parseIconValue(value).kind, "other", JSON.stringify(value));
 		}
 	});
 });

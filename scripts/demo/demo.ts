@@ -18,14 +18,15 @@ import {
 } from "../../tests/obsidian";
 
 const app = createFakeApp({
-	files: ["Daily notes/2026-10-19.md", "Ideas.md"],
-	frontmatter: {
-		"Projects/Website relaunch.md": {},
-		"Projects/Brand guidelines.md": { icon: "🎨" },
-		"Projects/Roadmap.md": {},
-		"Home.md": { icon: "🏠" },
-		"Reading list.md": { icon: "📚" },
-	},
+	files: [
+		"Projects/Website relaunch.md",
+		"Projects/Brand guidelines.md",
+		"Projects/Roadmap.md",
+		"Daily notes/2026-10-19.md",
+		"Home.md",
+		"Ideas.md",
+		"Reading list.md",
+	],
 });
 
 // ---------------------------------------------------------------- file explorer
@@ -93,7 +94,13 @@ const plugin = new NotemojiPlugin(app.asApp, { id: "notemoji", version: "demo" }
 const fake = plugin as unknown as FakePlugin;
 fake.dataJson = {
 	version: 2,
-	icons: { Projects: "📁" },
+	settings: { noteTitle: "above" },
+	icons: {
+		Projects: "📁",
+		"Projects/Brand guidelines.md": "🎨",
+		"Home.md": "🏠",
+		"Reading list.md": "📚",
+	},
 	recent: ["📁", "🎨", "🏠", "📚", "✅", "💡", "🔥", "🌱"],
 };
 fake.load();

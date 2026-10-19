@@ -96,34 +96,6 @@ describe("IconStore.rename", () => {
 	});
 });
 
-describe("IconStore.removeTree", () => {
-	it("removes a folder with all descendants", () => {
-		const store = storeOf({
-			Notes: "📁",
-			"Notes/A.md": "🚀",
-			"Notes/Sub/B.md": "🎉",
-			"Notes2/C.md": "🔥",
-		});
-
-		assert.equal(store.removeTree("Notes"), true);
-		assert.equal(store.size, 1);
-		assert.equal(store.get("Notes2/C.md"), "🔥");
-	});
-
-	it("removes a single file only", () => {
-		const store = storeOf({ "A.md": "🚀", "A.md.bak": "🎉" });
-		assert.equal(store.removeTree("A.md"), true);
-		assert.equal(store.get("A.md"), undefined);
-		assert.equal(store.get("A.md.bak"), "🎉");
-	});
-
-	it("reports no change for unknown paths", () => {
-		const store = storeOf({ "A.md": "🚀" });
-		assert.equal(store.removeTree("Missing.md"), false);
-		assert.equal(store.removeTree(""), false);
-	});
-});
-
 describe("IconStore.prune", () => {
 	it("drops mappings whose path no longer exists", () => {
 		const store = storeOf({ "A.md": "🚀", "Gone.md": "🎉", Folder: "📁" });

@@ -1,9 +1,8 @@
 import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
-import { confirm } from "./confirm-modal";
 import { FileExplorerRenderer } from "./display/file-explorer";
 import { TitleDecorations } from "./display/titles";
 import { NotemojiSettings, parseData, PluginData, serializeData } from "./icons/data";
-import { ICON_PROPERTY, IconService, isNote } from "./icons/icon-service";
+import { IconService, isNote } from "./icons/icon-service";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings";
 
@@ -28,16 +27,7 @@ export default class NotemojiPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		this.data = parseData(await this.readData());
-		this.icons = new IconService(this.app, this.data, {
-			save: () => this.persist(),
-			confirmReplace: (file, current) =>
-				confirm(this.app, {
-					title: "Replace icon property?",
-					message: `The "${ICON_PROPERTY}" property of "${file.basename}" is "${String(current)}", which is not an emoji. It may belong to another plugin. Replace it?`,
-					confirmText: "Replace",
-					warning: true,
-				}),
-		});
+		this.icons = new IconService(this.app, this.data, () => this.persist());
 
 		const lookup = (path: string) => this.icons.get(path);
 		this.explorer = new FileExplorerRenderer(this.app, lookup);
@@ -75,17 +65,8 @@ export default class NotemojiPlugin extends Plugin {
 	}
 
 	private initialize(): void {
-		this.icons.indexNotes();
 		this.explorer.attach();
 		this.scheduleTitleSync();
-
-		// In a vault opened for the first time, the metadata cache may still be
-		// indexing. Read every note once more when it is complete.
-		const ref = this.app.metadataCache.on("resolved", () => {
-			this.app.metadataCache.offref(ref);
-			this.icons.indexNotes();
-		});
-		this.registerEvent(ref);
 	}
 
 	// ------------------------------------------------------------------ wiring
@@ -107,14 +88,8 @@ export default class NotemojiPlugin extends Plugin {
 		this.registerEvent(
 			vault.on("rename", (file, oldPath) => this.icons.handleRename(file, oldPath)),
 		);
-		this.registerEvent(vault.on("delete", (file) => this.icons.handleDelete(file)));
-		this.registerEvent(
-			metadataCache.on("changed", (file) => {
-				this.icons.handleMetadataChange(file);
-				// The reading view may have re-rendered the note's title.
-				this.scheduleTitleSync();
-			}),
-		);
+		// The reading view may re-render a note's title when the note changes.
+		this.registerEvent(metadataCache.on("changed", () => this.scheduleTitleSync()));
 
 		this.registerEvent(
 			workspace.on("file-menu", (menu, file) => this.addMenuItems(menu, file)),
@@ -138,7 +113,7 @@ export default class NotemojiPlugin extends Plugin {
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
 				if (!file || this.icons.get(file.path) === undefined) return false;
-				if (!checking) void this.removeEmoji(file);
+				if (!checking) this.icons.removeIcon(file);
 				return true;
 			},
 		});
@@ -161,7 +136,7 @@ export default class NotemojiPlugin extends Plugin {
 				item
 					.setTitle(`Remove ${kind} emoji`)
 					.setIcon("eraser")
-					.onClick(() => void this.removeEmoji(file)),
+					.onClick(() => this.icons.removeIcon(file)),
 			);
 		}
 	}
@@ -175,34 +150,11 @@ export default class NotemojiPlugin extends Plugin {
 			description: file.name,
 			current,
 			recent: this.icons.recent,
-			onSubmit: (emoji) =>
-				void (emoji === "" ? this.removeEmoji(file) : this.setEmoji(file, emoji)),
+			onSubmit: (emoji) => {
+				if (emoji === "") this.icons.removeIcon(file);
+				else if (this.icons.setIcon(file, emoji)) this.icons.rememberRecent(emoji);
+			},
 		}).open();
-	}
-
-	private async setEmoji(file: TAbstractFile, emoji: string): Promise<void> {
-		try {
-			if (await this.icons.setIcon(file, emoji)) this.icons.rememberRecent(emoji);
-		} catch (error) {
-			this.reportWriteError(file, error);
-		}
-	}
-
-	private async removeEmoji(file: TAbstractFile): Promise<void> {
-		try {
-			await this.icons.removeIcon(file);
-		} catch (error) {
-			this.reportWriteError(file, error);
-		}
-	}
-
-	private reportWriteError(file: TAbstractFile, error: unknown): void {
-		console.error(`[notemoji] Could not update the emoji of "${file.path}".`, error);
-		new Notice(
-			isNote(file)
-				? `Could not update the emoji of "${file.name}". Its frontmatter may be invalid.`
-				: `Could not update the emoji of "${file.name}".`,
-		);
 	}
 
 	// ------------------------------------------------------------------ rendering & data

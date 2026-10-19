@@ -7,10 +7,7 @@ function normalizeStoredPath(key: string): string | undefined {
 }
 
 /**
- * In-memory map of vault paths to emoji icons.
- *
- * Used for the icons in data.json (folders, other files, legacy notes) and as
- * the index of note icons read from frontmatter.
+ * In-memory map of vault paths to emoji: the `icons` section of data.json.
  *
  * Kept deliberately free of Obsidian imports so the rename/cleanup rules can be
  * unit tested without a vault. All mutating methods report whether they changed
@@ -70,24 +67,6 @@ export class IconStore {
 
 		for (const [key, value] of moves) this.icons.set(key, value);
 		return moves.length > 0;
-	}
-
-	/**
-	 * Removes the icon of a path and of every descendant, for example after a
-	 * folder was deleted.
-	 */
-	removeTree(path: string): boolean {
-		if (path === "") return false;
-
-		let changed = this.icons.delete(path);
-		const prefix = `${path}/`;
-		for (const key of [...this.icons.keys()]) {
-			if (key.startsWith(prefix)) {
-				this.icons.delete(key);
-				changed = true;
-			}
-		}
-		return changed;
 	}
 
 	/**

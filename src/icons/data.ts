@@ -33,10 +33,7 @@ export const DEFAULT_SETTINGS: Readonly<NotemojiSettings> = {
 
 export interface PluginData {
 	settings: NotemojiSettings;
-	/**
-	 * Emoji of folders and non-Markdown files by vault path. May also hold
-	 * notes from version 1, until they are changed or moved to frontmatter.
-	 */
+	/** Emoji of notes, folders and files by vault path. */
 	icons: IconStore;
 	/** Recently used emoji, most recent first. */
 	recent: string[];

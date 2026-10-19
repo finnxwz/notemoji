@@ -1,18 +1,14 @@
 /**
- * Builds a fake Obsidian `App` with an in-memory vault, metadata cache,
- * workspace and file manager. Mutations go through helpers that emit the same
- * events Obsidian would (`rename`, `delete`, `changed`, …).
+ * Builds a fake Obsidian `App` with an in-memory vault, metadata cache and
+ * workspace. Mutations go through helpers that emit the same
+ * events Obsidian would (`rename`, `delete`, …).
  */
 import type { App as RealApp } from "obsidian";
 import { Events, TAbstractFile, TFile, TFolder, WorkspaceLeaf } from "./obsidian";
 
-type Frontmatter = Record<string, unknown>;
-
 export interface FakeAppOptions {
 	/** File paths; parent folders are created automatically. Folders may be listed too. */
 	files?: string[];
-	/** Frontmatter by note path (the notes are created if missing). */
-	frontmatter?: Record<string, Frontmatter>;
 	activeFile?: string;
 }
 
@@ -82,44 +78,8 @@ export class FakeVault extends Events {
 	}
 }
 
-export class FakeMetadataCache extends Events {
-	readonly frontmatter = new Map<string, Frontmatter>();
-
-	getFileCache(file: TFile): { frontmatter?: Frontmatter } | null {
-		return this.getCache(file.path);
-	}
-	getCache(path: string): { frontmatter?: Frontmatter } | null {
-		const frontmatter = this.frontmatter.get(path);
-		return frontmatter ? { frontmatter: structuredClone(frontmatter) } : {};
-	}
-
-	/** Sets a note's frontmatter (e.g. edited in the Properties panel) and emits `changed`. */
-	set(file: { path: string }, frontmatter: Frontmatter): void {
-		this.frontmatter.set(file.path, structuredClone(frontmatter));
-		this.trigger("changed", file, "", this.getCache(file.path));
-	}
-}
-
-export class FakeFileManager {
-	/** Set to make the next writes fail, like a note with invalid YAML. */
-	failWith: Error | null = null;
-	writes = 0;
-
-	constructor(private readonly metadataCache: FakeMetadataCache) {}
-
-	processFrontMatter(file: TFile, fn: (frontmatter: Frontmatter) => void): Promise<void> {
-		if (this.failWith) return Promise.reject(this.failWith);
-		const data = structuredClone(this.metadataCache.frontmatter.get(file.path) ?? {});
-		fn(data);
-		this.writes += 1;
-		this.metadataCache.frontmatter.set(file.path, data);
-		// Obsidian re-indexes the note shortly after the write.
-		queueMicrotask(() =>
-			this.metadataCache.trigger("changed", file, "", { frontmatter: data }),
-		);
-		return Promise.resolve();
-	}
-}
+/** Only its events matter to Notemoji (`changed` re-renders note titles). */
+export class FakeMetadataCache extends Events {}
 
 export class FakeWorkspace extends Events {
 	readonly leftSplit = {};
@@ -146,7 +106,6 @@ export class FakeWorkspace extends Events {
 export interface FakeApp {
 	vault: FakeVault;
 	metadataCache: FakeMetadataCache;
-	fileManager: FakeFileManager;
 	workspace: FakeWorkspace;
 	/** The same object, typed as the real `App` for passing into plugin code. */
 	asApp: RealApp;
@@ -155,17 +114,12 @@ export interface FakeApp {
 export function createFakeApp(options: FakeAppOptions = {}): FakeApp {
 	const vault = new FakeVault();
 	const metadataCache = new FakeMetadataCache();
-	const fileManager = new FakeFileManager(metadataCache);
 	const workspace = new FakeWorkspace();
 
 	for (const path of options.files ?? []) vault.add(path);
-	for (const [path, frontmatter] of Object.entries(options.frontmatter ?? {})) {
-		vault.add(path);
-		metadataCache.frontmatter.set(path, structuredClone(frontmatter));
-	}
 	if (options.activeFile) workspace.activeFile = vault.add(options.activeFile) as TFile;
 
-	const app = { vault, metadataCache, fileManager, workspace } as FakeApp;
+	const app = { vault, metadataCache, workspace } as FakeApp;
 	app.asApp = app as unknown as RealApp;
 	return app;
 }

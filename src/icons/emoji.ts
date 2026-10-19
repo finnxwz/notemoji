@@ -3,8 +3,7 @@
  *
  * Any single grapheme cluster that the system can draw counts as an icon:
  * emoji including multi code point sequences (🇩🇪 👍🏽 ❤️ 1️⃣ 👨‍👩‍👧‍👦) and plain
- * symbols (★ → ✓). Letters, digits, punctuation and whitespace do not, so
- * values such as other plugins' icon names (`LiHome`) are never mistaken for an emoji.
+ * symbols (★ → ✓). Letters, digits, punctuation and whitespace do not.
  */
 
 /** Invisible characters that are never a meaningful part of an icon. */
@@ -91,21 +90,4 @@ export function sanitizeStoredEmoji(value: unknown): string | undefined {
 	if (typeof value !== "string") return undefined;
 	const parsed = parseEmojiInput(value);
 	return parsed.status === "ok" ? parsed.emoji : undefined;
-}
-
-/** What a note's `icon` property holds, from Notemoji's point of view. */
-export type IconValue =
-	| { kind: "none" }
-	| { kind: "emoji"; emoji: string }
-	/** Something else, e.g. another plugin's icon name or a later `custom:` icon. Never touched silently. */
-	| { kind: "other"; value: unknown };
-
-/** Strict: only a value that is exactly one emoji counts. */
-export function parseIconValue(value: unknown): IconValue {
-	if (value === undefined || value === null) return { kind: "none" };
-	if (typeof value !== "string") return { kind: "other", value };
-	const parsed = parseEmojiInput(value);
-	if (parsed.status === "empty") return { kind: "none" };
-	if (parsed.status === "ok" && !parsed.extra) return { kind: "emoji", emoji: parsed.emoji };
-	return { kind: "other", value };
 }
