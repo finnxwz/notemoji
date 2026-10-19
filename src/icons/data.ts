@@ -1,4 +1,4 @@
-import { sanitizeStoredEmoji } from "./emoji";
+import { normalizeIcon } from "./icon-value";
 import { IconStore } from "./icon-store";
 
 /**
@@ -35,7 +35,7 @@ export interface PluginData {
 	settings: NotemojiSettings;
 	/** Emoji of notes, folders and files by vault path. */
 	icons: IconStore;
-	/** Recently used emoji, most recent first. */
+	/** Recently used emoji and custom icons, most recent first. */
 	recent: string[];
 }
 
@@ -67,8 +67,8 @@ function readRecent(raw: unknown): string[] {
 	if (!Array.isArray(raw)) return [];
 	const recent: string[] = [];
 	for (const value of raw) {
-		const emoji = sanitizeStoredEmoji(value);
-		if (emoji !== undefined && !recent.includes(emoji)) recent.push(emoji);
+		const icon = normalizeIcon(value);
+		if (icon !== undefined && !recent.includes(icon)) recent.push(icon);
 		if (recent.length === MAX_RECENT) break;
 	}
 	return recent;

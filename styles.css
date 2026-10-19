@@ -224,3 +224,55 @@ body {
 body:not(.show-inline-title) .notemoji-title-icon {
 	display: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Custom icons (images)
+   --------------------------------------------------------------------------- */
+
+.notemoji-image {
+	display: block;
+	width: 1em;
+	height: 1em;
+	object-fit: contain;
+}
+
+/* A file missing on this device (e.g. not synced yet) shows nothing. */
+.notemoji-image.is-missing {
+	visibility: hidden;
+}
+
+.inline-title[data-notemoji-image]::before,
+.workspace-tab-header-inner-title[data-notemoji-image]::before,
+.view-header-title[data-notemoji-image]::before {
+	content: "";
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	margin-inline-end: 0.3em;
+	vertical-align: -0.125em;
+	background: var(--notemoji-image) center / contain no-repeat;
+}
+
+.notemoji-picker-upload-input {
+	display: none;
+}
+
+.notemoji-picker .notemoji-picker-upload {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	aspect-ratio: 1;
+	height: auto;
+	padding: 0;
+	color: var(--text-muted);
+	background: none;
+	border: 1px dashed var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	box-shadow: none;
+	cursor: var(--cursor);
+}
+
+.notemoji-picker .notemoji-picker-upload:hover {
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}

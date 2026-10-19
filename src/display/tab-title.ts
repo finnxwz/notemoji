@@ -1,6 +1,6 @@
 import type { App } from "obsidian";
 import { filePathOfLeaf, LeafWithTabHeader } from "../internals";
-import type { IconLookup } from "./file-explorer";
+import type { IconSource } from "./icon-source";
 
 /**
  * Tab titles of every open file (any type), in the main area and pop-out
@@ -8,7 +8,7 @@ import type { IconLookup } from "./file-explorer";
  */
 export function collectTabTitles(
 	app: App,
-	lookup: IconLookup,
+	source: IconSource,
 	into: Map<HTMLElement, string>,
 ): void {
 	const { leftSplit, rightSplit } = app.workspace;
@@ -18,7 +18,7 @@ export function collectTabTitles(
 
 		const titleEl = (leaf as LeafWithTabHeader).tabHeaderInnerTitleEl;
 		const path = filePathOfLeaf(leaf);
-		const emoji = path === undefined ? undefined : lookup(path);
+		const emoji = path === undefined ? undefined : source.get(path);
 		if (titleEl && emoji !== undefined) into.set(titleEl, emoji);
 	});
 }

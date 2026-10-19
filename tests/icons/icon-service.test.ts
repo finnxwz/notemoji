@@ -126,3 +126,25 @@ describe("recent", () => {
 		expect(save).toHaveBeenCalledTimes(2);
 	});
 });
+
+describe("custom icons", () => {
+	it("stores custom icons and forgets them when their file is deleted", () => {
+		const { data, service, save, item } = setup({ data: { recent: ["custom:a.png", "🚀"] } });
+		expect(service.setIcon(item("A.md"), "custom:a.png")).toBe(true);
+		expect(service.setIcon(item("Folder"), "custom:a.png")).toBe(true);
+		expect(service.setIcon(item("B.md"), "custom:b.svg")).toBe(true);
+		expect(service.setIcon(item("C.md"), "custom:../x.png")).toBe(false);
+		expect(service.countCustomUses("a.png")).toBe(2);
+
+		save.mockClear();
+		service.forgetCustomIcons(["a.png"]);
+		expect(data.icons.toRecord()).toEqual({ "B.md": "custom:b.svg" });
+		expect(service.recent).toEqual(["🚀"]);
+		expect(save).toHaveBeenCalledTimes(1);
+
+		service.forgetCustomIcons();
+		expect(data.icons.size).toBe(0);
+		service.forgetCustomIcons();
+		expect(save).toHaveBeenCalledTimes(2);
+	});
+});

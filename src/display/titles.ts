@@ -1,7 +1,7 @@
 import type { App, TFile } from "obsidian";
 import type { NotemojiSettings } from "../icons/data";
 import { EmojiAttributes } from "./emoji-attribute";
-import type { IconLookup } from "./file-explorer";
+import type { IconSource } from "./icon-source";
 import { NoteTitleIcons } from "./note-title";
 import { collectTabTitles } from "./tab-title";
 import { collectViewHeaders } from "./view-header";
@@ -16,17 +16,17 @@ export class TitleDecorations {
 
 	constructor(
 		private readonly app: App,
-		private readonly lookup: IconLookup,
+		private readonly source: IconSource,
 		onPick: (file: TFile) => void,
 	) {
-		this.noteTitles = new NoteTitleIcons(app, lookup, onPick);
+		this.noteTitles = new NoteTitleIcons(app, source, onPick);
 	}
 
 	sync(settings: NotemojiSettings): void {
 		const wanted = this.noteTitles.sync(settings.noteTitle);
-		if (settings.showInTabs) collectTabTitles(this.app, this.lookup, wanted);
-		if (settings.showInViewHeader) collectViewHeaders(this.app, this.lookup, wanted);
-		this.attributes.apply(wanted);
+		if (settings.showInTabs) collectTabTitles(this.app, this.source, wanted);
+		if (settings.showInViewHeader) collectViewHeaders(this.app, this.source, wanted);
+		this.attributes.apply(wanted, this.source);
 	}
 
 	dispose(): void {

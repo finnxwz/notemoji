@@ -1,7 +1,10 @@
-import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
+import { Menu, normalizePath, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
+import { confirm } from "./confirm-modal";
 import { FileExplorerRenderer } from "./display/file-explorer";
+import type { IconSource } from "./display/icon-source";
 import { TitleDecorations } from "./display/titles";
 import { NotemojiSettings, parseData, PluginData, serializeData } from "./icons/data";
+import { CustomIconLibrary } from "./icons/custom-icons";
 import { IconService, isNote } from "./icons/icon-service";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings";
@@ -17,6 +20,7 @@ function describeItem(file: TAbstractFile): "note" | "file" | "folder" {
 
 export default class NotemojiPlugin extends Plugin {
 	icons!: IconService;
+	customIcons!: CustomIconLibrary;
 	private data!: PluginData;
 	private explorer!: FileExplorerRenderer;
 	private titles!: TitleDecorations;
@@ -29,9 +33,19 @@ export default class NotemojiPlugin extends Plugin {
 		this.data = parseData(await this.readData());
 		this.icons = new IconService(this.app, this.data, () => this.persist());
 
-		const lookup = (path: string) => this.icons.get(path);
-		this.explorer = new FileExplorerRenderer(this.app, lookup);
-		this.titles = new TitleDecorations(this.app, lookup, (file) => this.openPicker(file));
+		const pluginFolder =
+			this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
+		this.customIcons = new CustomIconLibrary(
+			this.app.vault.adapter,
+			normalizePath(`${pluginFolder}/icons`),
+		);
+
+		const source: IconSource = {
+			get: (path) => this.icons.get(path),
+			url: (file) => this.customIcons.url(file),
+		};
+		this.explorer = new FileExplorerRenderer(this.app, source);
+		this.titles = new TitleDecorations(this.app, source, (file) => this.openPicker(file));
 		this.register(this.icons.onChange(() => this.refresh()));
 
 		this.addSettingTab(new NotemojiSettingTab(this));
@@ -50,6 +64,8 @@ export default class NotemojiPlugin extends Plugin {
 	async onExternalSettingsChange(): Promise<void> {
 		// A save still in flight must not land after (and over) the reloaded data.
 		await this.saveQueue;
+		// Sync may also have brought new custom icon files.
+		this.customIcons.refresh();
 		const data = parseData(await this.readData());
 		if (JSON.stringify(serializeData(data)) === JSON.stringify(serializeData(this.data)))
 			return;
@@ -150,11 +166,41 @@ export default class NotemojiPlugin extends Plugin {
 			description: file.name,
 			current,
 			recent: this.icons.recent,
+			custom: {
+				list: () => this.customIcons.list(),
+				url: (name) => this.customIcons.url(name),
+				upload: (name, data) => this.customIcons.add(name, data),
+				remove: (name) => this.deleteCustomIcon(name),
+			},
 			onSubmit: (emoji) => {
 				if (emoji === "") this.icons.removeIcon(file);
 				else if (this.icons.setIcon(file, emoji)) this.icons.rememberRecent(emoji);
 			},
 		}).open();
+	}
+
+	/** Deletes a custom icon after confirmation; items using it lose their icon. */
+	async deleteCustomIcon(file: string): Promise<boolean> {
+		const uses = this.icons.countCustomUses(file);
+		const confirmed = await confirm(this.app, {
+			title: "Delete custom icon?",
+			message:
+				uses === 0
+					? `"${file}" will be deleted.`
+					: `"${file}" will be deleted. ${uses === 1 ? "1 item uses" : `${uses} items use`} it and will show no icon anymore.`,
+			confirmText: "Delete",
+			warning: true,
+		});
+		if (!confirmed) return false;
+		try {
+			await this.customIcons.remove(file);
+		} catch (error) {
+			console.error(`[notemoji] Could not delete the custom icon "${file}".`, error);
+			new Notice(`Could not delete "${file}".`);
+			return false;
+		}
+		this.icons.forgetCustomIcons([file]);
+		return true;
 	}
 
 	// ------------------------------------------------------------------ rendering & data

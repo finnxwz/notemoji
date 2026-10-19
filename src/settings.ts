@@ -1,4 +1,6 @@
 import { Notice, PluginSettingTab, Setting } from "obsidian";
+import { confirm } from "./confirm-modal";
+import { formatBytes } from "./icons/custom-icons";
 import type { NoteTitleMode } from "./icons/data";
 import type NotemojiPlugin from "./main";
 
@@ -53,7 +55,55 @@ export class NotemojiSettingTab extends PluginSettingTab {
 					.onChange((value) => plugin.updateSettings({ showInViewHeader: value })),
 			);
 
+		this.displayCustomIcons(containerEl);
 		this.displayStoredData(containerEl);
+	}
+
+	private displayCustomIcons(containerEl: HTMLElement): void {
+		const { plugin } = this;
+		new Setting(containerEl).setName("Custom icons").setHeading();
+
+		const setting = new Setting(containerEl)
+			.setName("Your icons")
+			.setDesc("Upload your own images (PNG, SVG and more) in the picker's custom section.");
+		setting.addButton((button) => {
+			button
+				.setButtonText("Delete all")
+				.setWarning()
+				.setDisabled(true)
+				.onClick(async () => {
+					const { count } = await plugin.customIcons.usage();
+					const confirmed = await confirm(plugin.app, {
+						title: "Delete all custom icons?",
+						message: `All ${plural(count, "custom icon", "custom icons")} will be deleted. Notes, folders and files using them will show no icon anymore.`,
+						confirmText: "Delete all",
+						warning: true,
+					});
+					if (!confirmed) return;
+					try {
+						await plugin.customIcons.removeAll();
+						plugin.icons.forgetCustomIcons();
+						new Notice("Deleted all custom icons.");
+					} catch (error) {
+						console.error("[notemoji] Could not delete the custom icons.", error);
+						new Notice("Could not delete the custom icons.");
+					}
+					this.display();
+				});
+
+			void plugin.customIcons.usage().then(
+				({ count, bytes }) => {
+					if (count === 0) return;
+					setting.setDesc(
+						`${plural(count, "icon", "icons")}, ${formatBytes(bytes)}, stored in "${plugin.customIcons.folder}". ` +
+							"They are removed together with the plugin. Upload more in the picker.",
+					);
+					button.setDisabled(false);
+				},
+				(error: unknown) =>
+					console.error("[notemoji] Could not read the custom icons.", error),
+			);
+		});
 	}
 
 	private displayStoredData(containerEl: HTMLElement): void {

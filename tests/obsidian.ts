@@ -72,6 +72,12 @@ function installDomHelpers(win: Window & typeof globalThis): void {
 	proto.toggleClass = function (this: HTMLElement, cls: string, value: boolean) {
 		this.classList.toggle(cls, value);
 	};
+	proto.setCssProps = function (this: HTMLElement, props: Record<string, string>) {
+		for (const [name, value] of Object.entries(props)) {
+			if (value === "") this.style.removeProperty(name);
+			else this.style.setProperty(name, value);
+		}
+	};
 	proto.setAttr = function (this: HTMLElement, name: string, value: string | null) {
 		if (value === null) this.removeAttribute(name);
 		else this.setAttribute(name, value);
@@ -110,9 +116,10 @@ export const Platform = {
 	isLinux: true,
 };
 
+/** Stand-in for Obsidian's Lucide icons: a span naming the icon (shown as "+" in the demo). */
 export function setIcon(parent: HTMLElement, iconId: string): void {
 	parent.empty();
-	parent.createSpan({ cls: "svg-icon", attr: { "data-icon": iconId } });
+	parent.createSpan({ cls: "svg-icon", text: "+", attr: { "data-icon": iconId } });
 }
 
 export function normalizePath(path: string): string {
@@ -365,8 +372,16 @@ export class MenuItem {
 	}
 }
 
+/** Menus shown with showAtMouseEvent, oldest first. Tests may clear it. */
+export const shownMenus: Menu[] = [];
+
 export class Menu {
 	items: MenuItem[] = [];
+
+	showAtMouseEvent(_event: MouseEvent): this {
+		shownMenus.push(this);
+		return this;
+	}
 
 	addItem(callback: (item: MenuItem) => unknown): this {
 		const item = new MenuItem();

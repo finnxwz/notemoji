@@ -266,3 +266,89 @@ describe("titles", () => {
 		expect(document.querySelector(".notemoji-title-icon")).toBeNull();
 	});
 });
+
+/** Clicks a button of the confirmation dialog that is currently open. */
+async function answer(text: "Delete" | "Delete all" | "Cancel"): Promise<void> {
+	const dialog = openModals.at(-1)!.contentEl;
+	const buttonEl = Array.from(dialog.querySelectorAll("button")).find(
+		(el) => el.textContent === text,
+	);
+	const button = settingsCreated
+		.flatMap((setting) => setting.components)
+		.find(
+			(entry): entry is ButtonComponent =>
+				entry instanceof ButtonComponent && entry.buttonEl === buttonEl,
+		);
+	if (!button) throw new Error(`No "${text}" button in the open dialog`);
+	button.click();
+	await flush();
+}
+
+describe("custom icons", () => {
+	const FOLDER = ".obsidian/plugins/notemoji/icons";
+
+	interface CustomPicker extends PickerLike {
+		options: PickerLike["options"] & {
+			custom: { upload(name: string, data: ArrayBuffer): Promise<string> };
+		};
+	}
+
+	it("uploads into the plugin folder and uses the icon", async () => {
+		const harness = await loadPlugin();
+		harness.fileMenu("A.md").item("Set note emoji").click();
+		const options = (picker() as CustomPicker).options;
+		const file = await options.custom.upload("Logo.PNG", new Uint8Array(8).buffer);
+		options.onSubmit(`custom:${file}`);
+		await flush();
+
+		expect(harness.app.vault.adapter.files.has(`${FOLDER}/Logo.png`)).toBe(true);
+		expect(harness.lastSaved()?.icons).toEqual({ "A.md": "custom:Logo.png" });
+		expect(harness.lastSaved()?.recent).toEqual(["custom:Logo.png"]);
+	});
+
+	it("deletes an icon after confirmation and forgets where it was used", async () => {
+		const harness = await loadPlugin({
+			data: {
+				icons: { "A.md": "custom:logo.png", "B.md": "🚀" },
+				recent: ["custom:logo.png"],
+			},
+		});
+		harness.app.vault.adapter.files.set(`${FOLDER}/logo.png`, new ArrayBuffer(4));
+
+		const cancelled = harness.plugin.deleteCustomIcon("logo.png");
+		await flush();
+		expect(openModals.at(-1)!.contentEl.textContent).toContain("1 item uses it");
+		await answer("Cancel");
+		expect(await cancelled).toBe(false);
+		expect(harness.app.vault.adapter.files.size).toBe(1);
+
+		const deleted = harness.plugin.deleteCustomIcon("logo.png");
+		await flush();
+		await answer("Delete");
+		expect(await deleted).toBe(true);
+		expect(harness.app.vault.adapter.files.size).toBe(0);
+		expect(harness.lastSaved()?.icons).toEqual({ "B.md": "🚀" });
+		expect(harness.lastSaved()?.recent).toEqual([]);
+	});
+
+	it("shows the library in the settings and deletes all after confirmation", async () => {
+		const harness = await loadPlugin({ data: { icons: { Folder: "custom:a.png" } } });
+		harness.app.vault.adapter.folders.add(FOLDER);
+		harness.app.vault.adapter.files.set(`${FOLDER}/a.png`, new ArrayBuffer(2048));
+		harness.app.vault.adapter.files.set(`${FOLDER}/b.svg`, new ArrayBuffer(1024));
+
+		settingsCreated.length = 0;
+		harness.fake.settingTabs[0].display();
+		await flush();
+		const setting = settingsCreated.find((entry) => entry.nameEl.textContent === "Your icons")!;
+		expect(setting.descEl.textContent).toContain("2 icons, 3 KB");
+		const button = setting.components[0] as ButtonComponent;
+		expect(button.disabled).toBe(false);
+
+		void button.click();
+		await flush();
+		await answer("Delete all");
+		expect(harness.app.vault.adapter.files.size).toBe(0);
+		expect(harness.lastSaved()?.icons).toEqual({});
+	});
+});

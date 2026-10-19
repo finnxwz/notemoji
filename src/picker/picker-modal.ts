@@ -1,22 +1,36 @@
-import { App, Modal, Platform } from "obsidian";
+import { App, Menu, Modal, Notice, Platform, setIcon } from "obsidian";
+import { IconSource, renderIcon } from "../display/icon-source";
 import { parseEmojiInput } from "../icons/emoji";
+import { CUSTOM_EXTENSIONS, customValue, parseIcon } from "../icons/icon-value";
 import { EmojiEntry, findEntry, getCatalog, searchEmoji } from "./catalog";
+
+/** The user's own icon library, as the picker needs it. */
+export interface CustomIcons {
+	list(): Promise<string[]>;
+	url(file: string): string;
+	/** Stores an uploaded image; returns its file name, or throws with a message for the user. */
+	upload(name: string, data: ArrayBuffer): Promise<string>;
+	/** Deletes an icon (after asking). Resolves true when it was deleted. */
+	remove(file: string): Promise<boolean>;
+}
 
 export interface PickerOptions {
 	/** Modal heading, e.g. "Set note emoji". */
 	title: string;
 	/** Line below the heading, usually the item's name. */
 	description?: string;
-	/** The item's current emoji, or "" when it has none. */
+	/** The item's current icon (emoji or `custom:<file>`), or "" when it has none. */
 	current: string;
-	/** Recently used emoji, most recent first. */
+	/** Recently used icons, most recent first. */
 	recent: readonly string[];
-	/** Called with the chosen emoji, or "" when the emoji should be removed. */
-	onSubmit: (emoji: string) => void;
+	custom: CustomIcons;
+	/** Called with the chosen icon, or "" when the icon should be removed. */
+	onSubmit: (value: string) => void;
 }
 
 interface Tile {
-	emoji: string;
+	/** What gets stored: an emoji or `custom:<file>`. */
+	value: string;
 	name: string;
 	el: HTMLElement;
 }
@@ -28,10 +42,13 @@ interface Section {
 }
 
 const RECENT: Section = { id: "recent", label: "Recently used", icon: "🕘" };
+const CUSTOM: Section = { id: "custom", label: "Custom icons", icon: "🖼️" };
 const HINT = "Type to search, or use the arrow keys.";
+const ACCEPT = CUSTOM_EXTENSIONS.map((extension) => `.${extension}`).join(",");
 
 /**
- * The emoji picker: search, category tabs, recently used, remove.
+ * The icon picker: search, category tabs, recently used, the user's custom
+ * icons (with upload), and remove.
  *
  * Anything that parses as a single emoji or symbol (pasted, or typed with the
  * system's emoji picker) is offered as the first result, also when it is not
@@ -43,9 +60,11 @@ export class PickerModal extends Modal {
 	private searchEl!: HTMLInputElement;
 	private tabsEl!: HTMLElement;
 	private bodyEl!: HTMLElement;
-	private footerEmojiEl!: HTMLElement;
+	private footerIconEl!: HTMLElement;
 	private footerNameEl!: HTMLElement;
+	private uploadEl!: HTMLInputElement;
 
+	private customFiles: string[] = [];
 	private tiles: Tile[] = [];
 	private activeIndex = -1;
 	/** Set once the arrow keys moved the selection: ←/→ then move tiles, not the caret. */
@@ -56,7 +75,7 @@ export class PickerModal extends Modal {
 		this.options = options;
 	}
 
-	onOpen(): void {
+	async onOpen(): Promise<void> {
 		const { contentEl, options } = this;
 		this.modalEl.addClass("notemoji-picker-modal");
 		this.titleEl.setText(options.title);
@@ -88,11 +107,73 @@ export class PickerModal extends Modal {
 				.addEventListener("click", () => this.submit(""));
 		}
 
+		this.uploadEl = contentEl.createEl("input", {
+			cls: "notemoji-picker-upload-input",
+			attr: { type: "file", accept: ACCEPT, multiple: true },
+		});
+		this.uploadEl.addEventListener("change", () => void this.upload());
+
 		this.tabsEl = contentEl.createDiv({
 			cls: "notemoji-picker-tabs",
 			attr: { role: "tablist" },
 		});
-		for (const section of this.sections()) {
+		this.bodyEl = contentEl.createDiv({ cls: "notemoji-picker-body" });
+		this.bodyEl.addEventListener("click", (event) => {
+			const tile = this.tileFromEvent(event);
+			if (tile) this.submit(tile.value);
+		});
+		this.bodyEl.addEventListener("mouseover", (event) => {
+			const tile = this.tileFromEvent(event);
+			if (tile) this.showInFooter(tile);
+		});
+		// Right-click, or long-press on touch screens.
+		this.bodyEl.addEventListener("contextmenu", (event) => this.showTileMenu(event));
+		this.bodyEl.addEventListener("scroll", () => this.highlightTab(), { passive: true });
+
+		const footerEl = contentEl.createDiv({ cls: "notemoji-picker-footer" });
+		this.footerIconEl = footerEl.createDiv({ cls: "notemoji-picker-footer-emoji" });
+		this.footerNameEl = footerEl.createDiv({ cls: "notemoji-picker-footer-name" });
+
+		// On phones the keyboard would cover most of the grid; tap to search instead.
+		if (!Platform.isMobile) this.searchEl.focus();
+
+		await this.loadCustomIcons();
+	}
+
+	onClose(): void {
+		this.contentEl.empty();
+	}
+
+	private get source(): IconSource {
+		return { get: () => undefined, url: (file) => this.options.custom.url(file) };
+	}
+
+	// ------------------------------------------------------------------ rendering
+
+	private async loadCustomIcons(): Promise<void> {
+		try {
+			this.customFiles = await this.options.custom.list();
+		} catch (error) {
+			console.error("[notemoji] Could not list custom icons.", error);
+			this.customFiles = [];
+		}
+		this.renderTabs();
+		this.render();
+	}
+
+	/** Recent entries that can still be shown (custom icons may have been deleted). */
+	private recent(): string[] {
+		return this.options.recent.filter((value) => {
+			const icon = parseIcon(value);
+			return icon?.type !== "custom" || this.customFiles.includes(icon.file);
+		});
+	}
+
+	private renderTabs(): void {
+		this.tabsEl.empty();
+		const sections: Section[] = [CUSTOM, ...getCatalog()];
+		if (this.recent().length > 0) sections.unshift(RECENT);
+		for (const section of sections) {
 			this.tabsEl
 				.createEl("button", {
 					cls: "notemoji-picker-tab",
@@ -101,37 +182,6 @@ export class PickerModal extends Modal {
 				})
 				.addEventListener("click", () => this.jumpTo(section.id));
 		}
-
-		this.bodyEl = contentEl.createDiv({ cls: "notemoji-picker-body" });
-		this.bodyEl.addEventListener("click", (event) => {
-			const tile = this.tileFromEvent(event);
-			if (tile) this.submit(tile.emoji);
-		});
-		this.bodyEl.addEventListener("mouseover", (event) => {
-			const tile = this.tileFromEvent(event);
-			if (tile) this.showInFooter(tile);
-		});
-		this.bodyEl.addEventListener("scroll", () => this.highlightTab(), { passive: true });
-
-		const footerEl = contentEl.createDiv({ cls: "notemoji-picker-footer" });
-		this.footerEmojiEl = footerEl.createDiv({ cls: "notemoji-picker-footer-emoji" });
-		this.footerNameEl = footerEl.createDiv({ cls: "notemoji-picker-footer-name" });
-
-		this.render();
-
-		// On phones the keyboard would cover most of the grid; tap to search instead.
-		if (!Platform.isMobile) this.searchEl.focus();
-	}
-
-	onClose(): void {
-		this.contentEl.empty();
-	}
-
-	// ------------------------------------------------------------------ rendering
-
-	private sections(): Section[] {
-		const sections = getCatalog().map(({ id, label, icon }) => ({ id, label, icon }));
-		return this.options.recent.length > 0 ? [RECENT, ...sections] : sections;
 	}
 
 	/** Rebuilds the grid for the current query. */
@@ -150,12 +200,21 @@ export class PickerModal extends Modal {
 	}
 
 	private renderBrowse(): void {
-		if (this.options.recent.length > 0) {
+		const recent = this.recent();
+		if (recent.length > 0) {
 			const gridEl = this.createSection(RECENT.id, RECENT.label);
-			for (const emoji of this.options.recent) {
-				this.addTile(gridEl, emoji, findEntry(emoji)?.name ?? "");
-			}
+			for (const value of recent) this.addTile(gridEl, value, this.nameOf(value));
 		}
+
+		const customEl = this.createSection(CUSTOM.id, CUSTOM.label);
+		for (const file of this.customFiles) this.addTile(customEl, customValue(file), file);
+		const uploadEl = customEl.createEl("button", {
+			cls: "notemoji-picker-upload",
+			attr: { "aria-label": "Upload an image (PNG, SVG and more)" },
+		});
+		setIcon(uploadEl, "image-plus");
+		uploadEl.addEventListener("click", () => this.uploadEl.click());
+
 		for (const category of getCatalog()) {
 			const gridEl = this.createSection(category.id, category.label);
 			for (const entry of category.entries) this.addEntry(gridEl, entry);
@@ -168,8 +227,12 @@ export class PickerModal extends Modal {
 		if (pasted.status === "ok") {
 			this.addTile(gridEl, pasted.emoji, findEntry(pasted.emoji)?.name ?? "");
 		}
+		const lower = query.toLowerCase();
+		for (const file of this.customFiles) {
+			if (file.toLowerCase().includes(lower)) this.addTile(gridEl, customValue(file), file);
+		}
 		for (const entry of searchEmoji(getCatalog(), query)) {
-			if (entry.emoji !== this.tiles[0]?.emoji) this.addEntry(gridEl, entry);
+			if (entry.emoji !== this.tiles[0]?.value) this.addEntry(gridEl, entry);
 		}
 
 		if (this.tiles.length === 0) {
@@ -196,14 +259,64 @@ export class PickerModal extends Modal {
 		this.addTile(gridEl, entry.emoji, entry.name);
 	}
 
-	private addTile(gridEl: HTMLElement, emoji: string, name: string): void {
+	private addTile(gridEl: HTMLElement, value: string, name: string): void {
 		const el = gridEl.createEl("button", {
 			cls: "notemoji-picker-emoji",
-			text: emoji,
-			attr: { "aria-label": name || emoji, "data-index": this.tiles.length, tabindex: -1 },
+			attr: { "aria-label": name || value, "data-index": this.tiles.length, tabindex: -1 },
 		});
-		el.toggleClass("is-current", emoji === this.options.current);
-		this.tiles.push({ emoji, name, el });
+		renderIcon(el, value, this.source);
+		el.toggleClass("is-current", value === this.options.current);
+		this.tiles.push({ value, name, el });
+	}
+
+	private nameOf(value: string): string {
+		const icon = parseIcon(value);
+		if (icon?.type === "custom") return icon.file;
+		return findEntry(value)?.name ?? "";
+	}
+
+	// ------------------------------------------------------------------ custom icons
+
+	private async upload(): Promise<void> {
+		const files = Array.from(this.uploadEl.files ?? []);
+		this.uploadEl.value = "";
+		const added: string[] = [];
+		for (const file of files) {
+			try {
+				added.push(await this.options.custom.upload(file.name, await file.arrayBuffer()));
+			} catch (error) {
+				new Notice(
+					error instanceof Error ? error.message : `Could not add "${file.name}".`,
+				);
+			}
+		}
+		if (added.length === 0) return;
+
+		// A single upload is what the user wants to use right away.
+		if (files.length === 1) {
+			this.submit(customValue(added[0]));
+			return;
+		}
+		this.searchEl.value = "";
+		await this.loadCustomIcons();
+		this.jumpTo(CUSTOM.id);
+	}
+
+	private showTileMenu(event: MouseEvent): void {
+		const icon = parseIcon(this.tileFromEvent(event)?.value);
+		if (icon?.type !== "custom") return;
+		event.preventDefault();
+		new Menu()
+			.addItem((item) =>
+				item
+					.setTitle("Delete custom icon")
+					.setIcon("trash")
+					.onClick(async () => {
+						if (await this.options.custom.remove(icon.file))
+							await this.loadCustomIcons();
+					}),
+			)
+			.showAtMouseEvent(event);
 	}
 
 	// ------------------------------------------------------------------ interaction
@@ -226,7 +339,7 @@ export class PickerModal extends Modal {
 			case "Enter": {
 				event.preventDefault();
 				const tile = this.tiles[this.activeIndex] ?? this.tiles[0];
-				if (tile) this.submit(tile.emoji);
+				if (tile) this.submit(tile.value);
 				break;
 			}
 		}
@@ -306,16 +419,14 @@ export class PickerModal extends Modal {
 	}
 
 	private showInFooter(tile: Tile): void {
-		this.footerEmojiEl.setText(tile.emoji);
+		renderIcon(this.footerIconEl, tile.value, this.source);
 		this.footerNameEl.setText(tile.name || "Custom emoji");
 	}
 
 	private showDefaultFooter(): void {
 		const { current } = this.options;
-		this.footerEmojiEl.setText(current);
-		this.footerNameEl.setText(
-			current === "" ? HINT : (findEntry(current)?.name ?? "Current emoji"),
-		);
+		renderIcon(this.footerIconEl, current, this.source);
+		this.footerNameEl.setText(current === "" ? HINT : this.nameOf(current) || "Current emoji");
 	}
 
 	private tileFromEvent(event: Event): Tile | undefined {
@@ -325,8 +436,8 @@ export class PickerModal extends Modal {
 		return el ? this.tiles[Number(el.dataset.index)] : undefined;
 	}
 
-	private submit(emoji: string): void {
+	private submit(value: string): void {
 		this.close();
-		this.options.onSubmit(emoji);
+		this.options.onSubmit(value);
 	}
 }

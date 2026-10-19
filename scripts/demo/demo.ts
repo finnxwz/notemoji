@@ -90,7 +90,30 @@ addLeaf(homeView, tabTitle("Home.md"));
 
 // ---------------------------------------------------------------- the plugin
 
-const plugin = new NotemojiPlugin(app.asApp, { id: "notemoji", version: "demo" } as PluginManifest);
+// Custom icon files live in memory; the page shows them through blob URLs.
+const ICONS = ".obsidian/plugins/notemoji/icons";
+const blobUrls = new Map<string, string>();
+app.vault.adapter.getResourcePath = (path: string) => {
+	const data = app.vault.adapter.files.get(path);
+	if (!data) return "";
+	if (!blobUrls.has(path)) {
+		const type = path.endsWith(".svg") ? "image/svg+xml" : "image/png";
+		blobUrls.set(path, URL.createObjectURL(new Blob([data], { type })));
+	}
+	return blobUrls.get(path)!;
+};
+const svg = (fill: string, glyph: string) =>
+	new TextEncoder().encode(
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="${fill}"/><path d="${glyph}" fill="#fff"/></svg>`,
+	).buffer;
+app.vault.adapter.folders.add(ICONS);
+app.vault.adapter.files.set(`${ICONS}/acme.svg`, svg("#2f80ed", "M32 12 52 50H12z"));
+
+const plugin = new NotemojiPlugin(app.asApp, {
+	id: "notemoji",
+	version: "demo",
+	dir: ".obsidian/plugins/notemoji",
+} as PluginManifest);
 const fake = plugin as unknown as FakePlugin;
 fake.dataJson = {
 	version: 2,
@@ -100,6 +123,7 @@ fake.dataJson = {
 		"Projects/Brand guidelines.md": "🎨",
 		"Home.md": "🏠",
 		"Reading list.md": "📚",
+		"Ideas.md": "custom:acme.svg",
 	},
 	recent: ["📁", "🎨", "🏠", "📚", "✅", "💡", "🔥", "🌱"],
 };
@@ -149,6 +173,10 @@ document.addEventListener("mouseup", () => cursorEl.classList.remove("is-down"))
 /** Lets the recorder switch the note title mode. */
 Object.assign(window, {
 	demoReady: true,
+	setIconOf(path: string, value: string) {
+		const file = app.vault.getAbstractFileByPath(path);
+		if (file) plugin.icons.setIcon(file as never, value);
+	},
 	setNoteTitle(mode: "above" | "inline" | "off") {
 		plugin.updateSettings({ noteTitle: mode });
 	},

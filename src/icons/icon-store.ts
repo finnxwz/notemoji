@@ -1,4 +1,4 @@
-import { parseEmojiInput, sanitizeStoredEmoji } from "./emoji";
+import { normalizeIcon } from "./icon-value";
 
 function normalizeStoredPath(key: string): string | undefined {
 	const path = key.trim();
@@ -25,14 +25,24 @@ export class IconStore {
 		return this.icons.get(path);
 	}
 
-	/** Assigns an emoji to a path. Returns true when the stored value changed. */
-	set(path: string, emoji: string): boolean {
+	/** Assigns an emoji or custom icon to a path. Returns true when the stored value changed. */
+	set(path: string, value: string): boolean {
 		if (path === "") return false;
-		const parsed = parseEmojiInput(emoji);
-		if (parsed.status !== "ok") return false;
-		if (this.icons.get(path) === parsed.emoji) return false;
-		this.icons.set(path, parsed.emoji);
+		const icon = normalizeIcon(value);
+		if (icon === undefined || this.icons.get(path) === icon) return false;
+		this.icons.set(path, icon);
 		return true;
+	}
+
+	/** Removes every entry whose value matches. Returns the affected paths. */
+	removeWhere(matches: (value: string) => boolean): string[] {
+		const removed: string[] = [];
+		for (const [path, value] of [...this.icons]) {
+			if (!matches(value)) continue;
+			this.icons.delete(path);
+			removed.push(path);
+		}
+		return removed;
 	}
 
 	/** Removes the emoji of a single path. Returns true when something was removed. */
@@ -121,9 +131,9 @@ export class IconStore {
 		for (const [key, value] of Object.entries(candidate)) {
 			const path = normalizeStoredPath(key);
 			if (path === undefined) continue;
-			const emoji = sanitizeStoredEmoji(value);
-			if (emoji === undefined) continue;
-			store.icons.set(path, emoji);
+			const icon = normalizeIcon(value);
+			if (icon === undefined) continue;
+			store.icons.set(path, icon);
 		}
 		return store;
 	}

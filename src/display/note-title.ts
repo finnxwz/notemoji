@@ -1,6 +1,6 @@
 import { App, MarkdownView, TFile } from "obsidian";
 import type { NoteTitleMode } from "../icons/data";
-import type { IconLookup } from "./file-explorer";
+import { IconSource, renderIcon } from "./icon-source";
 
 const ICON_CLASS = "notemoji-title-icon";
 
@@ -37,7 +37,7 @@ export class NoteTitleIcons {
 
 	constructor(
 		private readonly app: App,
-		private readonly lookup: IconLookup,
+		private readonly source: IconSource,
 		private readonly onPick: (file: TFile) => void,
 	) {}
 
@@ -48,7 +48,7 @@ export class NoteTitleIcons {
 
 		if (mode !== "off") {
 			for (const { titleEl, file } of noteTitles(this.app)) {
-				const emoji = this.lookup(file.path);
+				const emoji = this.source.get(file.path);
 				if (emoji === undefined) continue;
 				if (mode === "inline") inline.set(titleEl, emoji);
 				else wanted.add(this.applyIcon(titleEl, file, emoji));
@@ -77,7 +77,10 @@ export class NoteTitleIcons {
 		}
 		icon.dataset.path = file.path;
 		const button = icon.firstElementChild;
-		if (button && button.textContent !== emoji) button.textContent = emoji;
+		if (button instanceof HTMLElement && icon.dataset.value !== emoji) {
+			renderIcon(button, emoji, this.source);
+			icon.dataset.value = emoji;
+		}
 		this.icons.add(icon);
 		return icon;
 	}

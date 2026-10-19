@@ -70,7 +70,10 @@ beforeEach(() => {
 	leaf.view = view;
 	app.workspace.leaves.push(leaf);
 
-	renderer = new FileExplorerRenderer(app.asApp, (path) => store.get(path));
+	renderer = new FileExplorerRenderer(app.asApp, {
+		get: (path) => store.get(path),
+		url: (file) => `app://icons/${file}`,
+	});
 });
 
 afterEach(() => renderer.dispose());
@@ -172,6 +175,22 @@ describe("file explorer", () => {
 		renderer.attach();
 		await settle();
 		expect(iconOf(odd)?.textContent).toBe("🌀");
+	});
+
+	it("shows custom icons as images and switches between kinds in place", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "custom:logo.svg");
+		renderer.attach();
+		await settle();
+		const img = iconOf(note)?.querySelector("img");
+		expect(img?.getAttribute("src")).toBe("app://icons/logo.svg");
+		expect(iconOf(note)?.nextElementSibling).toBe(note.innerEl);
+
+		store.set("A.md", "🚀");
+		renderer.scheduleSync();
+		await settle();
+		expect(iconOf(note)?.querySelector("img")).toBeNull();
+		expect(iconOf(note)?.textContent).toBe("🚀");
 	});
 
 	it("removes every icon on dispose", async () => {

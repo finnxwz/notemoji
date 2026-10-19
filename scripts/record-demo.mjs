@@ -81,7 +81,6 @@ async function playScene(page, still) {
 	await pause(page, 600);
 	await click(page, '.menu-item:text-is("Set note emoji")');
 	await pause(page, 700);
-	await still("picker");
 	await page.keyboard.type("rocket", { delay: 140 });
 	await pause(page, 600);
 	await click(page, ".notemoji-picker-emoji");
@@ -89,19 +88,23 @@ async function playScene(page, still) {
 	await pause(page, 1500);
 	await still("note-title");
 
-	// 2. Another note, browsing a category instead of searching.
-	await rightClick(page, '[data-path="Projects/Roadmap.md"]');
+	// 2. A folder gets your own icon: upload an image in the Custom section.
+	await rightClick(page, '[data-path="Daily notes"]');
 	await pause(page, 600);
-	await click(page, '.menu-item:text-is("Set note emoji")');
+	await click(page, '.menu-item:text-is("Set folder emoji")');
 	await pause(page, 600);
-	await click(page, '.notemoji-picker-tab[data-section="travel"]');
-	await pause(page, 700);
-	await glide(page, '.notemoji-picker-emoji[aria-label="world map"]');
-	await pause(page, 800);
-	await click(page, '.notemoji-picker-emoji[aria-label="world map"]');
+	await click(page, '.notemoji-picker-tab[data-section="custom"]');
+	await pause(page, 600);
+	await glide(page, ".notemoji-picker-upload");
+	await pause(page, 500);
+	await still("custom");
+	await page.locator(".notemoji-picker-upload-input").setInputFiles(uploadFile);
 	await page.mouse.move(820, 520, { steps: 18 });
 	await pause(page, 1800);
 }
+
+/** A sample image to upload, written next to the build output. */
+const uploadFile = path.join(buildDir, "calendar.svg");
 
 async function openScene(browser, url, options) {
 	const context = await browser.newContext({ viewport, ...options });
@@ -118,6 +121,10 @@ async function openScene(browser, url, options) {
 }
 
 const url = await buildPage();
+await writeFile(
+	uploadFile,
+	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#e8590c"/><rect x="14" y="18" width="36" height="32" rx="5" fill="#fff"/><rect x="14" y="18" width="36" height="9" rx="4" fill="#ffd8a8"/><circle cx="25" cy="36" r="3" fill="#e8590c"/><circle cx="39" cy="36" r="3" fill="#e8590c"/></svg>',
+);
 if (process.argv.includes("--open")) {
 	console.log(url);
 	process.exit(0);
@@ -137,6 +144,12 @@ try {
 		await stills.page.evaluate(() => window.setNoteTitle("inline"));
 		await pause(stills.page, 200);
 		await stills.page.screenshot({ path: path.join(buildDir, "check-inline.png") });
+		await stills.page.evaluate(() => {
+			window.setNoteTitle("above");
+			window.setIconOf("Projects/Website relaunch.md", "custom:acme.svg");
+		});
+		await pause(stills.page, 200);
+		await stills.page.screenshot({ path: path.join(buildDir, "check-custom-titles.png") });
 		await rightClick(stills.page, '[data-path="Projects"]');
 		await pause(stills.page, 300);
 		await stills.page.screenshot({ path: path.join(buildDir, "check-menu.png") });

@@ -92,7 +92,7 @@ beforeEach(() => {
 	picked = [];
 	titles = new TitleDecorations(
 		app.asApp,
-		(path) => icons.get(path),
+		{ get: (path) => icons.get(path), url: (file) => `app://icons/${file}` },
 		(file: RealTFile) => picked.push(file.path),
 	);
 });
@@ -198,6 +198,40 @@ describe("tab and view header titles", () => {
 		titles.sync(settings());
 		expect(decorated()).toBe(0);
 		expect(note.tabTitleEl.textContent).toBe("Rocket");
+	});
+});
+
+describe("custom icons", () => {
+	it("shows images above the title and through a CSS variable elsewhere", () => {
+		icons.set("Notes/Rocket.md", "custom:logo.svg");
+		const note = open("Notes/Rocket.md");
+		titles.sync(settings());
+		const img = iconAbove(note.inlineTitles[0])?.querySelector("img");
+		expect(img?.getAttribute("src")).toBe("app://icons/logo.svg");
+		for (const el of [note.tabTitleEl, note.headerTitleEl]) {
+			expect(el.getAttribute("data-notemoji-image")).toBe("logo.svg");
+			expect(el.getAttribute(EMOJI_ATTRIBUTE)).toBeNull();
+			expect(el.style.getPropertyValue("--notemoji-image")).toContain("app://icons/logo.svg");
+			expect(el.textContent).toBe("Rocket");
+		}
+
+		titles.sync(settings({ noteTitle: "inline" }));
+		expect(note.inlineTitles[0].getAttribute("data-notemoji-image")).toBe("logo.svg");
+
+		icons.set("Notes/Rocket.md", "🚀");
+		titles.sync(settings());
+		expect(note.tabTitleEl.getAttribute("data-notemoji-image")).toBeNull();
+		expect(note.tabTitleEl.style.getPropertyValue("--notemoji-image")).toBe("");
+		expect(attr(note.tabTitleEl)).toBe("🚀");
+	});
+
+	it("removes the image decoration on dispose", () => {
+		icons.set("doc.pdf", "custom:logo.svg");
+		const pdf = open("doc.pdf");
+		titles.sync(settings());
+		titles.dispose();
+		expect(pdf.tabTitleEl.getAttribute("data-notemoji-image")).toBeNull();
+		expect(pdf.tabTitleEl.style.getPropertyValue("--notemoji-image")).toBe("");
 	});
 });
 

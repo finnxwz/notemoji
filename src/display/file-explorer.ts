@@ -1,8 +1,6 @@
 import type { App } from "obsidian";
 import type { FileExplorerView } from "../internals";
-
-/** Returns the emoji of a vault path, or `undefined` when it has none. */
-export type IconLookup = (path: string) => string | undefined;
+import { IconSource, renderIcon } from "./icon-source";
 
 /** Marker class of the emoji nodes owned by this plugin. */
 const ICON_CLASS = "notemoji-icon";
@@ -31,16 +29,16 @@ const SYNC_DELAY_MS = 50;
  */
 export class FileExplorerRenderer {
 	private readonly app: App;
-	private readonly lookup: IconLookup;
+	private readonly source: IconSource;
 	private readonly views = new Set<FileExplorerView>();
 	private readonly observers = new Map<HTMLElement, MutationObserver>();
 	private timer: number | null = null;
 	private attachToken = 0;
 	private disposed = false;
 
-	constructor(app: App, lookup: IconLookup) {
+	constructor(app: App, source: IconSource) {
 		this.app = app;
-		this.lookup = lookup;
+		this.source = source;
 	}
 
 	/** Connects to every open file explorer, renders icons and observes changes. */
@@ -143,7 +141,7 @@ export class FileExplorerRenderer {
 		const decorated = new Set<HTMLElement>();
 		for (const view of this.views) {
 			for (const [path, item] of Object.entries(view.fileItems ?? {})) {
-				const emoji = this.lookup(path);
+				const emoji = this.source.get(path);
 				if (emoji === undefined) continue;
 
 				const titleEl = item.selfEl;
@@ -167,12 +165,12 @@ export class FileExplorerRenderer {
 	}
 
 	/** Adds or updates the emoji node of a single file explorer item. */
-	private applyIcon(titleEl: HTMLElement, innerEl: HTMLElement | null, emoji: string): void {
+	private applyIcon(titleEl: HTMLElement, innerEl: HTMLElement | null, value: string): void {
 		const existing = this.findIconNode(titleEl);
 		if (existing) {
-			if (existing.getAttribute(EMOJI_ATTRIBUTE) === emoji) return;
-			existing.textContent = emoji;
-			existing.setAttribute(EMOJI_ATTRIBUTE, emoji);
+			if (existing.getAttribute(EMOJI_ATTRIBUTE) === value) return;
+			renderIcon(existing, value, this.source);
+			existing.setAttribute(EMOJI_ATTRIBUTE, value);
 			return;
 		}
 
@@ -180,9 +178,9 @@ export class FileExplorerRenderer {
 		// so it is moved to its final position right below.
 		const iconEl = titleEl.createSpan({
 			cls: ICON_CLASS,
-			text: emoji,
-			attr: { [EMOJI_ATTRIBUTE]: emoji, "aria-hidden": "true" },
+			attr: { [EMOJI_ATTRIBUTE]: value, "aria-hidden": "true" },
 		});
+		renderIcon(iconEl, value, this.source);
 
 		// Keep the emoji immediately before the name, after the folder chevron.
 		const anchor =

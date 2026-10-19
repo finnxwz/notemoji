@@ -1,7 +1,7 @@
 import type { App, TAbstractFile } from "obsidian";
 import { TFile } from "obsidian";
-import { parseEmojiInput } from "./emoji";
 import { NotemojiSettings, PluginData, pushRecent } from "./data";
+import { CUSTOM_PREFIX } from "./icon-value";
 
 export function isNote(file: TAbstractFile): file is TFile {
 	return file instanceof TFile && file.extension === "md";
@@ -10,8 +10,8 @@ export function isNote(file: TAbstractFile): file is TFile {
 /**
  * The single source of truth for "which emoji does this item have".
  *
- * Every emoji (notes, folders, any file) lives in data.json by vault path, so
- * notes are never modified. Renderers only call `get(path)` and re-render on
+ * Every emoji or custom icon (notes, folders, any file) lives in data.json by
+ * vault path, so notes are never modified. Renderers only call `get(path)` and re-render on
  * `onChange`.
  */
 export class IconService {
@@ -54,10 +54,12 @@ export class IconService {
 		this.notify();
 	}
 
-	/** Sets an item's emoji. Returns false when nothing changed or the input is no emoji. */
-	setIcon(file: TAbstractFile, input: string): boolean {
-		const parsed = parseEmojiInput(input);
-		if (parsed.status !== "ok" || !this.data.icons.set(file.path, parsed.emoji)) return false;
+	/**
+	 * Sets an item's emoji or custom icon (`custom:<file>`). Returns false when
+	 * nothing changed or the value is not usable.
+	 */
+	setIcon(file: TAbstractFile, value: string): boolean {
+		if (!this.data.icons.set(file.path, value)) return false;
 		this.save();
 		this.notify();
 		return true;
@@ -88,6 +90,31 @@ export class IconService {
 	 */
 	handleRename(file: TAbstractFile, oldPath: string): void {
 		if (!this.data.icons.rename(oldPath, file.path)) return;
+		this.save();
+		this.notify();
+	}
+
+	/** How many items use the custom icon `file`. */
+	countCustomUses(file: string): number {
+		let count = 0;
+		for (const [, value] of this.data.icons.entries()) {
+			if (value === CUSTOM_PREFIX + file) count += 1;
+		}
+		return count;
+	}
+
+	/**
+	 * Forgets custom icons whose file was deleted: removes them from items and
+	 * from the recent list. Without `files`, forgets every custom icon.
+	 */
+	forgetCustomIcons(files?: readonly string[]): void {
+		const values = files?.map((file) => CUSTOM_PREFIX + file);
+		const matches = (value: string) =>
+			values ? values.includes(value) : value.startsWith(CUSTOM_PREFIX);
+		const removed = this.data.icons.removeWhere(matches);
+		const recent = this.data.recent.filter((value) => !matches(value));
+		if (removed.length === 0 && recent.length === this.data.recent.length) return;
+		this.data.recent = recent;
 		this.save();
 		this.notify();
 	}

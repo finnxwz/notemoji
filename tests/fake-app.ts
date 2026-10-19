@@ -12,8 +12,50 @@ export interface FakeAppOptions {
 	activeFile?: string;
 }
 
+/** In-memory stand-in for Obsidian's file adapter (used for custom icon files). */
+export class FakeAdapter {
+	readonly files = new Map<string, ArrayBuffer>();
+	readonly folders = new Set<string>();
+
+	exists(path: string): Promise<boolean> {
+		return Promise.resolve(this.files.has(path) || this.folders.has(path));
+	}
+	list(folder: string): Promise<{ files: string[]; folders: string[] }> {
+		const files = [...this.files.keys()].filter(
+			(path) => path.startsWith(`${folder}/`) && !path.slice(folder.length + 1).includes("/"),
+		);
+		return Promise.resolve({ files, folders: [] });
+	}
+	mkdir(path: string): Promise<void> {
+		this.folders.add(path);
+		return Promise.resolve();
+	}
+	writeBinary(path: string, data: ArrayBuffer): Promise<void> {
+		this.files.set(path, data);
+		return Promise.resolve();
+	}
+	remove(path: string): Promise<void> {
+		this.files.delete(path);
+		return Promise.resolve();
+	}
+	rmdir(path: string): Promise<void> {
+		for (const file of [...this.files.keys()])
+			if (file.startsWith(`${path}/`)) this.files.delete(file);
+		this.folders.delete(path);
+		return Promise.resolve();
+	}
+	stat(path: string): Promise<{ size: number } | null> {
+		const data = this.files.get(path);
+		return Promise.resolve(data ? { size: data.byteLength } : null);
+	}
+	getResourcePath(path: string): string {
+		return `app://local/${encodeURI(path)}`;
+	}
+}
+
 export class FakeVault extends Events {
 	readonly configDir = ".obsidian";
+	readonly adapter = new FakeAdapter();
 	readonly items = new Map<string, TAbstractFile>();
 	readonly root = new TFolder("/");
 

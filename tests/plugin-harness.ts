@@ -17,6 +17,7 @@ export async function loadPlugin(options: HarnessOptions = {}) {
 	const plugin = new NotemojiPlugin(app.asApp, {
 		id: "notemoji",
 		version: "test",
+		dir: ".obsidian/plugins/notemoji",
 	} as PluginManifest);
 	const fake = plugin as unknown as FakePlugin;
 	fake.dataJson = structuredClone(options.data ?? null);
