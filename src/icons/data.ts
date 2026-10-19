@@ -28,7 +28,7 @@ export interface NotemojiSettings {
 export const DEFAULT_SETTINGS: Readonly<NotemojiSettings> = {
 	noteTitle: "off",
 	showInTabs: true,
-	showInViewHeader: true,
+	showInViewHeader: false,
 };
 
 export interface PluginData {

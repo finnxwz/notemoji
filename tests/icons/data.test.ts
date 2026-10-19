@@ -36,7 +36,7 @@ describe("parseData", () => {
 		expect(data.settings).toEqual({
 			noteTitle: "inline",
 			showInTabs: false,
-			showInViewHeader: true,
+			showInViewHeader: false,
 		});
 		expect(parseData({ settings: { noteTitle: "huge" } }).settings.noteTitle).toBe("off");
 	});

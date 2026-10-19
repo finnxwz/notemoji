@@ -43,7 +43,7 @@ never modified.
 | ----------------------------- | ------- | ----------------------------------------------------------------------------------------- |
 | Emoji at note title           | Off     | Or _Large, above the title_ (click it to change the emoji), or _Inline, before the title_ |
 | Emoji in tab titles           | On      | The emoji in front of each tab's name                                                     |
-| Emoji in view header title    | On      | The emoji in front of the title in the bar at the top of a tab                            |
+| Emoji in view header title    | Off     | The emoji in front of the title in the bar at the top of a tab                            |
 | Custom icons                  | –       | Shows how many custom icons you have and their size; _Delete all_ removes them            |
 | Remove emoji of missing files | –       | Cleans up emoji of notes, folders and files that no longer exist                          |
 

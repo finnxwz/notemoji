@@ -91,7 +91,7 @@ describe("commands", () => {
 		await flush();
 		expect(harness.lastSaved()).toEqual({
 			version: 2,
-			settings: { noteTitle: "off", showInTabs: true, showInViewHeader: true },
+			settings: { noteTitle: "off", showInTabs: true, showInViewHeader: false },
 			icons: { "Notes/A.md": "🚀" },
 			recent: ["🚀"],
 		});
