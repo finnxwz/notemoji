@@ -284,6 +284,10 @@ export class PickerModal extends Modal {
 
 	/** Lays the current sections out for the grid's width (skipped when nothing changed). */
 	private relayout(keepScroll: boolean): void {
+		// Keeps the pinned section label clear of the scrollbar.
+		this.stickyEl.setCssProps({
+			"--notemoji-scrollbar-width": `${this.grid.scrollbarWidth}px`,
+		});
 		const width = this.grid.scrollEl.clientWidth || FALLBACK_WIDTH_PX;
 		const columns = Math.max(1, Math.floor(width / MIN_TILE_PX));
 		const rowHeight = Math.floor(width / columns);

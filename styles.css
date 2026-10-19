@@ -112,16 +112,9 @@ body {
 	contain: strict;
 }
 
-/* Faint dots where tiles go: a placeholder if a row is not rendered yet. */
 .notemoji-picker-canvas {
 	position: relative;
 	height: var(--notemoji-grid-height, 0);
-	background-image: radial-gradient(
-		circle,
-		var(--background-modifier-border) 0 3px,
-		transparent 3.5px
-	);
-	background-size: var(--notemoji-tile-width) var(--notemoji-tile-height);
 }
 
 .notemoji-picker-row,
@@ -131,11 +124,6 @@ body {
 	top: 0;
 	height: var(--notemoji-row-height);
 	transform: translateY(var(--notemoji-row-top));
-}
-
-.notemoji-picker-row,
-.notemoji-picker-section-title {
-	background-color: var(--modal-background, var(--background-primary));
 }
 
 .notemoji-picker-row {
@@ -153,10 +141,11 @@ body {
 	font-weight: var(--font-semibold);
 }
 
-/* The current section's name, pinned once its own header scrolled away. */
+/* The current section's name, pinned once its own header scrolled away.
+   It stops where the scrollbar starts, so the scrollbar stays fully visible. */
 .notemoji-picker-sticky {
 	position: absolute;
-	inset-inline: 0;
+	inset-inline: 0 var(--notemoji-scrollbar-width, 0);
 	top: 0;
 	z-index: 1;
 	height: 30px;

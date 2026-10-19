@@ -36,6 +36,11 @@ export class VirtualGrid {
 		this.scrollEl.addEventListener("scroll", () => this.update(), { passive: true });
 	}
 
+	/** Width of the vertical scrollbar (0 for overlay scrollbars). */
+	get scrollbarWidth(): number {
+		return Math.max(0, this.scrollEl.offsetWidth - this.scrollEl.clientWidth);
+	}
+
 	get viewportHeight(): number {
 		return this.scrollEl.clientHeight || FALLBACK_VIEWPORT_PX;
 	}
@@ -44,11 +49,7 @@ export class VirtualGrid {
 	setLayout(layout: GridLayout, keepScroll = false): void {
 		this.layout = layout;
 		this.clear();
-		this.canvasEl.setCssProps({
-			"--notemoji-grid-height": `${layout.height}px`,
-			"--notemoji-tile-width": `calc(100% / ${layout.metrics.columns})`,
-			"--notemoji-tile-height": `${layout.metrics.rowHeight}px`,
-		});
+		this.canvasEl.setCssProps({ "--notemoji-grid-height": `${layout.height}px` });
 		if (!keepScroll) this.scrollEl.scrollTop = 0;
 		this.update();
 	}
