@@ -70,7 +70,7 @@ beforeEach(() => {
 	leaf.view = view;
 	app.workspace.leaves.push(leaf);
 
-	renderer = new FileExplorerRenderer(app.asApp, store);
+	renderer = new FileExplorerRenderer(app.asApp, (path) => store.get(path));
 });
 
 afterEach(() => renderer.dispose());

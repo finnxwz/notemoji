@@ -14,6 +14,15 @@ export default defineConfig([
 		},
 	},
 	{
+		// minAppVersion is 1.7.2: display() and setWarning() are the supported APIs there.
+		// Their replacements (getSettingDefinitions, setDestructive) need Obsidian 1.13.
+		files: ["src/**"],
+		rules: {
+			"@typescript-eslint/no-deprecated": "off",
+			"obsidianmd/settings-tab/prefer-setting-definitions": "off",
+		},
+	},
+	{
 		// Tests and tooling build fake Obsidian DOM and run in Node, not in the app.
 		files: ["tests/**", "scripts/**", "*.config.*"],
 		rules: {

@@ -94,7 +94,7 @@ export class FakeMetadataCache extends Events {
 	}
 
 	/** Sets a note's frontmatter (e.g. edited in the Properties panel) and emits `changed`. */
-	set(file: TFile, frontmatter: Frontmatter): void {
+	set(file: { path: string }, frontmatter: Frontmatter): void {
 		this.frontmatter.set(file.path, structuredClone(frontmatter));
 		this.trigger("changed", file, "", this.getCache(file.path));
 	}

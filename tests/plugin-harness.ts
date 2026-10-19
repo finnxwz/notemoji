@@ -19,7 +19,7 @@ export async function loadPlugin(options: HarnessOptions = {}) {
 		version: "test",
 	} as PluginManifest);
 	const fake = plugin as unknown as FakePlugin;
-	fake.data = structuredClone(options.data ?? null);
+	fake.dataJson = structuredClone(options.data ?? null);
 	fake.load();
 	await flush();
 

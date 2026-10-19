@@ -1,14 +1,5 @@
 import { parseEmojiInput, sanitizeStoredEmoji } from "./emoji";
 
-/** Version of the on disk layout; bump when the shape of `StoredIconData` changes. */
-export const ICON_DATA_VERSION = 1;
-
-/** Shape of the plugin data file (`data.json`). */
-export interface StoredIconData {
-	version: number;
-	icons: Record<string, string>;
-}
-
 function normalizeStoredPath(key: string): string | undefined {
 	const path = key.trim();
 	if (path === "" || path.includes("\u0000")) return undefined;
@@ -17,6 +8,9 @@ function normalizeStoredPath(key: string): string | undefined {
 
 /**
  * In-memory map of vault paths to emoji icons.
+ *
+ * Used for the icons in data.json (folders, other files, legacy notes) and as
+ * the index of note icons read from frontmatter.
  *
  * Kept deliberately free of Obsidian imports so the rename/cleanup rules can be
  * unit tested without a vault. All mutating methods report whether they changed
@@ -115,10 +109,14 @@ export class IconStore {
 		return this.icons.entries();
 	}
 
-	toData(): StoredIconData {
+	clear(): void {
+		this.icons.clear();
+	}
+
+	toRecord(): Record<string, string> {
 		const icons: Record<string, string> = {};
 		for (const [path, emoji] of this.icons) icons[path] = emoji;
-		return { version: ICON_DATA_VERSION, icons };
+		return icons;
 	}
 
 	/**

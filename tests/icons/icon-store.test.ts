@@ -1,9 +1,9 @@
 import { strict as assert } from "node:assert";
 import { describe, it } from "vitest";
-import { ICON_DATA_VERSION, IconStore } from "../../src/icons/icon-store";
+import { IconStore } from "../../src/icons/icon-store";
 
 function storeOf(entries: Record<string, string>): IconStore {
-	return IconStore.fromData({ version: ICON_DATA_VERSION, icons: entries });
+	return IconStore.fromData({ icons: entries });
 }
 
 describe("IconStore basics", () => {
@@ -198,16 +198,12 @@ describe("IconStore.fromData", () => {
 		assert.equal(store.get("Good.md"), "🚀");
 	});
 
-	it("round-trips through toData", () => {
+	it("round-trips through toRecord", () => {
 		const original = storeOf({ "Notes/A.md": "👨‍👩‍👧‍👦", Folder: "🇩🇪" });
-		const reloaded = IconStore.fromData(original.toData());
+		const reloaded = IconStore.fromData(original.toRecord());
 
 		assert.equal(reloaded.size, 2);
 		assert.equal(reloaded.get("Notes/A.md"), "👨‍👩‍👧‍👦");
 		assert.equal(reloaded.get("Folder"), "🇩🇪");
-	});
-
-	it("writes the current data version", () => {
-		assert.equal(new IconStore().toData().version, ICON_DATA_VERSION);
 	});
 });

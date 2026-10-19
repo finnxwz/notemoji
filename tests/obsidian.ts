@@ -252,7 +252,7 @@ export class Plugin extends Component {
 	commands: Command[] = [];
 	settingTabs: PluginSettingTab[] = [];
 	/** Contents of the fake data.json; `saved` records every write. */
-	data: unknown = null;
+	dataJson: unknown = null;
 	saved: unknown[] = [];
 
 	constructor(app: App, manifest: { id: string; version: string }) {
@@ -269,11 +269,11 @@ export class Plugin extends Component {
 		this.settingTabs.push(tab);
 	}
 	loadData(): Promise<unknown> {
-		return Promise.resolve(structuredClone(this.data));
+		return Promise.resolve(structuredClone(this.dataJson));
 	}
 	saveData(data: unknown): Promise<void> {
-		this.data = structuredClone(data);
-		this.saved.push(this.data);
+		this.dataJson = structuredClone(data);
+		this.saved.push(this.dataJson);
 		return Promise.resolve();
 	}
 }

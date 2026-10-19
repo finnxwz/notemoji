@@ -1,6 +1,8 @@
 import type { App } from "obsidian";
-import type { IconStore } from "../icons/icon-store";
 import type { FileExplorerView } from "../internals";
+
+/** Returns the emoji of a vault path, or `undefined` when it has none. */
+export type IconLookup = (path: string) => string | undefined;
 
 /** Marker class of the emoji nodes owned by this plugin. */
 const ICON_CLASS = "notemoji-icon";
@@ -29,16 +31,16 @@ const SYNC_DELAY_MS = 50;
  */
 export class FileExplorerRenderer {
 	private readonly app: App;
-	private readonly store: IconStore;
+	private readonly lookup: IconLookup;
 	private readonly views = new Set<FileExplorerView>();
 	private readonly observers = new Map<HTMLElement, MutationObserver>();
 	private timer: number | null = null;
 	private attachToken = 0;
 	private disposed = false;
 
-	constructor(app: App, store: IconStore) {
+	constructor(app: App, lookup: IconLookup) {
 		this.app = app;
-		this.store = store;
+		this.lookup = lookup;
 	}
 
 	/** Connects to every open file explorer, renders icons and observes changes. */
@@ -139,10 +141,10 @@ export class FileExplorerRenderer {
 		if (this.disposed) return;
 
 		const decorated = new Set<HTMLElement>();
-		for (const [path, emoji] of this.store.entries()) {
-			for (const view of this.views) {
-				const item = view.fileItems?.[path];
-				if (!item) continue;
+		for (const view of this.views) {
+			for (const [path, item] of Object.entries(view.fileItems ?? {})) {
+				const emoji = this.lookup(path);
+				if (emoji === undefined) continue;
 
 				const titleEl = item.selfEl;
 				if (!titleEl) continue;
