@@ -203,6 +203,21 @@ describe("sync", () => {
 	});
 });
 
+describe("startup indexing", () => {
+	it("reads notes again once the metadata cache has resolved", async () => {
+		const harness = await loadPlugin({ frontmatter: { "A.md": {} } });
+		// Indexed late, without a "changed" event (first start of a vault).
+		harness.app.metadataCache.frontmatter.set("A.md", { icon: "🌱" });
+		harness.app.metadataCache.trigger("resolved");
+		expect(harness.plugin.icons.get("A.md")).toBe("🌱");
+
+		// Only once: later "resolved" events are frequent and must stay cheap.
+		harness.app.metadataCache.frontmatter.set("A.md", { icon: "🌳" });
+		harness.app.metadataCache.trigger("resolved");
+		expect(harness.plugin.icons.get("A.md")).toBe("🌱");
+	});
+});
+
 describe("settings tab", () => {
 	async function openSettings(options: Parameters<typeof loadPlugin>[0] = {}) {
 		const harness = await loadPlugin(options);
@@ -232,6 +247,16 @@ describe("settings tab", () => {
 			showInTabs: false,
 			showInViewHeader: false,
 		});
+	});
+
+	it("keeps working after data.json was reloaded by sync", async () => {
+		const harness = await openSettings();
+		harness.fake.dataJson = { version: 2, icons: { Synced: "🔄" } };
+		await harness.plugin.onExternalSettingsChange();
+		(harness.setting("Emoji in tab titles").components[0] as ToggleComponent).change(false);
+		await flush();
+		expect(harness.lastSaved()?.settings).toMatchObject({ showInTabs: false });
+		expect(harness.lastSaved()?.icons).toEqual({ Synced: "🔄" });
 	});
 
 	it("offers the frontmatter migration only when there is something to move", async () => {

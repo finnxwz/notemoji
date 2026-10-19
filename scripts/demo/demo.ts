@@ -143,7 +143,6 @@ document.addEventListener("mouseup", () => cursorEl.classList.remove("is-down"))
 Object.assign(window, {
 	demoReady: true,
 	setNoteTitle(mode: "above" | "inline" | "off") {
-		plugin.icons.settings.noteTitle = mode;
-		plugin.saveSettings();
+		plugin.updateSettings({ noteTitle: mode });
 	},
 });

@@ -146,15 +146,21 @@ export class IconService {
 	async removeIcon(file: TAbstractFile): Promise<boolean> {
 		let changed = false;
 
-		if (isNote(file) && this.readProperty(file).kind === "emoji") {
+		const indexed = this.noteIcons.get(file.path) !== undefined;
+		if (isNote(file) && (indexed || this.readProperty(file).kind === "emoji")) {
+			// Decided on the file's actual frontmatter: the metadata cache can lag
+			// behind a write made a moment ago.
+			let removed = false;
 			await this.app.fileManager.processFrontMatter(
 				file,
 				(frontmatter: Record<string, unknown>) => {
+					if (parseIconValue(frontmatter[ICON_PROPERTY]).kind !== "emoji") return;
 					delete frontmatter[ICON_PROPERTY];
+					removed = true;
 				},
 			);
 			this.noteIcons.remove(file.path);
-			changed = true;
+			changed = removed || indexed;
 		}
 		if (this.data.icons.remove(file.path)) {
 			this.options.save();

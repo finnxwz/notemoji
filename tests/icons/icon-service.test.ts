@@ -139,6 +139,18 @@ describe("removing", () => {
 		expect(app.metadataCache.frontmatter.get("A.md")).toEqual({ tags: [] });
 	});
 
+	it("removes right after setting, before the metadata cache caught up", async () => {
+		const { app, service, file } = setup({ frontmatter: { "A.md": {} } });
+		await service.setIcon(file("A.md"), "🚀");
+		// The cache still reports the old (empty) frontmatter.
+		const realCache = app.metadataCache.getFileCache.bind(app.metadataCache);
+		app.metadataCache.getFileCache = () => ({ frontmatter: {} });
+		expect(await service.removeIcon(file("A.md"))).toBe(true);
+		app.metadataCache.getFileCache = realCache;
+		expect(app.metadataCache.frontmatter.get("A.md")).toEqual({});
+		expect(service.get("A.md")).toBeUndefined();
+	});
+
 	it("leaves a property alone that is not an emoji", async () => {
 		const { app, service, file } = setup({ frontmatter: { "A.md": { icon: "LiHome" } } });
 		expect(await service.removeIcon(file("A.md"))).toBe(false);

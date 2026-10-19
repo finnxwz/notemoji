@@ -32,27 +32,26 @@ export class NotemojiSettingTab extends PluginSettingTab {
 					.addOption("inline", "Inline, before the title")
 					.addOption("off", "Off")
 					.setValue(settings.noteTitle)
-					.onChange((value) => {
-						settings.noteTitle = value as NoteTitleMode;
-						plugin.saveSettings();
-					}),
+					.onChange((value) =>
+						plugin.updateSettings({ noteTitle: value as NoteTitleMode }),
+					),
 			);
 
-		new Setting(containerEl).setName("Emoji in tab titles").addToggle((toggle) =>
-			toggle.setValue(settings.showInTabs).onChange((value) => {
-				settings.showInTabs = value;
-				plugin.saveSettings();
-			}),
-		);
+		new Setting(containerEl)
+			.setName("Emoji in tab titles")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(settings.showInTabs)
+					.onChange((value) => plugin.updateSettings({ showInTabs: value })),
+			);
 
 		new Setting(containerEl)
 			.setName("Emoji in view header title")
 			.setDesc("The title in the bar at the top of each tab.")
 			.addToggle((toggle) =>
-				toggle.setValue(settings.showInViewHeader).onChange((value) => {
-					settings.showInViewHeader = value;
-					plugin.saveSettings();
-				}),
+				toggle
+					.setValue(settings.showInViewHeader)
+					.onChange((value) => plugin.updateSettings({ showInViewHeader: value })),
 			);
 
 		this.displayStoredData(containerEl);

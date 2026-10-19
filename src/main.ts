@@ -2,7 +2,7 @@ import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
 import { confirm } from "./confirm-modal";
 import { FileExplorerRenderer } from "./display/file-explorer";
 import { TitleDecorations } from "./display/titles";
-import { parseData, PluginData, serializeData } from "./icons/data";
+import { NotemojiSettings, parseData, PluginData, serializeData } from "./icons/data";
 import { ICON_PROPERTY, IconService, isNote } from "./icons/icon-service";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings";
@@ -58,6 +58,8 @@ export default class NotemojiPlugin extends Plugin {
 
 	/** Reloads data.json after it was changed on disk, e.g. by sync. */
 	async onExternalSettingsChange(): Promise<void> {
+		// A save still in flight must not land after (and over) the reloaded data.
+		await this.saveQueue;
 		const data = parseData(await this.readData());
 		if (JSON.stringify(serializeData(data)) === JSON.stringify(serializeData(this.data)))
 			return;
@@ -65,8 +67,9 @@ export default class NotemojiPlugin extends Plugin {
 		this.icons.replaceData(data);
 	}
 
-	/** Persists the settings and re-renders; used by the settings tab. */
-	saveSettings(): void {
+	/** Changes settings, saves and re-renders. Always edits the current data, also after a reload. */
+	updateSettings(patch: Partial<NotemojiSettings>): void {
+		Object.assign(this.data.settings, patch);
 		this.persist();
 		this.refresh();
 	}
@@ -75,6 +78,14 @@ export default class NotemojiPlugin extends Plugin {
 		this.icons.indexNotes();
 		this.explorer.attach();
 		this.scheduleTitleSync();
+
+		// In a vault opened for the first time, the metadata cache may still be
+		// indexing. Read every note once more when it is complete.
+		const ref = this.app.metadataCache.on("resolved", () => {
+			this.app.metadataCache.offref(ref);
+			this.icons.indexNotes();
+		});
+		this.registerEvent(ref);
 	}
 
 	// ------------------------------------------------------------------ wiring
