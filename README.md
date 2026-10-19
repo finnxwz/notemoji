@@ -1,49 +1,83 @@
 # Notemoji
 
-Assign emoji icons to notes and folders in the file explorer to make your vault feel a little cozier.
+Give your notes and folders an emoji. It shows up in the file
+explorer, above the note title, in tabs and in the title bar, and it stays with the note
+wherever the note goes.
+
+![Setting emoji for notes with Notemoji](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/demo.gif)
 
 ## ⚒️ Features
 
-- Emoji icons for **notes, files and folders** that show up right in front of their name.
-- Right-click a file or folder → **Set / Change / Remove … emoji**.
-- A minimal input that works with your operating system's emoji picker
-  (Windows: `Win + .`, macOS: `Control + Command + Space`) and with pasting.
-- Multi code point emoji are supported: flags, skin tones, variation selectors,
-  keycaps and ZWJ families (`🇩🇪`, `👍🏽`, `❤️`, `1️⃣`, `👨‍👩‍👧‍👦`).
-- Icons stay with their note, also if renamed or moved.
-- No settings, no assets, no emoji database. Your notes are never modified.
+- **Page icons.** A large emoji sits above the note title. Click it to change it.
+- **Everywhere you look.** File explorer, note title, tab titles and the title bar of each tab.
+  Every place except the file explorer can be turned off.
+- **A real emoji picker.** Search by name or keyword (`rocket`, `party`, `:tada:`), browse
+  categories, reuse recently used emoji, use the arrow keys and Enter. Pasting any emoji, or
+  using your system's emoji picker, works too.
+- **The emoji lives in the note.** A note's emoji is saved as the `icon` property in its
+  frontmatter. It survives renaming and moving the file anywhere (also in your file manager,
+  Git or another editor), syncs with the note and works with Bases and Dataview.
+- **Folders and other files too.** Folders, PDFs, images and canvases can have an emoji as well.
+- **Any emoji.** Flags, skin tones, keycaps and family sequences (`🇩🇪`, `👍🏽`, `1️⃣`,
+  `👨‍👩‍👧‍👦`) stay intact. Symbols such as `★` or `✓` work as well.
 
 ## 🤔 How to use Notemoji
 
-| Action          | How                                                                               |
-| --------------- | --------------------------------------------------------------------------------- |
-| Set an emoji    | Right-click the item in the file explorer → _Set note emoji_ / _Set folder emoji_ |
-| Change an emoji | Right-click → _Change … emoji_ (the input is pre-filled)                          |
-| Remove an emoji | Right-click → _Remove … emoji_, or clear the input and submit                     |
+| Action                  | How                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------- |
+| Set an emoji            | Right-click a note, folder or file → _Set … emoji_, or run _Set emoji for current note_     |
+| Change an emoji         | Click the large emoji above the note title, or right-click → _Change … emoji_               |
+| Remove an emoji         | _Remove_ in the picker, right-click → _Remove … emoji_, or _Remove emoji from current note_ |
+| Edit it by hand         | Change the `icon` property of the note in the Properties panel                              |
+| Give new notes an emoji | Add `icon: 📝` to the frontmatter of your template                                          |
 
-The input only accepts a single emoji. If you enter more than one, only the first one is
-being used.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/picker.png" alt="The emoji picker with search, categories and recently used emoji" width="49%">
+  <img src="https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/note-title.png" alt="A note with a rocket emoji above its title, in the file explorer, the tab and the title bar" width="49%">
+</p>
+
+## ⚙️ Settings
+
+| Setting                        | Default                | What it does                                                   |
+| ------------------------------ | ---------------------- | -------------------------------------------------------------- |
+| Emoji at note title            | Large, above the title | Or _Inline, before the title_, or _Off_                        |
+| Emoji in tab titles            | On                     | The emoji in front of each tab's name                          |
+| Emoji in view header title     | On                     | The emoji in front of the title in the bar at the top of a tab |
+| Move note emoji to frontmatter | –                      | Only shown after upgrading from 1.x, see below                 |
+| Remove emoji of missing files  | –                      | Cleans up emoji of folders and files that no longer exist      |
 
 ## 💻 Installation
 
 - **directly in Obsidian:**
-  - Settings → Community plugins → Browse* → search for **Notemoji** → _Install_ → **Enable**
+  - Settings → Community plugins → _Browse_ → search for **Notemoji** → _Install_ → **Enable**
 - **via GitHub:**
-  - Copy `manifest.json`, `main.js` and `styles.css` into `<your vault>/.obsidian/plugins/notemoji/`.
+  - Copy `manifest.json`, `main.js` and `styles.css` from the latest release into `<your vault>/.obsidian/plugins/notemoji/`.
   - Reload Obsidian and enable **Notemoji** under _Settings → Community plugins_.
 
 ## 💡 Additional info
 
-- Icons are shown in the **file explorer** only. Tabs, the note title, search
-  results and bookmarks are intentionally left untouched.
-- Deleting an item also removes its emoji. Because Obsidian reports every
-  deletion the same way, a file restored from the trash starts without its emoji
-  (it can be re-assigned in just two clicks).
-- Emoji come from your operating system and the fonts you have installed. Some
-  platforms do not ship flag glyphs, so `🇩🇪` may be displayed as `DE`, the real
-  emoji is stored either way.
-- Your icons are saved in Obsidian's plugin data and never touch the content of
-  your notes.
+- **Where emoji are stored:** notes in their `icon` property; folders and other files (which
+  have no frontmatter) in the plugin's data file. Renaming or moving those inside Obsidian
+  keeps their emoji; doing it outside of Obsidian does not.
+- **Deleted folders and files** keep their entry in the data file, so a restore or a sync
+  brings the emoji back. _Remove emoji of missing files_ cleans them up.
+- **Existing `icon` properties** that are not an emoji (for example from other icon plugins) are ignored,
+  and Notemoji asks before replacing one.
+- **Upgrading from 1.x:** your emoji keep working. A note's emoji moves into its frontmatter
+  the next time you change it, or all at once with _Move note emoji to frontmatter_.
+- **The note title emoji** follows Obsidian's _Show inline title_ setting.
+- **Emoji look** comes from your operating system's font. Some systems, notably Windows, show
+  flags as letters (`🇩🇪` as `DE`); the real emoji is stored either way. The picker lists
+  emoji up to Emoji 15.0, which every current system can display; newer ones can be pasted.
+
+## 🛠️ Development
+
+```sh
+npm ci
+OBSIDIAN_VAULT=/path/to/test/vault npm run dev   # builds into the vault; pair with the Hot Reload plugin
+npm run check                                    # format, lint, typecheck, tests and build
+npm run demo                                     # re-records the README media
+```
 
 ## 😎 You might also like some other plugins I've made:
 
@@ -53,4 +87,9 @@ My plugins are designed to work across Windows, macOS, Android, and iOS.
 
 ## ⚠️ Feedback and support
 
-Found a bug or have a suggestion? Open an issue in this repository's **GitHub Issues** tab. Include your Obsidian version, device/platform, a small Markdown example and what you expected to happen. Please remove private note content before sharing examples.
+Found a bug or have a suggestion? Open an issue in this repository's **GitHub Issues** tab. Include your Obsidian version, device/platform, a small Markdown example and what you expected to happen. Please remove private note content before sharing examples.
+
+## 🙏 Credits
+
+Emoji names and keywords come from [Emojibase](https://emojibase.dev) (MIT), based on the
+[Unicode CLDR](https://cldr.unicode.org) data.

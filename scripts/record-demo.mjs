@@ -1,0 +1,183 @@
+/**
+ * Records the README media (docs/media/*) from scripts/demo, a scene that runs
+ * the real plugin in an Obsidian-like page.
+ *
+ *   npm run demo            # screenshots + GIF (the GIF needs ffmpeg)
+ *   npm run demo -- --open  # only build .test-build/demo.html to look at it
+ *   npm run demo -- --check # also write layout check screenshots to .test-build/
+ *
+ * Needs Chromium for Playwright (`npx playwright-core install chromium`) and a
+ * colour emoji font (built into Windows and macOS; Noto Color Emoji on Linux).
+ */
+import { execFileSync } from "node:child_process";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { build } from "esbuild";
+import { chromium } from "playwright-core";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const demoDir = path.join(root, "scripts", "demo");
+const buildDir = path.join(root, ".test-build");
+const mediaDir = path.join(root, "docs", "media");
+const viewport = { width: 1000, height: 600 };
+
+async function buildPage() {
+	const result = await build({
+		entryPoints: [path.join(demoDir, "demo.ts")],
+		bundle: true,
+		write: false,
+		format: "iife",
+		target: "chrome120",
+		alias: { obsidian: path.join(root, "tests", "obsidian.ts") },
+		logLevel: "warning",
+	});
+	const styles =
+		(await readFile(path.join(demoDir, "demo.css"), "utf8")) +
+		(await readFile(path.join(root, "styles.css"), "utf8"));
+	const script = result.outputFiles[0].text.replace(/<\/script/gi, "<\\/script");
+	const html = (await readFile(path.join(demoDir, "demo.html"), "utf8"))
+		.replace("/* STYLES */", () => styles)
+		.replace("/* SCRIPT */", () => script);
+
+	await mkdir(buildDir, { recursive: true });
+	const file = path.join(buildDir, "demo.html");
+	await writeFile(file, html, "utf8");
+	return pathToFileURL(file).href;
+}
+
+const pause = (page, ms) => page.waitForTimeout(ms);
+
+/** Moves the mouse in small steps so the recording shows a gliding cursor. */
+async function glide(page, selector, { x = 0.5, y = 0.5 } = {}) {
+	const box = await page.locator(selector).first().boundingBox();
+	if (!box) throw new Error(`Not visible: ${selector}`);
+	const point = { x: box.x + box.width * x, y: box.y + box.height * y };
+	await page.mouse.move(point.x, point.y, { steps: 18 });
+	return point;
+}
+
+async function click(page, selector, options) {
+	await glide(page, selector, options);
+	await pause(page, 250);
+	await page.mouse.down();
+	await page.mouse.up();
+}
+
+async function rightClick(page, selector) {
+	const point = await glide(page, selector, { x: 0.4 });
+	await pause(page, 250);
+	await page.mouse.click(point.x, point.y, { button: "right" });
+}
+
+/** The scripted story. `still(name)` marks moments worth a screenshot. */
+async function playScene(page, still) {
+	await page.mouse.move(700, 420);
+	await pause(page, 700);
+
+	// 1. Right-click a note → Set note emoji → search → pick.
+	await rightClick(page, '[data-path="Projects/Website relaunch.md"]');
+	await pause(page, 600);
+	await click(page, '.menu-item:text-is("Set note emoji")');
+	await pause(page, 700);
+	await still("picker");
+	await page.keyboard.type("rocket", { delay: 140 });
+	await pause(page, 600);
+	await click(page, ".notemoji-picker-emoji");
+	await page.mouse.move(800, 470, { steps: 18 });
+	await pause(page, 1500);
+	await still("note-title");
+
+	// 2. Another note, browsing a category instead of searching.
+	await rightClick(page, '[data-path="Projects/Roadmap.md"]');
+	await pause(page, 600);
+	await click(page, '.menu-item:text-is("Set note emoji")');
+	await pause(page, 600);
+	await click(page, '.notemoji-picker-tab[data-section="travel"]');
+	await pause(page, 700);
+	await glide(page, '.notemoji-picker-emoji[aria-label="world map"]');
+	await pause(page, 800);
+	await click(page, '.notemoji-picker-emoji[aria-label="world map"]');
+	await page.mouse.move(820, 520, { steps: 18 });
+	await pause(page, 1800);
+}
+
+async function openScene(browser, url, options) {
+	const context = await browser.newContext({ viewport, ...options });
+	const page = await context.newPage();
+	const errors = [];
+	page.on("pageerror", (error) => errors.push(error.message));
+	page.on("console", (message) => {
+		if (message.type() === "error") errors.push(message.text());
+	});
+	await page.goto(url);
+	await page.waitForFunction(() => window.demoReady === true);
+	await page.evaluate(() => document.fonts.ready);
+	return { context, page, errors };
+}
+
+const url = await buildPage();
+if (process.argv.includes("--open")) {
+	console.log(url);
+	process.exit(0);
+}
+
+const browser = await chromium.launch();
+try {
+	// Crisp stills at 2x.
+	await mkdir(mediaDir, { recursive: true });
+	const stills = await openScene(browser, url, { deviceScaleFactor: 2 });
+	await playScene(stills.page, (name) =>
+		stills.page.screenshot({ path: path.join(mediaDir, `${name}.png`) }),
+	);
+
+	if (process.argv.includes("--check")) {
+		// Layout checks for other states; not part of the README.
+		await stills.page.evaluate(() => window.setNoteTitle("inline"));
+		await pause(stills.page, 200);
+		await stills.page.screenshot({ path: path.join(buildDir, "check-inline.png") });
+		await rightClick(stills.page, '[data-path="Projects"]');
+		await pause(stills.page, 300);
+		await stills.page.screenshot({ path: path.join(buildDir, "check-menu.png") });
+	}
+	await stills.context.close();
+	if (stills.errors.length > 0)
+		throw new Error(`Errors in the demo:\n${stills.errors.join("\n")}`);
+
+	// The video for the GIF.
+	const videoDir = path.join(buildDir, "video");
+	await rm(videoDir, { recursive: true, force: true });
+	const recording = await openScene(browser, url, {
+		recordVideo: { dir: videoDir, size: viewport },
+	});
+	await playScene(recording.page, async () => {});
+	const video = recording.page.video();
+	await recording.context.close();
+	const webm = await video.path();
+
+	try {
+		execFileSync(
+			"ffmpeg",
+			[
+				"-y",
+				"-loglevel",
+				"error",
+				"-ss",
+				"0.4",
+				"-i",
+				webm,
+				"-vf",
+				"fps=15,scale=800:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle",
+				path.join(mediaDir, "demo.gif"),
+			],
+			{ stdio: "inherit" },
+		);
+	} catch {
+		console.warn(`ffmpeg failed or is missing; the raw recording is at ${webm}`);
+	}
+} finally {
+	await browser.close();
+}
+
+console.log(`Media written to ${path.relative(root, mediaDir)}/`);

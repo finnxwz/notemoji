@@ -15,5 +15,5 @@
 		"forceConsistentCasingInFileNames": true,
 		"noEmit": true
 	},
-	"include": ["src/**/*.ts", "tests/**/*.ts", "vitest.config.mts"]
+	"include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "vitest.config.mts"]
 }

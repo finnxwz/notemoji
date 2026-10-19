@@ -28,7 +28,7 @@ interface Section {
 }
 
 const RECENT: Section = { id: "recent", label: "Recently used", icon: "🕘" };
-const HINT = "Arrow keys and enter work too.";
+const HINT = "Type to search, or use the arrow keys.";
 
 /**
  * The emoji picker: search, category tabs, recently used, remove.

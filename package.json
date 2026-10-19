@@ -1,7 +1,7 @@
 {
 	"name": "notemoji",
 	"version": "1.0.1",
-	"description": "Emoji icons for notes and folders in the Obsidian file explorer.",
+	"description": "Emoji for notes and folders: in the file explorer, above the note title and in tabs. Stored in the note's frontmatter.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -12,7 +12,8 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"check": "prettier --check . && eslint --max-warnings 0 . && tsc --noEmit && vitest run && node esbuild.config.mjs production",
-		"emoji-data": "node scripts/generate-emoji-data.mjs"
+		"emoji-data": "node scripts/generate-emoji-data.mjs",
+		"demo": "node scripts/record-demo.mjs"
 	},
 	"keywords": [
 		"obsidian",
@@ -32,6 +33,7 @@
 		"eslint-plugin-obsidianmd": "^0.4.2",
 		"happy-dom": "^21.0.3",
 		"obsidian": "^1.7.2",
+		"playwright-core": "^1.64.1",
 		"prettier": "^3.9.10",
 		"typescript": "^5.6.0",
 		"typescript-eslint": "^8.71.2",
