@@ -222,6 +222,14 @@ describe("searching", () => {
 		expect(picker.onSubmit).toHaveBeenCalledWith("★");
 	});
 
+	it("stores a pasted emoji the way the list has it", async () => {
+		const picker = await open();
+		picker.type(String.fromCodePoint(0x2764)); // ❤ without the emoji variation selector
+		expect(picker.footer()).toBe("red heart");
+		picker.press("Enter");
+		expect(picker.onSubmit).toHaveBeenCalledWith(String.fromCodePoint(0x2764, 0xfe0f));
+	});
+
 	it("does not list a pasted emoji twice", async () => {
 		const picker = await open();
 		picker.type("🚀");
@@ -235,6 +243,15 @@ describe("searching", () => {
 		expect(picker.tiles()).toHaveLength(0);
 		picker.press("Enter");
 		expect(picker.onSubmit).not.toHaveBeenCalled();
+	});
+
+	it("ignores Enter until a tile is selected", async () => {
+		const picker = await open({ recent: ["🎉"] });
+		picker.press("Enter");
+		expect(picker.onSubmit).not.toHaveBeenCalled();
+		picker.press("ArrowDown");
+		picker.press("Enter");
+		expect(picker.onSubmit).toHaveBeenCalledWith("🎉");
 	});
 
 	it("clears the search when a category tab is clicked", async () => {
@@ -305,6 +322,62 @@ describe("custom icons", () => {
 		await flush();
 		expect(picker.custom.remove).toHaveBeenCalledWith("logo.png");
 		expect(picker.tile("logo.png")).toBeUndefined();
+	});
+
+	describe("long-press on touch screens", () => {
+		const touch = (type: string, el: HTMLElement, x = 10, y = 10) =>
+			el.dispatchEvent(
+				new PointerEvent(type, {
+					pointerType: "touch",
+					clientX: x,
+					clientY: y,
+					bubbles: true,
+					cancelable: true,
+				}),
+			);
+
+		beforeEach(() => {
+			vi.useFakeTimers();
+		});
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it("opens the menu and does not also pick the icon", async () => {
+			const loading = open({ custom: fakeCustom(["logo.png"]) });
+			await vi.advanceTimersByTimeAsync(0);
+			const picker = await loading;
+			const tile = picker.tile("logo.png")!;
+			touch("pointerdown", tile, 40, 60);
+			vi.advanceTimersByTime(600);
+			expect(shownMenus).toHaveLength(1);
+			expect(shownMenus[0].position).toEqual({ x: 40, y: 60 });
+			// Android also reports the long-press as a context menu.
+			tile.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+			expect(shownMenus).toHaveLength(1);
+			touch("pointerup", tile);
+			tile.click();
+			expect(picker.onSubmit).not.toHaveBeenCalled();
+			// The next tap picks it as usual.
+			touch("pointerdown", tile);
+			touch("pointerup", tile);
+			tile.click();
+			expect(picker.onSubmit).toHaveBeenCalledWith("custom:logo.png");
+		});
+
+		it("is not triggered by a short tap or by scrolling", async () => {
+			const loading = open({ custom: fakeCustom(["logo.png"]) });
+			await vi.advanceTimersByTimeAsync(0);
+			const picker = await loading;
+			const tile = picker.tile("logo.png")!;
+			touch("pointerdown", tile);
+			touch("pointerup", tile);
+			vi.advanceTimersByTime(600);
+			touch("pointerdown", tile, 10, 10);
+			touch("pointermove", tile, 10, 60);
+			vi.advanceTimersByTime(600);
+			expect(shownMenus).toHaveLength(0);
+		});
 	});
 
 	it("has no context menu for emoji", async () => {

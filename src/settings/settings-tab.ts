@@ -1,9 +1,9 @@
 import { addIcon, Notice, PluginSettingTab, Setting } from "obsidian";
-import { confirm } from "./confirm-modal";
-import { formatBytes } from "./icons/custom-icons";
+import { confirm } from "../confirm-modal";
+import type { NoteTitleMode } from "../data";
+import type NotemojiPlugin from "../main";
 import { EmojiStyleSection } from "./emoji-style-section";
-import type { NoteTitleMode } from "./icons/data";
-import type NotemojiPlugin from "./main";
+import { formatBytes, plural } from "./format";
 
 /** Icon of the settings tab: a real, colourful emoji instead of a line icon. */
 const SETTINGS_ICON = "notemoji-emoji";
@@ -11,10 +11,6 @@ const SETTINGS_ICON_SVG =
 	'<text x="50" y="54" text-anchor="middle" dominant-baseline="middle" font-size="86" ' +
 	"style=\"stroke: none; fill: currentColor; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif\">" +
 	"😀</text>";
-
-function plural(count: number, one: string, many: string): string {
-	return `${count} ${count === 1 ? one : many}`;
-}
 
 export class NotemojiSettingTab extends PluginSettingTab {
 	private readonly plugin: NotemojiPlugin;
@@ -30,8 +26,7 @@ export class NotemojiSettingTab extends PluginSettingTab {
 
 	display(): void {
 		const { containerEl, plugin } = this;
-		const { icons } = plugin;
-		const settings = icons.settings;
+		const { settings } = plugin;
 		containerEl.empty();
 
 		new Setting(containerEl).setName("Display").setHeading();
@@ -124,7 +119,8 @@ export class NotemojiSettingTab extends PluginSettingTab {
 	}
 
 	private displayStoredData(containerEl: HTMLElement): void {
-		const { icons, spriteCache } = this.plugin;
+		const { icons } = this.plugin;
+		const { spriteCache } = this.plugin.style;
 		new Setting(containerEl).setName("Maintenance").setHeading();
 
 		const cacheSetting = new Setting(containerEl)

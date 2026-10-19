@@ -10,8 +10,8 @@ import type { SpriteCache } from "./emoji-sprites";
  * One folder per style, so deleting a style removes its images in one go.
  * Inside, one folder per kind of device (the same style looks different on
  * Windows and iOS, and the folder syncs with the vault), screen density,
- * drawing format and emoji list. When a newer folder for the same device
- * and density is written, the older ones are removed.
+ * drawing format, look of the emoji and emoji list. When a newer folder for
+ * the same device and density is written, the older ones are removed.
  */
 export class SpriteCacheFolder implements SpriteCache {
 	constructor(
@@ -19,9 +19,12 @@ export class SpriteCacheFolder implements SpriteCache {
 		readonly folder: string,
 	) {}
 
+	/** A cached image, or null when there is none (or only a partly written or synced one). */
 	async read(key: string, category: string): Promise<ArrayBuffer | null> {
 		const path = this.path(key, category);
-		return (await this.adapter.exists(path)) ? this.adapter.readBinary(path) : null;
+		if (!(await this.adapter.exists(path))) return null;
+		const data = await this.adapter.readBinary(path);
+		return isCompletePng(data) ? data : null;
 	}
 
 	async write(key: string, category: string, data: ArrayBuffer): Promise<void> {
@@ -87,4 +90,19 @@ export class SpriteCacheFolder implements SpriteCache {
 	private path(key: string, category: string): string {
 		return normalizePath(`${this.folder}/${key}/${category}.png`);
 	}
+}
+
+const PNG_START = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+/** The last chunk of every PNG: `IEND` and its checksum. */
+const PNG_END = [0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82];
+
+/** Whether `data` is a whole PNG file, from its signature to its end chunk. */
+export function isCompletePng(data: ArrayBuffer): boolean {
+	const bytes = new Uint8Array(data);
+	const end = bytes.length - PNG_END.length;
+	return (
+		bytes.length >= PNG_START.length + PNG_END.length &&
+		PNG_START.every((byte, i) => bytes[i] === byte) &&
+		PNG_END.every((byte, i) => bytes[end + i] === byte)
+	);
 }

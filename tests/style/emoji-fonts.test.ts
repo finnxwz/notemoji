@@ -5,9 +5,8 @@ import {
 	EMOJI_FONT_FAMILY,
 	EmojiFontError,
 	EmojiFonts,
-} from "../../src/icons/emoji-font";
-import { EMOJI_SETS, findEmojiSet } from "../../src/icons/emoji-sets";
-import { isFontFileName } from "../../src/icons/icon-value";
+} from "../../src/style/emoji-fonts";
+import { EMOJI_SETS, findEmojiSet, isFontFileName } from "../../src/style/emoji-sets";
 import { FakeAdapter } from "../fake-app";
 
 const FOLDER = ".obsidian/plugins/notemoji/fonts";

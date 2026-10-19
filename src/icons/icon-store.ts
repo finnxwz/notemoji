@@ -98,10 +98,6 @@ export class IconStore {
 		return this.icons.entries();
 	}
 
-	clear(): void {
-		this.icons.clear();
-	}
-
 	toRecord(): Record<string, string> {
 		const icons: Record<string, string> = {};
 		for (const [path, emoji] of this.icons) icons[path] = emoji;

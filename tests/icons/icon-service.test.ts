@@ -1,6 +1,6 @@
 import type { TAbstractFile } from "obsidian";
 import { describe, expect, it, vi } from "vitest";
-import { parseData } from "../../src/icons/data";
+import { parseData } from "../../src/data";
 import { IconService } from "../../src/icons/icon-service";
 import { createFakeApp, FakeAppOptions } from "../fake-app";
 

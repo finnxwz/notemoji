@@ -30,6 +30,13 @@ const SPRITE_FORMAT = 1;
 const MAX_RATIO = 2;
 /** Longest stretch of drawing at once when no idle deadline is available (ms). */
 const SLICE_BUDGET_MS = 8;
+/**
+ * Emoji whose look tells emoji fonts and their versions apart: a classic one,
+ * two newer ones (Emoji 14 and 15, missing on older systems) and a flag
+ * (letters on Windows).
+ */
+const PROBE_EMOJI = ["😀", "🫠", "🫨", "🇺🇳"];
+const PROBE_PX = 16;
 
 /** Where an emoji is in a sprite sheet, as CSS background values. */
 export interface SpriteSlot {
@@ -63,7 +70,8 @@ export interface SpriteOptions {
 	fontFamily: () => string;
 	/**
 	 * The cache key for images that look like this: style, device, emoji list
-	 * and the given `details` (pixel density and drawing format, e.g. "2x-f1").
+	 * and the given `details`: pixel density, drawing format and a fingerprint
+	 * of how this device draws the font, e.g. "2x-f1-1kq7xy".
 	 */
 	cacheKey?: (details: string) => string;
 	cache?: SpriteCache;
@@ -146,7 +154,9 @@ export class EmojiSprites implements SpriteSource {
 			MAX_RATIO,
 			Math.max(1, Math.ceil(this.options.pixelRatio?.() ?? window.devicePixelRatio)),
 		);
-		const key = this.options.cacheKey?.(`${ratio}x-f${SPRITE_FORMAT}`);
+		const key = this.options.cacheKey?.(
+			`${ratio}x-f${SPRITE_FORMAT}-${this.glyphFingerprint()}`,
+		);
 		void (async () => {
 			for (const category of this.options.categories()) {
 				if (generation !== this.generation) return;
@@ -176,6 +186,28 @@ export class EmojiSprites implements SpriteSource {
 
 	private notify(): void {
 		for (const listener of this.listeners) listener();
+	}
+
+	/**
+	 * A short fingerprint of how this device draws a few emoji in the current
+	 * font, so cached images are drawn again once that changes: after a system
+	 * update brought new emoji, or on another device of the same kind.
+	 */
+	private glyphFingerprint(): string {
+		const canvas = (this.options.createCanvas ?? createCanvas)(
+			PROBE_PX * PROBE_EMOJI.length,
+			PROBE_PX,
+		);
+		const context = canvas.getContext("2d", { willReadFrequently: true });
+		if (!context) return "0";
+		context.font = `${PROBE_PX - 4}px ${this.options.fontFamily()}`;
+		context.textBaseline = "bottom";
+		PROBE_EMOJI.forEach((emoji, i) => context.fillText(emoji, i * PROBE_PX, PROBE_PX));
+		const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+		let hash = 0x811c9dc5;
+		// Coarse colour steps: tiny smoothing differences must not count as another look.
+		for (const value of data) hash = Math.imul(hash ^ (value >> 4), 0x01000193);
+		return (hash >>> 0).toString(36);
 	}
 
 	/** Gets one category's image (cached or freshly drawn) and publishes it. */
@@ -236,7 +268,7 @@ export class EmojiSprites implements SpriteSource {
 		await new Promise<void>((done) => {
 			const slice = (timeLeft: () => number) => {
 				if (generation !== this.generation) return done();
-				do {
+				while (index < entries.length) {
 					const emoji = entries[index].emoji;
 					// Centred by the glyph's actual outline: colour emoji are often taller
 					// than their font size and do not sit centred on the baseline.
@@ -248,7 +280,8 @@ export class EmojiSprites implements SpriteSource {
 					const top = Math.floor(index / COLUMNS) * cell + (cell - height) / 2;
 					context.fillText(emoji, left, top + box.actualBoundingBoxAscent);
 					index += 1;
-				} while (index < entries.length && timeLeft() > 1);
+					if (timeLeft() <= 1) break;
+				}
 				if (index < entries.length) schedule(slice);
 				else done();
 			};

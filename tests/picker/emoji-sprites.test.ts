@@ -41,6 +41,10 @@ function setup(overrides: Partial<SpriteOptions> = {}) {
 			actualBoundingBoxDescent: 4,
 		}),
 		fillText: (text: string) => drawn.push(text),
+		// Pixels of the probe emoji: they depend on the font, like on a real device.
+		getImageData: () => ({
+			data: Uint8ClampedArray.from(context.font, (char) => char.charCodeAt(0)),
+		}),
 	};
 	const canvases: Array<{ width: number; height: number }> = [];
 	let urls = 0;
@@ -134,19 +138,28 @@ describe("EmojiSprites", () => {
 				return Promise.resolve();
 			},
 		};
-		const first = setup({ cache, cacheKey: (details) => `twemoji/windows-${details}-fp` });
+		const cacheKey = (details: string) => `twemoji/windows-${details}-fp`;
+		const first = setup({ cache, cacheKey });
 		first.sprites.rebuild();
 		await flush(10);
 		expect([...stored.keys()]).toEqual([
-			"twemoji/windows-2x-f1-fp/a",
-			"twemoji/windows-2x-f1-fp/b",
+			expect.stringMatching(/^twemoji\/windows-2x-f1-[0-9a-z]+-fp\/a$/),
+			expect.stringMatching(/^twemoji\/windows-2x-f1-[0-9a-z]+-fp\/b$/),
 		]);
 
-		const second = setup({ cache, cacheKey: (details) => `twemoji/windows-${details}-fp` });
+		// Only the probe emoji are drawn: they show the font still looks the same.
+		const second = setup({ cache, cacheKey });
 		second.sprites.rebuild();
 		await flush(10);
-		expect(second.drawn).toEqual([]);
+		expect(second.drawn).toEqual(["😀", "🫠", "🫨", "🇺🇳"]);
 		expect(second.sprites.slot("🐻")).toBeDefined();
+
+		// The same style drawn differently (e.g. after a system update) is drawn again.
+		const third = setup({ cache, cacheKey, fontFamily: () => '"Other Emoji"' });
+		third.sprites.rebuild();
+		await flush(10);
+		expect(third.drawn.slice(4)).toEqual(["😀", "😃", "😄", "🐻"]);
+		expect(stored.size).toBe(4);
 	});
 
 	it("does nothing without a canvas context", async () => {

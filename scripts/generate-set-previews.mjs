@@ -1,11 +1,11 @@
 /**
- * Generates src/icons/emoji-set-previews.ts: a small preview strip for every
+ * Generates src/style/emoji-set-previews.ts: a small preview strip for every
  * downloadable emoji set, so the settings can show what a style looks like
  * before it is downloaded.
  *
  * Downloads each pinned font (verifying its checksum), renders sample emoji
  * with it in Chromium and embeds the result as PNG data URLs. Run with
- * `npm run set-previews` after changing src/icons/emoji-sets.ts.
+ * `npm run set-previews` after changing src/style/emoji-sets.ts.
  */
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
@@ -17,14 +17,14 @@ import { chromium } from "playwright-core";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cacheDir = path.join(root, ".test-build", "fonts");
-const outFile = path.join(root, "src", "icons", "emoji-set-previews.ts");
+const outFile = path.join(root, "src", "style", "emoji-set-previews.ts");
 
 /** The emoji shown in every preview. */
 export const SAMPLE = "😀 🚀 📁 🎨 🏠 ✅ 💡 🔥".split(" ");
 
 async function loadSets() {
 	const result = await build({
-		entryPoints: [path.join(root, "src", "icons", "emoji-sets.ts")],
+		entryPoints: [path.join(root, "src", "style", "emoji-sets.ts")],
 		bundle: true,
 		write: false,
 		format: "esm",

@@ -168,6 +168,8 @@ body {
 	border-radius: var(--radius-s);
 	cursor: var(--cursor);
 	user-select: none;
+	/* A long-press opens Notemoji's menu, not the system's image menu (iOS). */
+	-webkit-touch-callout: none;
 }
 
 /* A pre-rendered emoji: one 32 px cell of a sprite sheet (see emoji-sprites.ts). */

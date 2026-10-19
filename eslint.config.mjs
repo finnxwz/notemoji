@@ -8,7 +8,7 @@ export default defineConfig([
 		"node_modules/",
 		".test-build/",
 		"src/picker/emoji-data.ts",
-		"src/icons/emoji-set-previews.ts",
+		"src/style/emoji-set-previews.ts",
 	]),
 	...obsidianmd.configs.recommended,
 	{

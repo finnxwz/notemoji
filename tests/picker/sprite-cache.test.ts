@@ -1,10 +1,18 @@
 import type { DataAdapter } from "obsidian";
 import { describe, expect, it } from "vitest";
-import { SpriteCacheFolder } from "../../src/picker/sprite-cache";
+import { isCompletePng, SpriteCacheFolder } from "../../src/picker/sprite-cache";
 import { FakeAdapter } from "../fake-app";
 
 const FOLDER = ".obsidian/plugins/notemoji/cache/sprites";
-const bytes = (size: number) => new Uint8Array(size).buffer;
+const PNG_START = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const PNG_END = [0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82];
+/** A "PNG" of `size` bytes: right signature and end chunk, zeros in between. */
+const bytes = (size: number) => {
+	const data = new Uint8Array(Math.max(size, 16));
+	data.set(PNG_START);
+	data.set(PNG_END, data.length - PNG_END.length);
+	return data.buffer;
+};
 
 function setup() {
 	const adapter = new FakeAdapter();
@@ -20,8 +28,18 @@ describe("SpriteCacheFolder", () => {
 			true,
 		);
 		expect((await cache.read("twemoji/windows-1x-f1-1870-abc", "smileys"))?.byteLength).toBe(
-			10,
+			16,
 		);
+	});
+
+	it("ignores images that were only partly written or synced", async () => {
+		const { cache } = setup();
+		const whole = bytes(100);
+		expect(isCompletePng(whole)).toBe(true);
+		expect(isCompletePng(whole.slice(0, 60))).toBe(false);
+		expect(isCompletePng(new ArrayBuffer(100))).toBe(false);
+		await cache.write("system/linux-1x-f1-x", "smileys", whole.slice(0, 60));
+		expect(await cache.read("system/linux-1x-f1-x", "smileys")).toBeNull();
 	});
 
 	it("replaces outdated images of the same device and density, keeps the others", async () => {

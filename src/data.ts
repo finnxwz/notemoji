@@ -1,6 +1,6 @@
-import { findEmojiSet } from "./emoji-sets";
-import { isFontFileName, normalizeIcon } from "./icon-value";
-import { IconStore } from "./icon-store";
+import { IconStore } from "./icons/icon-store";
+import { normalizeIcon } from "./icons/icon-value";
+import { findEmojiSet, isFontFileName } from "./style/emoji-sets";
 
 /**
  * Everything Notemoji keeps in `.obsidian/plugins/notemoji/data.json`.

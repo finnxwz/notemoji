@@ -1,5 +1,5 @@
 import type { App, TFile } from "obsidian";
-import type { NotemojiSettings } from "../icons/data";
+import type { NotemojiSettings } from "../data";
 import { EmojiAttributes } from "./emoji-attribute";
 import type { IconSource } from "./icon-source";
 import { NoteTitleIcons } from "./note-title";

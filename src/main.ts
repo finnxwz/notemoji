@@ -1,32 +1,16 @@
-import {
-	Menu,
-	normalizePath,
-	Notice,
-	Platform,
-	Plugin,
-	TAbstractFile,
-	TFile,
-	TFolder,
-} from "obsidian";
+import { Menu, normalizePath, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
 import { confirm } from "./confirm-modal";
+import { NotemojiSettings, parseData, PluginData, serializeData } from "./data";
 import { ExplorerSource, FileExplorerRenderer } from "./display/file-explorer";
 import { TitleDecorations } from "./display/titles";
-import { NotemojiSettings, parseData, PluginData, serializeData } from "./icons/data";
 import { CustomIconLibrary } from "./icons/custom-icons";
-import { EmojiFonts } from "./icons/emoji-font";
-import type { EmojiSet } from "./icons/emoji-sets";
 import { IconService, isNote } from "./icons/icon-service";
-import { catalogFingerprint, getCatalog, warmUpCatalog } from "./picker/catalog";
-import { EmojiSprites } from "./picker/emoji-sprites";
-import { SpriteCacheFolder } from "./picker/sprite-cache";
 import { PickerModal } from "./picker/picker-modal";
-import { NotemojiSettingTab } from "./settings";
+import { NotemojiSettingTab } from "./settings/settings-tab";
+import { EmojiStyle } from "./style/emoji-style";
 
 /** Coalescing window for title updates (ms); workspace events come in bursts. */
 const TITLE_SYNC_DELAY_MS = 30;
-
-/** Delay after startup before the emoji list is prepared for the picker (ms). */
-const WARM_UP_DELAY_MS = 3000;
 
 /** How an item is called in menus. */
 function describeItem(file: TAbstractFile): "note" | "file" | "folder" {
@@ -37,22 +21,20 @@ function describeItem(file: TAbstractFile): "note" | "file" | "folder" {
 export default class NotemojiPlugin extends Plugin {
 	icons!: IconService;
 	customIcons!: CustomIconLibrary;
-	emojiFonts!: EmojiFonts;
+	/** The emoji font and the picker's pre-rendered emoji. */
+	style!: EmojiStyle;
+	/** The current settings (part of `data`); change them with `updateSettings`. */
+	declare settings: Readonly<NotemojiSettings>;
 	private data!: PluginData;
 	private explorer!: FileExplorerRenderer;
 	private titles!: TitleDecorations;
 	private titleTimer: number | null = null;
-	private warmUpTimer: number | null = null;
-	/** Pre-rendered emoji for the picker; built after startup and after every style change. */
-	private sprites!: EmojiSprites;
-	spriteCache!: SpriteCacheFolder;
-	private warmedUp = false;
 
 	/** Serialised save queue; a newer snapshot is never overwritten by an older one. */
 	private saveQueue: Promise<void> = Promise.resolve();
 
 	async onload(): Promise<void> {
-		this.data = parseData(await this.readData());
+		this.setData(parseData(await this.readData()));
 		this.icons = new IconService(this.app, this.data, () => this.persist());
 
 		const pluginFolder =
@@ -61,21 +43,11 @@ export default class NotemojiPlugin extends Plugin {
 			this.app.vault.adapter,
 			normalizePath(`${pluginFolder}/icons`),
 		);
-		this.emojiFonts = new EmojiFonts(
-			this.app.vault.adapter,
-			normalizePath(`${pluginFolder}/fonts`),
-		);
-		this.emojiFonts.attach(document);
-		this.spriteCache = new SpriteCacheFolder(
-			this.app.vault.adapter,
-			normalizePath(`${pluginFolder}/cache/sprites`),
-		);
-		this.sprites = new EmojiSprites({
-			categories: () => getCatalog(),
-			fontFamily: () => this.resolvedEmojiFont(),
-			cache: this.spriteCache,
-			cacheKey: (details) => this.spriteCacheKey(details),
+		this.style = new EmojiStyle(this.app.vault.adapter, pluginFolder, {
+			get: () => this.data.settings,
+			update: (patch) => this.updateSettings(patch),
 		});
+		this.style.fonts.attach(document);
 
 		const source: ExplorerSource = {
 			get: (path) => this.icons.get(path),
@@ -94,9 +66,7 @@ export default class NotemojiPlugin extends Plugin {
 
 	onunload(): void {
 		if (this.titleTimer !== null) window.clearTimeout(this.titleTimer);
-		if (this.warmUpTimer !== null) window.clearTimeout(this.warmUpTimer);
-		this.emojiFonts?.unload();
-		this.sprites?.dispose();
+		this.style?.unload();
 		this.explorer?.dispose();
 		this.titles?.dispose();
 	}
@@ -113,9 +83,9 @@ export default class NotemojiPlugin extends Plugin {
 		const fontChanged =
 			data.settings.emojiStyle !== this.data.settings.emojiStyle ||
 			data.settings.emojiFont !== this.data.settings.emojiFont;
-		this.data = data;
+		this.setData(data);
 		this.icons.replaceData(data);
-		if (fontChanged) await this.loadEmojiFont();
+		if (fontChanged) await this.style.load();
 	}
 
 	/** Changes settings, saves and re-renders. Always edits the current data, also after a reload. */
@@ -128,94 +98,7 @@ export default class NotemojiPlugin extends Plugin {
 	private initialize(): void {
 		this.explorer.attach();
 		this.scheduleTitleSync();
-		void this.loadEmojiFont();
-		// Prepare the picker while Obsidian is idle: parse the emoji list and
-		// pre-render the emoji images, so even the first picker is smooth.
-		this.warmUpTimer = window.setTimeout(() => this.warmUp(), WARM_UP_DELAY_MS);
-	}
-
-	/** Prepares the picker once: the emoji list and the pre-rendered emoji images. */
-	private warmUp(): void {
-		if (this.warmUpTimer !== null) window.clearTimeout(this.warmUpTimer);
-		this.warmUpTimer = null;
-		if (this.warmedUp) return;
-		this.warmedUp = true;
-		warmUpCatalog();
-		this.sprites.rebuild();
-	}
-
-	/**
-	 * Cache key for the picker's emoji images: `<style>/<device>-<details>-<emoji list>`.
-	 * Keyed by what is actually drawn: a style whose font is not on this device
-	 * yet is drawn (and cached) as system emoji.
-	 */
-	private spriteCacheKey(details: string): string {
-		const { emojiStyle, emojiFont } = this.data.settings;
-		const style = this.emojiFonts.active ? emojiStyle : "system";
-		const device = Platform.isIosApp
-			? "ios"
-			: Platform.isAndroidApp
-				? "android"
-				: Platform.isMacOS
-					? "macos"
-					: Platform.isWin
-						? "windows"
-						: "linux";
-		const base = `${device}-${details}-${catalogFingerprint()}`;
-		if (style !== "file") return `${style}/${base}`;
-		// One folder for the own font; a different file replaces its images.
-		return `own/${base}-${emojiFont.toLowerCase().replace(/[^a-z0-9]+/g, "")}`;
-	}
-
-	/** The font-family list Notemoji's emoji currently use, as the browser resolves it. */
-	private resolvedEmojiFont(): string {
-		const probe = document.body.createSpan({ cls: "notemoji-font-probe" });
-		const family = window.getComputedStyle(probe).fontFamily;
-		probe.remove();
-		return family;
-	}
-
-	// ------------------------------------------------------------------ emoji font
-
-	/** Applies the chosen emoji style; a file missing on this device means system emoji. */
-	async loadEmojiFont(): Promise<void> {
-		const { emojiStyle, emojiFont } = this.data.settings;
-		await this.emojiFonts.apply(emojiStyle, emojiFont);
-		// The picker's pre-rendered images show the style; draw them again.
-		if (this.warmedUp) this.sprites.rebuild();
-	}
-
-	async setEmojiStyle(style: string): Promise<void> {
-		this.updateSettings({ emojiStyle: style });
-		await this.loadEmojiFont();
-	}
-
-	/** Downloads a set (only ever on the user's request) and uses it if it is selected. */
-	async downloadEmojiSet(set: EmojiSet): Promise<void> {
-		await this.emojiFonts.download(set);
-		if (this.data.settings.emojiStyle === set.id) await this.loadEmojiFont();
-	}
-
-	/** Deletes a downloaded set; deleting the active one switches to system emoji. */
-	async deleteEmojiSet(set: EmojiSet): Promise<void> {
-		await this.emojiFonts.deleteSet(set);
-		await this.spriteCache.removeStyle(set.id);
-		if (this.data.settings.emojiStyle === set.id) await this.setEmojiStyle("system");
-	}
-
-	/** Installs your own font file and uses it. Throws with a message for the user. */
-	async setOwnEmojiFont(name: string, data: ArrayBuffer): Promise<void> {
-		const file = await this.emojiFonts.installOwn(name, data);
-		this.updateSettings({ emojiStyle: "file", emojiFont: file });
-		await this.loadEmojiFont();
-	}
-
-	/** Deletes your own font file and switches back to the system's emoji. */
-	async removeOwnEmojiFont(): Promise<void> {
-		await this.emojiFonts.removeOwn();
-		await this.spriteCache.removeStyle("own");
-		this.updateSettings({ emojiStyle: "system", emojiFont: "" });
-		await this.loadEmojiFont();
+		this.style.start();
 	}
 
 	// ------------------------------------------------------------------ wiring
@@ -234,7 +117,10 @@ export default class NotemojiPlugin extends Plugin {
 		this.registerEvent(workspace.on("active-leaf-change", () => this.scheduleTitleSync()));
 		// Pop-out windows need the emoji font too.
 		this.registerEvent(
-			workspace.on("window-open", (_window, win) => this.emojiFonts.attach(win.document)),
+			workspace.on("window-open", (_window, win) => this.style.fonts.attach(win.document)),
+		);
+		this.registerEvent(
+			workspace.on("window-close", (_window, win) => this.style.fonts.detach(win.document)),
 		);
 		this.registerEvent(workspace.on("file-open", () => this.scheduleTitleSync()));
 
@@ -298,14 +184,14 @@ export default class NotemojiPlugin extends Plugin {
 
 	openPicker(file: TAbstractFile): void {
 		// Opened before the startup preparation ran: start it now.
-		this.warmUp();
+		this.style.warmUp();
 		const current = this.icons.get(file.path) ?? "";
 		new PickerModal(this.app, {
 			title: `${current === "" ? "Set" : "Change"} ${describeItem(file)} emoji`,
 			description: file.name,
 			current,
 			recent: this.icons.recent,
-			sprites: this.sprites,
+			sprites: this.style.sprites,
 			custom: {
 				list: () => this.customIcons.list(),
 				url: (name) => this.customIcons.url(name),
@@ -352,15 +238,19 @@ export default class NotemojiPlugin extends Plugin {
 
 	private scheduleTitleSync(): void {
 		if (this.titleTimer !== null) window.clearTimeout(this.titleTimer);
-		if (this.warmUpTimer !== null) window.clearTimeout(this.warmUpTimer);
 		this.titleTimer = window.setTimeout(() => {
 			this.titleTimer = null;
 			try {
-				this.titles.sync(this.icons.settings);
+				this.titles.sync(this.data.settings);
 			} catch (error) {
 				console.error("[notemoji] Could not render title emoji.", error);
 			}
 		}, TITLE_SYNC_DELAY_MS);
+	}
+
+	private setData(data: PluginData): void {
+		this.data = data;
+		this.settings = data.settings;
 	}
 
 	private async readData(): Promise<unknown> {

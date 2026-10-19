@@ -1,3 +1,5 @@
+import { isPlainFileName } from "../icons/icon-value";
+
 /**
  * Open emoji sets that can be downloaded as the emoji style.
  *
@@ -63,4 +65,11 @@ export const EMOJI_SETS: readonly EmojiSet[] = [
 
 export function findEmojiSet(id: string): EmojiSet | undefined {
 	return EMOJI_SETS.find((set) => set.id === id);
+}
+
+export const FONT_EXTENSIONS = ["ttf", "otf", "woff", "woff2"] as const;
+
+/** A font file name Notemoji can store and load (downloaded sets and your own font). */
+export function isFontFileName(name: string): boolean {
+	return isPlainFileName(name, FONT_EXTENSIONS);
 }

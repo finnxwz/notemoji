@@ -3,6 +3,7 @@ import { renderIcon } from "../display/icon-source";
 import { parseEmojiInput } from "../icons/emoji";
 import { CUSTOM_EXTENSIONS, customValue, parseIcon } from "../icons/icon-value";
 import { findEntry, getCatalog, searchEmoji } from "./catalog";
+import { onContextMenu } from "./context-menu";
 import { GridItem, GridLayout, GridSection } from "./grid-layout";
 import type { SpriteSource } from "./emoji-sprites";
 import { VirtualGrid } from "./virtual-grid";
@@ -146,13 +147,16 @@ export class PickerModal extends Modal {
 			text: "No emoji found. You can also paste any emoji here.",
 		});
 		const gridEl = this.grid.scrollEl;
-		gridEl.addEventListener("click", (event) => this.chooseFromEvent(event));
+		gridEl.addEventListener("click", (event) => {
+			const index = this.indexOf(event.target as HTMLElement);
+			if (index !== undefined) this.choose(index);
+		});
 		gridEl.addEventListener("mouseover", (event) => {
-			const index = this.indexFromEvent(event);
+			const index = this.indexOf(event.target as HTMLElement);
 			if (index !== undefined) this.showInFooter(index);
 		});
 		// Right-click, or long-press on touch screens.
-		gridEl.addEventListener("contextmenu", (event) => this.showTileMenu(event));
+		onContextMenu(gridEl, (target, position) => this.showTileMenu(target, position));
 
 		const footerEl = contentEl.createDiv({ cls: "notemoji-picker-footer" });
 		this.footerIconEl = footerEl.createDiv({ cls: "notemoji-picker-footer-emoji" });
@@ -247,7 +251,9 @@ export class PickerModal extends Modal {
 		const items: GridItem[] = [];
 		const pasted = parseEmojiInput(query);
 		if (pasted.status === "ok") {
-			items.push(this.item(pasted.emoji, findEntry(pasted.emoji)?.name ?? ""));
+			// Stored as the list has it, e.g. with the emoji variation selector (❤ → ❤️).
+			const entry = findEntry(pasted.emoji);
+			items.push(this.item(entry?.emoji ?? pasted.emoji, entry?.name ?? ""));
 		}
 		const lower = query.toLowerCase();
 		for (const file of this.customFiles) {
@@ -386,7 +392,8 @@ export class PickerModal extends Modal {
 			this.setActive(this.layout.move(this.activeIndex, direction), true);
 		} else if (event.key === "Enter") {
 			event.preventDefault();
-			this.choose(Math.max(0, this.activeIndex));
+			// Only a selected tile: the best search result, or one reached with the arrows.
+			if (this.activeIndex >= 0) this.choose(this.activeIndex);
 		}
 	}
 
@@ -406,11 +413,6 @@ export class PickerModal extends Modal {
 		}
 		const top = this.layout?.sectionTop(sectionId);
 		if (top !== undefined) this.grid.scrollTo(top);
-	}
-
-	private chooseFromEvent(event: MouseEvent): void {
-		const index = this.indexFromEvent(event);
-		if (index !== undefined) this.choose(index);
 	}
 
 	/** Uses an item: submits an icon, or opens the file dialog for the upload tile. */
@@ -439,10 +441,9 @@ export class PickerModal extends Modal {
 		this.footerNameEl.setText(current === "" ? HINT : this.nameOf(current) || "Current emoji");
 	}
 
-	private indexFromEvent(event: Event): number | undefined {
-		const el = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-			".notemoji-picker-emoji",
-		);
+	/** Flat index of the tile at (or around) an element. */
+	private indexOf(target: HTMLElement | null): number | undefined {
+		const el = target?.closest<HTMLElement>(".notemoji-picker-emoji");
 		return el ? Number(el.dataset.index) : undefined;
 	}
 
@@ -473,11 +474,11 @@ export class PickerModal extends Modal {
 		this.jumpTo(CUSTOM.id);
 	}
 
-	private showTileMenu(event: MouseEvent): void {
-		const index = this.indexFromEvent(event);
+	/** The menu of a custom icon tile (delete); returns false for any other tile. */
+	private showTileMenu(target: HTMLElement, position: { x: number; y: number }): boolean {
+		const index = this.indexOf(target);
 		const icon = parseIcon(index === undefined ? undefined : this.layout?.items[index]?.value);
-		if (icon?.type !== "custom") return;
-		event.preventDefault();
+		if (icon?.type !== "custom") return false;
 		new Menu()
 			.addItem((item) =>
 				item
@@ -488,7 +489,8 @@ export class PickerModal extends Modal {
 							await this.loadCustomIcons();
 					}),
 			)
-			.showAtMouseEvent(event);
+			.showAtPosition(position);
+		return true;
 	}
 
 	private submit(value: string): void {

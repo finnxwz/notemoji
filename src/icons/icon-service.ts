@@ -1,6 +1,6 @@
 import type { App, TAbstractFile } from "obsidian";
 import { TFile } from "obsidian";
-import { NotemojiSettings, PluginData, pushRecent } from "./data";
+import { PluginData, pushRecent } from "../data";
 import { CUSTOM_PREFIX } from "./icon-value";
 
 export function isNote(file: TAbstractFile): file is TFile {
@@ -11,8 +11,8 @@ export function isNote(file: TAbstractFile): file is TFile {
  * The single source of truth for "which emoji does this item have".
  *
  * Every emoji or custom icon (notes, folders, any file) lives in data.json by
- * vault path, so notes are never modified. Renderers only call `get(path)` and re-render on
- * `onChange`.
+ * vault path, so notes are never modified. Renderers only call `get(path)`
+ * and re-render on `onChange`.
  */
 export class IconService {
 	private readonly app: App;
@@ -24,10 +24,6 @@ export class IconService {
 		this.app = app;
 		this.data = data;
 		this.save = save;
-	}
-
-	get settings(): NotemojiSettings {
-		return this.data.settings;
 	}
 
 	get recent(): readonly string[] {

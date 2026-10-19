@@ -15,12 +15,19 @@ export const CUSTOM_PREFIX = "custom:";
 /** Image types accepted as custom icons (always shown through `<img>`, so SVG scripts never run). */
 export const CUSTOM_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg"] as const;
 
-/** A plain file name in the icon folder: no folders, a supported extension, not too long. */
-export function isCustomFileName(name: string): boolean {
+/**
+ * A plain file name with one of the given extensions: no folders, not hidden,
+ * not too long. Used for every file name Notemoji stores (icons, fonts).
+ */
+export function isPlainFileName(name: string, extensions: readonly string[]): boolean {
 	if (name.length === 0 || name.length > 100) return false;
-	if (/[/\\:*?"<>|]/.test(name) || name.startsWith(".")) return false;
-	const extension = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
-	return name.includes(".") && (CUSTOM_EXTENSIONS as readonly string[]).includes(extension);
+	if (/[/\\:*?"<>|]/.test(name) || name.startsWith(".") || !name.includes(".")) return false;
+	return extensions.includes(name.slice(name.lastIndexOf(".") + 1).toLowerCase());
+}
+
+/** A custom icon's file name in the icon folder. */
+export function isCustomFileName(name: string): boolean {
+	return isPlainFileName(name, CUSTOM_EXTENSIONS);
 }
 
 export function customValue(file: string): string {
@@ -65,14 +72,4 @@ export function uniqueFileName(original: string, taken: ReadonlySet<string>): st
 		const name = `${base}${index === 1 ? "" : `-${index}`}.${extension}`;
 		if (!lowerTaken.has(name.toLowerCase())) return name;
 	}
-}
-
-export const FONT_EXTENSIONS = ["ttf", "otf", "woff", "woff2"] as const;
-
-/** A plain font file name with a supported extension. */
-export function isFontFileName(name: string): boolean {
-	if (name.length === 0 || name.length > 100 || /[/\\:*?"<>|]/.test(name)) return false;
-	if (name.startsWith(".") || !name.includes(".")) return false;
-	const extension = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
-	return (FONT_EXTENSIONS as readonly string[]).includes(extension);
 }

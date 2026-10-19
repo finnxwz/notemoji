@@ -13,7 +13,7 @@ import {
 	ToggleComponent,
 	WorkspaceLeaf,
 } from "./obsidian";
-import { findEmojiSet } from "../src/icons/emoji-sets";
+import { findEmojiSet } from "../src/style/emoji-sets";
 import { loadPlugin } from "./plugin-harness";
 
 interface PickerLike {
@@ -491,7 +491,7 @@ describe("emoji style", () => {
 		const harness = await loadPlugin({ data: { settings: { emojiStyle: "twemoji" } } });
 		network.responses.set(twemoji.url, download);
 		mockChecksum("0".repeat(64));
-		await expect(harness.plugin.downloadEmojiSet(twemoji)).rejects.toThrow(
+		await expect(harness.plugin.style.download(twemoji)).rejects.toThrow(
 			/not the expected file/,
 		);
 		expect(harness.app.vault.adapter.files.size).toBe(0);
@@ -511,7 +511,7 @@ describe("emoji style", () => {
 
 	it("installs and removes an own font file from its card", async () => {
 		const harness = await loadPlugin();
-		await harness.plugin.setOwnEmojiFont("Mine.ttf", new Uint8Array(8).buffer);
+		await harness.plugin.style.installOwn("Mine.ttf", new Uint8Array(8).buffer);
 		expect(harness.lastSaved()?.settings).toMatchObject({
 			emojiStyle: "file",
 			emojiFont: "Mine.ttf",
@@ -567,7 +567,7 @@ describe("emoji style", () => {
 
 	it("unload removes the font everywhere", async () => {
 		const harness = await loadPlugin();
-		await harness.plugin.setOwnEmojiFont("Mine.ttf", new Uint8Array(8).buffer);
+		await harness.plugin.style.installOwn("Mine.ttf", new Uint8Array(8).buffer);
 		harness.unload();
 		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
 	});
@@ -589,7 +589,7 @@ describe("picker image cache", () => {
 		adapter.files.set(".obsidian/plugins/notemoji/fonts/twemoji.ttf", new ArrayBuffer(8));
 		adapter.files.set(`${CACHE}/twemoji/windows-1x-f1-x/smileys.png`, new ArrayBuffer(8));
 		adapter.files.set(`${CACHE}/system/windows-1x-f1-x/smileys.png`, new ArrayBuffer(8));
-		await harness.plugin.deleteEmojiSet(findEmojiSet("twemoji")!);
+		await harness.plugin.style.deleteSet(findEmojiSet("twemoji")!);
 		expect([...adapter.files.keys()]).toEqual([`${CACHE}/system/windows-1x-f1-x/smileys.png`]);
 	});
 
@@ -608,5 +608,33 @@ describe("picker image cache", () => {
 		expect(setting.descEl.textContent).toContain("3 KB");
 		await (setting.components[0] as ButtonComponent).click();
 		expect(harness.app.vault.adapter.files.size).toBe(0);
+	});
+});
+
+describe("picker preparation", () => {
+	it("prepares the picker after startup, also while the workspace keeps changing", async () => {
+		vi.useFakeTimers();
+		try {
+			const loading = loadPlugin({ files: ["A.md"] });
+			await vi.advanceTimersByTimeAsync(0);
+			const harness = await loading;
+			const rebuild = vi
+				.spyOn(harness.plugin.style.sprites, "rebuild")
+				.mockImplementation(() => undefined);
+			// Opening notes and switching tabs right after startup.
+			for (let i = 0; i < 6; i++) {
+				harness.app.workspace.trigger("active-leaf-change");
+				harness.app.workspace.trigger("layout-change");
+				await vi.advanceTimersByTimeAsync(500);
+			}
+			expect(rebuild).toHaveBeenCalledTimes(1);
+
+			// Opening the picker later does not prepare it again.
+			harness.plugin.openPicker(harness.app.vault.getAbstractFileByPath("A.md") as never);
+			expect(rebuild).toHaveBeenCalledTimes(1);
+			harness.unload();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

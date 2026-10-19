@@ -3,4 +3,4 @@ package-lock.json
 .test-build/
 src/picker/emoji-data.ts
 docs/media/
-src/icons/emoji-set-previews.ts
+src/style/emoji-set-previews.ts

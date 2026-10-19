@@ -1,5 +1,5 @@
 import { App, MarkdownView, TFile } from "obsidian";
-import type { NoteTitleMode } from "../icons/data";
+import type { NoteTitleMode } from "../data";
 import { IconSource, renderIcon } from "./icon-source";
 
 const ICON_CLASS = "notemoji-title-icon";

@@ -6,7 +6,7 @@ import {
 	parseData,
 	pushRecent,
 	serializeData,
-} from "../../src/icons/data";
+} from "../src/data";
 
 describe("parseData", () => {
 	it("falls back to defaults for missing or malformed data", () => {

@@ -1,11 +1,10 @@
-import { Notice, setIcon } from "obsidian";
-import { confirm } from "./confirm-modal";
-import { formatBytes } from "./icons/custom-icons";
-import { LARGE_FONT_BYTES } from "./icons/emoji-font";
-import { EMOJI_SET_PREVIEWS, PREVIEW_SAMPLE } from "./icons/emoji-set-previews";
-import { EMOJI_SETS, EmojiSet } from "./icons/emoji-sets";
-import { FONT_EXTENSIONS } from "./icons/icon-value";
-import type NotemojiPlugin from "./main";
+import { Notice, Platform, setIcon } from "obsidian";
+import { confirm } from "../confirm-modal";
+import type NotemojiPlugin from "../main";
+import { LARGE_FONT_BYTES } from "../style/emoji-fonts";
+import { EMOJI_SET_PREVIEWS, PREVIEW_SAMPLE } from "../style/emoji-set-previews";
+import { EMOJI_SETS, EmojiSet, FONT_EXTENSIONS } from "../style/emoji-sets";
+import { formatBytes } from "./format";
 
 /**
  * The emoji style picker in the settings: one card per style with a preview,
@@ -30,7 +29,11 @@ export class EmojiStyleSection {
 			cls: "notemoji-hidden-input",
 			attr: {
 				type: "file",
-				accept: FONT_EXTENSIONS.map((extension) => `.${extension}`).join(","),
+				// Phones may grey out font files they have no type for (e.g. WOFF2 on
+				// iOS), so they offer every file; installOwn checks the name anyway.
+				accept: Platform.isMobile
+					? null
+					: FONT_EXTENSIONS.map((extension) => `.${extension}`).join(","),
 			},
 		});
 		this.fileInput.addEventListener("change", () => {
@@ -43,8 +46,8 @@ export class EmojiStyleSection {
 
 	async render(): Promise<void> {
 		const token = ++this.renderToken;
-		const { emojiStyle, emojiFont } = this.plugin.icons.settings;
-		const fonts = this.plugin.emojiFonts;
+		const { emojiStyle, emojiFont } = this.plugin.settings;
+		const { fonts } = this.plugin.style;
 		const downloaded = new Set((await fonts.downloadedSets()).map((entry) => entry.set.id));
 		const ownAvailable = await fonts.isAvailable("file", emojiFont);
 		if (token !== this.renderToken) return;
@@ -230,7 +233,7 @@ export class EmojiStyleSection {
 	// ------------------------------------------------------------------ actions
 
 	private async select(style: string): Promise<void> {
-		await this.plugin.setEmojiStyle(style);
+		await this.plugin.style.select(style);
 		await this.render();
 	}
 
@@ -240,8 +243,7 @@ export class EmojiStyleSection {
 		this.downloading.add(set.id);
 		void this.render();
 		try {
-			await this.plugin.downloadEmojiSet(set);
-			await this.plugin.setEmojiStyle(set.id);
+			await this.plugin.style.download(set);
 		} catch (error) {
 			new Notice(error instanceof Error ? error.message : `Could not download ${set.name}.`);
 		} finally {
@@ -251,7 +253,12 @@ export class EmojiStyleSection {
 	}
 
 	private async deleteSet(set: EmojiSet): Promise<void> {
-		await this.plugin.deleteEmojiSet(set);
+		try {
+			await this.plugin.style.deleteSet(set);
+		} catch (error) {
+			console.error(`[notemoji] Could not delete ${set.name}.`, error);
+			new Notice(`Could not delete ${set.name}.`);
+		}
 		await this.render();
 	}
 
@@ -266,7 +273,7 @@ export class EmojiStyleSection {
 			if (!confirmed) return;
 		}
 		try {
-			await this.plugin.setOwnEmojiFont(file.name, await file.arrayBuffer());
+			await this.plugin.style.installOwn(file.name, await file.arrayBuffer());
 			new Notice(`Notemoji now uses "${file.name}" for its emoji.`);
 		} catch (error) {
 			new Notice(error instanceof Error ? error.message : "Could not use this font.");
@@ -276,7 +283,7 @@ export class EmojiStyleSection {
 
 	private async removeOwnFont(): Promise<void> {
 		try {
-			await this.plugin.removeOwnEmojiFont();
+			await this.plugin.style.removeOwn();
 		} catch (error) {
 			console.error("[notemoji] Could not remove the emoji font.", error);
 			new Notice("Could not remove the emoji font.");

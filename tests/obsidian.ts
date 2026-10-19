@@ -399,13 +399,20 @@ export class MenuItem {
 	}
 }
 
-/** Menus shown with showAtMouseEvent, oldest first. Tests may clear it. */
+/** Menus shown with showAtMouseEvent or showAtPosition, oldest first. Tests may clear it. */
 export const shownMenus: Menu[] = [];
 
 export class Menu {
 	items: MenuItem[] = [];
+	/** Where showAtPosition opened it. */
+	position: { x: number; y: number } | null = null;
 
 	showAtMouseEvent(_event: MouseEvent): this {
+		shownMenus.push(this);
+		return this;
+	}
+	showAtPosition(position: { x: number; y: number }): this {
+		this.position = position;
 		shownMenus.push(this);
 		return this;
 	}

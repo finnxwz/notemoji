@@ -1,6 +1,6 @@
 import type { TFile as RealTFile } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { NotemojiSettings } from "../../src/icons/data";
+import type { NotemojiSettings } from "../../src/data";
 import { EMOJI_ATTRIBUTE } from "../../src/display/emoji-attribute";
 import { TitleDecorations } from "../../src/display/titles";
 import { createFakeApp, FakeApp } from "../fake-app";

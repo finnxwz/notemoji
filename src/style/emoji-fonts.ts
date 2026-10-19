@@ -1,6 +1,5 @@
 import { DataAdapter, normalizePath, requestUrl } from "obsidian";
-import { EMOJI_SETS, EmojiSet, findEmojiSet } from "./emoji-sets";
-import { isFontFileName } from "./icon-value";
+import { EMOJI_SETS, EmojiSet, findEmojiSet, isFontFileName } from "./emoji-sets";
 
 /**
  * Prefix of the CSS font family the chosen emoji font is registered under.
@@ -170,6 +169,11 @@ export class EmojiFonts {
 		doc.fonts.add(this.face);
 		doc.body.setCssProps({ [EMOJI_FONT_VARIABLE]: JSON.stringify(this.family) });
 		doc.body.addClass(EMOJI_FONT_CLASS);
+	}
+
+	/** Forgets a closed window. */
+	detach(doc: Document): void {
+		this.documents.delete(doc);
 	}
 
 	/** Stops using the font everywhere (keeps the files). */
