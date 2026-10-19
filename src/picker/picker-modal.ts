@@ -1,5 +1,5 @@
 import { App, Menu, Modal, Notice, Platform, setIcon } from "obsidian";
-import { IconSource, renderIcon } from "../display/icon-source";
+import { renderIcon } from "../display/icon-source";
 import { parseEmojiInput } from "../icons/emoji";
 import { CUSTOM_EXTENSIONS, customValue, parseIcon } from "../icons/icon-value";
 import { findEntry, getCatalog, searchEmoji } from "./catalog";
@@ -78,6 +78,8 @@ export class PickerModal extends Modal {
 	private sections: GridSection[] = [];
 	private customFiles: string[] = [];
 	private activeIndex = -1;
+	/** Section whose tab is highlighted ("" for none, null before the first update). */
+	private shownSection: string | null = null;
 	/** Set once the arrow keys moved the selection: ←/→ then move tiles, not the caret. */
 	private navigating = false;
 
@@ -262,6 +264,7 @@ export class PickerModal extends Modal {
 		const query = this.searchEl.value.trim();
 		this.contentEl.toggleClass("is-searching", query !== "");
 		this.sections = query === "" ? this.browseSections() : this.searchSections(query);
+		this.shownSection = null;
 		this.activeIndex = -1;
 		this.emptyEl.toggleClass("is-visible", this.sections.length === 0);
 		this.layout = null;
@@ -298,7 +301,7 @@ export class PickerModal extends Modal {
 		if (item.kind === "emoji") {
 			tileEl.setText(item.value);
 		} else if (item.kind === "custom") {
-			renderIcon(tileEl, item.value, this.customSource);
+			renderIcon(tileEl, item.value, this.customUrl);
 		} else {
 			tileEl.addClass("is-upload");
 			// The one labelled tile: its icon alone does not say what it does.
@@ -329,21 +332,23 @@ export class PickerModal extends Modal {
 		const top = this.grid.scrollEl.scrollTop;
 		const section = layout.sectionAt(top);
 		const id = section?.id ?? "";
-		for (const tabEl of Array.from(this.tabsEl.children) as HTMLElement[]) {
-			const active = tabEl.dataset.section === id;
-			tabEl.toggleClass("is-active", active);
-			tabEl.setAttr("aria-selected", String(active));
+		// Runs every scroll frame: touch the DOM only when something changed.
+		if (id !== this.shownSection) {
+			this.shownSection = id;
+			for (const tabEl of Array.from(this.tabsEl.children) as HTMLElement[]) {
+				const active = tabEl.dataset.section === id;
+				tabEl.toggleClass("is-active", active);
+				tabEl.setAttr("aria-selected", String(active));
+			}
+			this.stickyEl.setText(section?.label ?? "");
 		}
 		// Once a section's own header scrolled away, its name stays pinned at the top.
-		const label = section?.label ?? "";
-		const pinned = label !== "" && top > (layout.sectionTop(id) ?? 0);
-		this.stickyEl.toggleClass("is-visible", pinned);
-		if (pinned && this.stickyEl.textContent !== label) this.stickyEl.setText(label);
+		const pinned = (section?.label ?? "") !== "" && top > (layout.sectionTop(id) ?? 0);
+		if (pinned !== this.stickyEl.hasClass("is-visible"))
+			this.stickyEl.toggleClass("is-visible", pinned);
 	}
 
-	private get customSource(): IconSource {
-		return { get: () => undefined, url: (file) => this.options.custom.url(file) };
-	}
+	private readonly customUrl = (file: string): string => this.options.custom.url(file);
 
 	// ------------------------------------------------------------------ interaction
 
@@ -401,13 +406,13 @@ export class PickerModal extends Modal {
 			this.footerNameEl.setText(item.name);
 			return;
 		}
-		renderIcon(this.footerIconEl, item.value, this.customSource);
+		renderIcon(this.footerIconEl, item.value, this.customUrl);
 		this.footerNameEl.setText(item.name || "Custom emoji");
 	}
 
 	private showDefaultFooter(): void {
 		const { current } = this.options;
-		renderIcon(this.footerIconEl, current, this.customSource);
+		renderIcon(this.footerIconEl, current, this.customUrl);
 		this.footerNameEl.setText(current === "" ? HINT : this.nameOf(current) || "Current emoji");
 	}
 

@@ -31,7 +31,7 @@ function isEmojiPart(char: string): boolean {
 }
 
 /** Longest sequence we are willing to store (safety net, not a restriction). */
-export const MAX_EMOJI_LENGTH = 64;
+const MAX_EMOJI_LENGTH = 64;
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 

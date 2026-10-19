@@ -21,7 +21,7 @@ export interface EmojiCategory {
 	entries: EmojiEntry[];
 }
 
-export function parseCategories(raw: readonly RawEmojiCategory[]): EmojiCategory[] {
+function parseCategories(raw: readonly RawEmojiCategory[]): EmojiCategory[] {
 	return raw.map((category) => ({
 		id: category.id,
 		label: category.label,

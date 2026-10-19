@@ -8,8 +8,11 @@ export interface IconSource {
 	url(file: string): string;
 }
 
+/** Resolves a custom icon file to a resource URL. */
+export type IconUrl = (file: string) => string;
+
 /** Shows an icon inside `el`: the emoji as text, or the custom image. */
-export function renderIcon(el: HTMLElement, value: string, source: IconSource): void {
+export function renderIcon(el: HTMLElement, value: string, url: IconUrl): void {
 	const icon = parseIcon(value);
 	el.empty();
 	if (icon?.type !== "custom") {
@@ -18,7 +21,7 @@ export function renderIcon(el: HTMLElement, value: string, source: IconSource): 
 	}
 	const img = el.createEl("img", {
 		cls: "notemoji-image",
-		attr: { src: source.url(icon.file), alt: "", draggable: "false" },
+		attr: { src: url(icon.file), alt: "", draggable: "false" },
 	});
 	// A file that is missing on this device (e.g. not synced) shows nothing instead of a broken image.
 	img.addEventListener("error", () => img.addClass("is-missing"));

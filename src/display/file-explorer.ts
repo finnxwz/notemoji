@@ -173,7 +173,7 @@ export class FileExplorerRenderer {
 		const existing = this.findIconNode(titleEl);
 		if (existing) {
 			if (existing.getAttribute(EMOJI_ATTRIBUTE) === value) return;
-			renderIcon(existing, value, this.source);
+			renderIcon(existing, value, (file) => this.source.url(file));
 			existing.setAttribute(EMOJI_ATTRIBUTE, value);
 			return;
 		}
@@ -184,7 +184,7 @@ export class FileExplorerRenderer {
 			cls: ICON_CLASS,
 			attr: { [EMOJI_ATTRIBUTE]: value, "aria-hidden": "true" },
 		});
-		renderIcon(iconEl, value, this.source);
+		renderIcon(iconEl, value, (file) => this.source.url(file));
 
 		// Keep the emoji immediately before the name, after the folder chevron.
 		const anchor =

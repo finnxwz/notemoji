@@ -78,7 +78,7 @@ export class NoteTitleIcons {
 		icon.dataset.path = file.path;
 		const button = icon.firstElementChild;
 		if (button instanceof HTMLElement && icon.dataset.value !== emoji) {
-			renderIcon(button, emoji, this.source);
+			renderIcon(button, emoji, (file) => this.source.url(file));
 			icon.dataset.value = emoji;
 		}
 		this.icons.add(icon);
