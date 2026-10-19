@@ -23,7 +23,6 @@ export class VirtualGrid {
 	private layout: GridLayout | null = null;
 	/** Rendered rows by row index. */
 	private readonly rendered = new Map<number, HTMLElement>();
-	private frame: number | null = null;
 
 	constructor(
 		parentEl: HTMLElement,
@@ -32,7 +31,9 @@ export class VirtualGrid {
 	) {
 		this.scrollEl = parentEl.createDiv({ cls: "notemoji-picker-body" });
 		this.canvasEl = this.scrollEl.createDiv({ cls: "notemoji-picker-canvas" });
-		this.scrollEl.addEventListener("scroll", () => this.scheduleUpdate(), { passive: true });
+		// Scroll events arrive once per frame; rendering right away (rather than
+		// in the next frame) means newly revealed rows are there when it paints.
+		this.scrollEl.addEventListener("scroll", () => this.update(), { passive: true });
 	}
 
 	get viewportHeight(): number {
@@ -43,7 +44,11 @@ export class VirtualGrid {
 	setLayout(layout: GridLayout, keepScroll = false): void {
 		this.layout = layout;
 		this.clear();
-		this.canvasEl.setCssProps({ "--notemoji-grid-height": `${layout.height}px` });
+		this.canvasEl.setCssProps({
+			"--notemoji-grid-height": `${layout.height}px`,
+			"--notemoji-tile-width": `calc(100% / ${layout.metrics.columns})`,
+			"--notemoji-tile-height": `${layout.metrics.rowHeight}px`,
+		});
 		if (!keepScroll) this.scrollEl.scrollTop = 0;
 		this.update();
 	}
@@ -109,17 +114,7 @@ export class VirtualGrid {
 	}
 
 	dispose(): void {
-		if (this.frame !== null) window.cancelAnimationFrame(this.frame);
-		this.frame = null;
 		this.clear();
-	}
-
-	private scheduleUpdate(): void {
-		if (this.frame !== null) return;
-		this.frame = window.requestAnimationFrame(() => {
-			this.frame = null;
-			this.update();
-		});
 	}
 
 	private clear(): void {

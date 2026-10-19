@@ -4,6 +4,7 @@ import { parseEmojiInput } from "../icons/emoji";
 import { CUSTOM_EXTENSIONS, customValue, parseIcon } from "../icons/icon-value";
 import { findEntry, getCatalog, searchEmoji } from "./catalog";
 import { GridItem, GridLayout, GridSection } from "./grid-layout";
+import type { SpriteSource } from "./emoji-sprites";
 import { VirtualGrid } from "./virtual-grid";
 
 /** The user's own icon library, as the picker needs it. */
@@ -26,6 +27,8 @@ export interface PickerOptions {
 	/** Recently used icons, most recent first. */
 	recent: readonly string[];
 	custom: CustomIcons;
+	/** Pre-rendered emoji images; tiles fall back to text without them. */
+	sprites?: SpriteSource;
 	/** Called with the chosen icon, or "" when the icon should be removed. */
 	onSubmit: (value: string) => void;
 }
@@ -37,8 +40,9 @@ const ACCEPT = CUSTOM_EXTENSIONS.map((extension) => `.${extension}`).join(",");
 
 /** Grid geometry; tiles stretch to fill the width, never smaller than this. */
 const MIN_TILE_PX = 40;
-const HEADER_PX = 28;
-const SECTION_GAP_PX = 8;
+/** Header rows include the space between sections, so rows cover the whole grid. */
+const HEADER_PX = 36;
+const SECTION_GAP_PX = 0;
 /** Used before the modal has a size (and in environments without layout). */
 const FALLBACK_WIDTH_PX = 360;
 
@@ -74,6 +78,7 @@ export class PickerModal extends Modal {
 	private grid!: VirtualGrid;
 	private layout: GridLayout | null = null;
 	private resizeObserver: ResizeObserver | null = null;
+	private stopSprites: (() => void) | null = null;
 
 	private sections: GridSection[] = [];
 	private customFiles: string[] = [];
@@ -161,6 +166,9 @@ export class PickerModal extends Modal {
 			this.resizeObserver.observe(gridEl);
 		}
 
+		// Categories whose images become ready while the picker is open switch over.
+		this.stopSprites = options.sprites?.onChange(() => this.grid.refreshTiles()) ?? null;
+
 		// On phones the keyboard would cover most of the grid; tap to search instead.
 		if (!Platform.isMobile) this.searchEl.focus();
 
@@ -168,6 +176,7 @@ export class PickerModal extends Modal {
 	}
 
 	onClose(): void {
+		this.stopSprites?.();
 		this.resizeObserver?.disconnect();
 		this.grid.dispose();
 		this.contentEl.empty();
@@ -299,7 +308,18 @@ export class PickerModal extends Modal {
 		if (index === this.activeIndex) tileEl.addClass("is-active");
 		if (item.value !== "" && item.value === this.options.current) tileEl.addClass("is-current");
 		if (item.kind === "emoji") {
-			tileEl.setText(item.value);
+			const slot = this.options.sprites?.slot(item.value);
+			if (!slot) {
+				tileEl.setText(item.value);
+				return;
+			}
+			// A slice of a pre-rendered image: no glyph has to be drawn while scrolling.
+			tileEl.empty();
+			tileEl.createSpan({ cls: "notemoji-sprite" }).setCssProps({
+				"--notemoji-sprite-image": slot.image,
+				"--notemoji-sprite-position": slot.position,
+				"--notemoji-sprite-size": slot.size,
+			});
 		} else if (item.kind === "custom") {
 			renderIcon(tileEl, item.value, this.customUrl);
 		} else {

@@ -1,0 +1,135 @@
+import "../obsidian";
+import { describe, expect, it, vi } from "vitest";
+import type { EmojiCategory } from "../../src/picker/catalog";
+import { EmojiSprites, IdleScheduler, SpriteOptions } from "../../src/picker/emoji-sprites";
+import { flush } from "../fake-app";
+
+const category = (id: string, emoji: string[]): EmojiCategory => ({
+	id,
+	label: id,
+	icon: emoji[0],
+	entries: emoji.map((value) => ({ emoji: value, name: value, keywords: [] })),
+});
+
+const categories = [category("a", ["😀", "😃", "😄"]), category("b", ["🐻"])];
+
+/** Runs scheduled slices only when the test says so, with a given time budget each. */
+function manualScheduler(timePerSlice: number) {
+	const queue: Array<(timeLeft: () => number) => void> = [];
+	const scheduler: IdleScheduler = (task) => queue.push(task);
+	return {
+		scheduler,
+		pending: () => queue.length,
+		run() {
+			const task = queue.shift();
+			let left = timePerSlice;
+			task?.(() => (left -= 1));
+		},
+	};
+}
+
+function setup(overrides: Partial<SpriteOptions> = {}) {
+	const drawn: string[] = [];
+	const context = {
+		font: "",
+		textAlign: "",
+		textBaseline: "",
+		measureText: () => ({
+			actualBoundingBoxLeft: 0,
+			actualBoundingBoxRight: 24,
+			actualBoundingBoxAscent: 22,
+			actualBoundingBoxDescent: 4,
+		}),
+		fillText: (text: string) => drawn.push(text),
+	};
+	const canvases: Array<{ width: number; height: number }> = [];
+	let urls = 0;
+	const revoked: string[] = [];
+	const options: SpriteOptions = {
+		categories: () => categories,
+		fontFamily: () => '"Noto Color Emoji"',
+		pixelRatio: () => 2,
+		scheduler: (task) => task(() => 100),
+		createCanvas: (width, height) => {
+			canvases.push({ width, height });
+			return { width, height, getContext: () => context } as unknown as HTMLCanvasElement;
+		},
+		toUrl: () => Promise.resolve(`blob:sprite-${++urls}`),
+		decode: () => Promise.resolve(),
+		revokeUrl: (url) => revoked.push(url),
+		...overrides,
+	};
+	const sprites = new EmojiSprites(options);
+	return { sprites, drawn, context, canvases, revoked };
+}
+
+describe("EmojiSprites", () => {
+	it("draws every category into one image and exposes a slot per emoji", async () => {
+		const { sprites, drawn, context, canvases } = setup();
+		const changes = vi.fn();
+		sprites.onChange(changes);
+		sprites.rebuild();
+		await flush(10);
+
+		expect(drawn).toEqual(["😀", "😃", "😄", "🐻"]);
+		expect(context.font).toBe('48px "Noto Color Emoji"');
+		// 32 columns of 32 px cells at 2x.
+		expect(canvases[0]).toEqual({ width: 32 * 64, height: 64 });
+		expect(sprites.slot("😃")).toEqual({
+			image: 'url("blob:sprite-1")',
+			position: "-32px -0px",
+			size: "1024px 32px",
+		});
+		expect(sprites.slot("🐻")?.image).toBe('url("blob:sprite-2")');
+		expect(sprites.slot("🚀")).toBeUndefined();
+		// Once when cleared, then once per finished category.
+		expect(changes).toHaveBeenCalledTimes(3);
+	});
+
+	it("draws in idle slices without blocking", async () => {
+		const idle = manualScheduler(2);
+		const { sprites, drawn } = setup({ scheduler: idle.scheduler });
+		sprites.rebuild();
+		expect(drawn).toEqual([]);
+		idle.run();
+		expect(drawn.length).toBeGreaterThan(0);
+		expect(drawn.length).toBeLessThan(3);
+		while (idle.pending() > 0) {
+			idle.run();
+			await flush();
+		}
+		expect(drawn).toEqual(["😀", "😃", "😄", "🐻"]);
+		expect(sprites.slot("🐻")).toBeDefined();
+	});
+
+	it("starts over when rebuilt (e.g. after a style change) and frees old images", async () => {
+		const { sprites, revoked } = setup();
+		sprites.rebuild();
+		await flush(10);
+		sprites.rebuild();
+		expect(sprites.slot("😀")).toBeUndefined();
+		expect(revoked).toEqual(["blob:sprite-1", "blob:sprite-2"]);
+		await flush(10);
+		expect(sprites.slot("😀")?.image).toBe('url("blob:sprite-3")');
+	});
+
+	it("abandons a build that was replaced while it was drawing", async () => {
+		const idle = manualScheduler(100);
+		const { sprites, drawn } = setup({ scheduler: idle.scheduler });
+		sprites.rebuild();
+		sprites.dispose();
+		while (idle.pending() > 0) idle.run();
+		await flush(10);
+		expect(drawn).toEqual([]);
+		expect(sprites.slot("😀")).toBeUndefined();
+	});
+
+	it("does nothing without a canvas context", async () => {
+		const { sprites } = setup({
+			createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement,
+		});
+		sprites.rebuild();
+		await flush(10);
+		expect(sprites.slot("😀")).toBeUndefined();
+	});
+});

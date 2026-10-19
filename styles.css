@@ -112,9 +112,16 @@ body {
 	contain: strict;
 }
 
+/* Faint dots where tiles go: a placeholder if a row is not rendered yet. */
 .notemoji-picker-canvas {
 	position: relative;
 	height: var(--notemoji-grid-height, 0);
+	background-image: radial-gradient(
+		circle,
+		var(--background-modifier-border) 0 3px,
+		transparent 3.5px
+	);
+	background-size: var(--notemoji-tile-width) var(--notemoji-tile-height);
 }
 
 .notemoji-picker-row,
@@ -126,6 +133,11 @@ body {
 	transform: translateY(var(--notemoji-row-top));
 }
 
+.notemoji-picker-row,
+.notemoji-picker-section-title {
+	background-color: var(--modal-background, var(--background-primary));
+}
+
 .notemoji-picker-row {
 	display: grid;
 	grid-template-columns: repeat(var(--notemoji-columns), 1fr);
@@ -134,7 +146,8 @@ body {
 .notemoji-picker-section-title,
 .notemoji-picker-sticky {
 	display: flex;
-	align-items: center;
+	align-items: flex-end;
+	padding-block-end: 6px;
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 	font-weight: var(--font-semibold);
@@ -143,10 +156,10 @@ body {
 /* The current section's name, pinned once its own header scrolled away. */
 .notemoji-picker-sticky {
 	position: absolute;
-	inset-inline: 0 var(--size-4-3);
+	inset-inline: 0;
 	top: 0;
 	z-index: 1;
-	height: 28px;
+	height: 30px;
 	visibility: hidden;
 	background-color: var(--modal-background, var(--background-primary));
 	pointer-events: none;
@@ -166,6 +179,24 @@ body {
 	border-radius: var(--radius-s);
 	cursor: var(--cursor);
 	user-select: none;
+}
+
+/* A pre-rendered emoji: one 32 px cell of a sprite sheet (see emoji-sprites.ts). */
+.notemoji-sprite {
+	width: 32px;
+	height: 32px;
+	background-image: var(--notemoji-sprite-image);
+	background-position: var(--notemoji-sprite-position);
+	background-size: var(--notemoji-sprite-size);
+	background-repeat: no-repeat;
+	pointer-events: none;
+}
+
+/* Reads the resolved emoji font for drawing the sprites. */
+.notemoji-font-probe {
+	position: absolute;
+	visibility: hidden;
+	font-family: var(--notemoji-font);
 }
 
 .notemoji-picker-emoji:hover,

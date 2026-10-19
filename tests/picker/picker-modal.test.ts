@@ -356,3 +356,42 @@ describe("opening", () => {
 		expect(document.activeElement).not.toBe(picker.search);
 	});
 });
+
+describe("pre-rendered emoji", () => {
+	function fakeSprites(ready: string[]) {
+		const listeners = new Set<() => void>();
+		const available = new Set(ready);
+		return {
+			available,
+			slot: (emoji: string) =>
+				available.has(emoji)
+					? { image: 'url("blob:x")', position: "-32px -0px", size: "1024px 32px" }
+					: undefined,
+			onChange: (listener: () => void) => {
+				listeners.add(listener);
+				return () => listeners.delete(listener);
+			},
+			notify: () => listeners.forEach((listener) => listener()),
+			listeners,
+		};
+	}
+
+	it("shows sprite slices where available and text otherwise", async () => {
+		const sprites = fakeSprites(["😀"]);
+		const picker = await open({ sprites });
+		const sprite = picker.modal.contentEl.querySelector<HTMLElement>(".notemoji-sprite")!;
+		expect(sprite.style.getPropertyValue("--notemoji-sprite-position")).toBe("-32px -0px");
+		expect(picker.tile("😃")).toBeDefined(); // not pre-rendered yet: text
+	});
+
+	it("switches tiles over when more images become ready, and stops listening when closed", async () => {
+		const sprites = fakeSprites([]);
+		const picker = await open({ sprites });
+		expect(picker.modal.contentEl.querySelectorAll(".notemoji-sprite")).toHaveLength(0);
+		sprites.available.add("😃");
+		sprites.notify();
+		expect(picker.modal.contentEl.querySelectorAll(".notemoji-sprite")).toHaveLength(1);
+		picker.modal.close();
+		expect(sprites.listeners.size).toBe(0);
+	});
+});

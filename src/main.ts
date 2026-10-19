@@ -7,7 +7,8 @@ import { CustomIconLibrary } from "./icons/custom-icons";
 import { EmojiFonts } from "./icons/emoji-font";
 import type { EmojiSet } from "./icons/emoji-sets";
 import { IconService, isNote } from "./icons/icon-service";
-import { warmUpCatalog } from "./picker/catalog";
+import { getCatalog, warmUpCatalog } from "./picker/catalog";
+import { EmojiSprites } from "./picker/emoji-sprites";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings";
 
@@ -32,6 +33,9 @@ export default class NotemojiPlugin extends Plugin {
 	private titles!: TitleDecorations;
 	private titleTimer: number | null = null;
 	private warmUpTimer: number | null = null;
+	/** Pre-rendered emoji for the picker; built after startup and after every style change. */
+	private sprites!: EmojiSprites;
+	private warmedUp = false;
 
 	/** Serialised save queue; a newer snapshot is never overwritten by an older one. */
 	private saveQueue: Promise<void> = Promise.resolve();
@@ -51,6 +55,10 @@ export default class NotemojiPlugin extends Plugin {
 			normalizePath(`${pluginFolder}/fonts`),
 		);
 		this.emojiFonts.attach(document);
+		this.sprites = new EmojiSprites({
+			categories: () => getCatalog(),
+			fontFamily: () => this.resolvedEmojiFont(),
+		});
 
 		const source: ExplorerSource = {
 			get: (path) => this.icons.get(path),
@@ -71,6 +79,7 @@ export default class NotemojiPlugin extends Plugin {
 		if (this.titleTimer !== null) window.clearTimeout(this.titleTimer);
 		if (this.warmUpTimer !== null) window.clearTimeout(this.warmUpTimer);
 		this.emojiFonts?.unload();
+		this.sprites?.dispose();
 		this.explorer?.dispose();
 		this.titles?.dispose();
 	}
@@ -103,11 +112,22 @@ export default class NotemojiPlugin extends Plugin {
 		this.explorer.attach();
 		this.scheduleTitleSync();
 		void this.loadEmojiFont();
-		// Parse the emoji list while Obsidian is idle, so even the first picker opens instantly.
+		// Prepare the picker while Obsidian is idle: parse the emoji list and
+		// pre-render the emoji images, so even the first picker is smooth.
 		this.warmUpTimer = window.setTimeout(() => {
 			this.warmUpTimer = null;
+			this.warmedUp = true;
 			warmUpCatalog();
+			this.sprites.rebuild();
 		}, WARM_UP_DELAY_MS);
+	}
+
+	/** The font-family list Notemoji's emoji currently use, as the browser resolves it. */
+	private resolvedEmojiFont(): string {
+		const probe = document.body.createSpan({ cls: "notemoji-font-probe" });
+		const family = window.getComputedStyle(probe).fontFamily;
+		probe.remove();
+		return family;
 	}
 
 	// ------------------------------------------------------------------ emoji font
@@ -116,6 +136,8 @@ export default class NotemojiPlugin extends Plugin {
 	async loadEmojiFont(): Promise<void> {
 		const { emojiStyle, emojiFont } = this.data.settings;
 		await this.emojiFonts.apply(emojiStyle, emojiFont);
+		// The picker's pre-rendered images show the style; draw them again.
+		if (this.warmedUp) this.sprites.rebuild();
 	}
 
 	async setEmojiStyle(style: string): Promise<void> {
@@ -234,6 +256,7 @@ export default class NotemojiPlugin extends Plugin {
 			description: file.name,
 			current,
 			recent: this.icons.recent,
+			sprites: this.sprites,
 			custom: {
 				list: () => this.customIcons.list(),
 				url: (name) => this.customIcons.url(name),
