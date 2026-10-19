@@ -11,7 +11,8 @@
 		"format": "prettier --write .",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"check": "prettier --check . && eslint --max-warnings 0 . && tsc --noEmit && vitest run && node esbuild.config.mjs production"
+		"check": "prettier --check . && eslint --max-warnings 0 . && tsc --noEmit && vitest run && node esbuild.config.mjs production",
+		"emoji-data": "node scripts/generate-emoji-data.mjs"
 	},
 	"keywords": [
 		"obsidian",
@@ -25,6 +26,7 @@
 	"devDependencies": {
 		"@eslint/js": "^9.39.5",
 		"@types/node": "^22.10.0",
+		"emojibase-data": "^18.0.0",
 		"esbuild": "^0.28.2",
 		"eslint": "^9.39.5",
 		"eslint-plugin-obsidianmd": "^0.4.2",

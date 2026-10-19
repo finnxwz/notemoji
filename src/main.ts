@@ -3,7 +3,7 @@ import { confirm } from "./confirm-modal";
 import { FileExplorerRenderer } from "./display/file-explorer";
 import { parseData, PluginData, serializeData } from "./icons/data";
 import { ICON_PROPERTY, IconService, isNote } from "./icons/icon-service";
-import { EmojiModal } from "./picker/picker-modal";
+import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings";
 
 /** How an item is called in menus. */
@@ -136,10 +136,11 @@ export default class NotemojiPlugin extends Plugin {
 
 	openPicker(file: TAbstractFile): void {
 		const current = this.icons.get(file.path) ?? "";
-		new EmojiModal(this.app, {
+		new PickerModal(this.app, {
 			title: `${current === "" ? "Set" : "Change"} ${describeItem(file)} emoji`,
-			description: `Choose an emoji for “${file.name}”.`,
+			description: file.name,
 			current,
+			recent: this.icons.recent,
 			onSubmit: (emoji) =>
 				void (emoji === "" ? this.removeEmoji(file) : this.setEmoji(file, emoji)),
 		}).open();
