@@ -52,7 +52,7 @@ export class EmojiStyleSection {
 		this.el.empty();
 		const cardsEl = this.el.createDiv({
 			cls: "notemoji-styles",
-			attr: { role: "radiogroup", "aria-label": "Emoji style" },
+			attr: { role: "radiogroup" },
 		});
 
 		// System emoji
@@ -70,7 +70,6 @@ export class EmojiStyleSection {
 					? "Downloaded"
 					: formatBytes(set.bytes);
 			const card = this.card(cardsEl, set.id, set.name, meta, emojiStyle);
-			card.el.setAttr("title", set.credit);
 			const preview = EMOJI_SET_PREVIEWS[set.id];
 			if (preview) {
 				card.preview

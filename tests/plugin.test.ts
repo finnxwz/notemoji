@@ -428,7 +428,11 @@ describe("emoji style", () => {
 		}
 		expect(card("noto-mono").querySelector("img")!.hasClass("is-monochrome")).toBe(true);
 		expect(card("twemoji").textContent).toContain("1.4 MB");
-		expect(card("twemoji").getAttribute("title")).toContain("CC-BY 4.0");
+		// No tooltips: Obsidian shows one for every labelled or titled element.
+		expect(tab.containerEl.querySelector(".notemoji-styles")!.hasAttribute("aria-label")).toBe(
+			false,
+		);
+		expect(card("twemoji").hasAttribute("title")).toBe(false);
 		expect(caption()).toContain("Your device's own emoji");
 	});
 

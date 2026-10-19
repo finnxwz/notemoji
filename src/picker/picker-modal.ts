@@ -2,7 +2,9 @@ import { App, Menu, Modal, Notice, Platform, setIcon } from "obsidian";
 import { IconSource, renderIcon } from "../display/icon-source";
 import { parseEmojiInput } from "../icons/emoji";
 import { CUSTOM_EXTENSIONS, customValue, parseIcon } from "../icons/icon-value";
-import { EmojiCategory, EmojiEntry, findEntry, getCatalog, searchEmoji } from "./catalog";
+import { findEntry, getCatalog, searchEmoji } from "./catalog";
+import { GridItem, GridLayout, GridSection } from "./grid-layout";
+import { VirtualGrid } from "./virtual-grid";
 
 /** The user's own icon library, as the picker needs it. */
 export interface CustomIcons {
@@ -28,48 +30,53 @@ export interface PickerOptions {
 	onSubmit: (value: string) => void;
 }
 
-interface Tile {
-	/** What gets stored: an emoji or `custom:<file>`. */
-	value: string;
-	name: string;
-	el: HTMLElement;
-}
-
-interface Section {
-	id: string;
-	label: string;
-	icon: string;
-}
-
-const RECENT: Section = { id: "recent", label: "Recently used", icon: "🕘" };
-const CUSTOM: Section = { id: "custom", label: "Custom icons", icon: "🖼️" };
+const RECENT = { id: "recent", label: "Recently used", icon: "🕘" };
+const CUSTOM = { id: "custom", label: "Custom icons", icon: "🖼️" };
 const HINT = "Type to search, or use the arrow keys.";
 const ACCEPT = CUSTOM_EXTENSIONS.map((extension) => `.${extension}`).join(",");
+
+/** Grid geometry; tiles stretch to fill the width, never smaller than this. */
+const MIN_TILE_PX = 40;
+const HEADER_PX = 28;
+const SECTION_GAP_PX = 8;
+/** Used before the modal has a size (and in environments without layout). */
+const FALLBACK_WIDTH_PX = 360;
+
+const UPLOAD_ITEM: GridItem = {
+	kind: "upload",
+	value: "",
+	name: "Upload an image (PNG, SVG and more)",
+};
 
 /**
  * The icon picker: search, category tabs, recently used, the user's custom
  * icons (with upload), and remove.
  *
- * Anything that parses as a single emoji or symbol (pasted, or typed with the
- * system's emoji picker) is offered as the first result, also when it is not
- * in the bundled list.
+ * The grid is virtualized (see VirtualGrid): only the rows on screen exist in
+ * the DOM, so opening and scrolling stay fast with ~1,900 emoji. Tiles carry
+ * no `aria-label`, because Obsidian shows a tooltip for every labelled
+ * element the mouse passes; the footer names the hovered emoji instead.
+ *
+ * Anything that parses as a single emoji or symbol (pasted, or from the
+ * system's emoji picker) is offered first when searching, also when it is not
+ * in the list.
  */
 export class PickerModal extends Modal {
 	readonly options: PickerOptions;
 
 	private searchEl!: HTMLInputElement;
 	private tabsEl!: HTMLElement;
-	private bodyEl!: HTMLElement;
+	private stickyEl!: HTMLElement;
+	private emptyEl!: HTMLElement;
 	private footerIconEl!: HTMLElement;
 	private footerNameEl!: HTMLElement;
 	private uploadEl!: HTMLInputElement;
+	private grid!: VirtualGrid;
+	private layout: GridLayout | null = null;
+	private resizeObserver: ResizeObserver | null = null;
 
+	private sections: GridSection[] = [];
 	private customFiles: string[] = [];
-	/** Categories still to render, one per animation frame. */
-	private pending: EmojiCategory[] = [];
-	private pendingFrame: number | null = null;
-	private scrollFrame: number | null = null;
-	private tiles: Tile[] = [];
 	private activeIndex = -1;
 	/** Set once the arrow keys moved the selection: ←/→ then move tiles, not the caret. */
 	private navigating = false;
@@ -94,17 +101,15 @@ export class PickerModal extends Modal {
 			attr: {
 				type: "search",
 				placeholder: "Search or paste an emoji",
-				"aria-label": "Search emoji",
 				autocomplete: "off",
 				spellcheck: "false",
 			},
 		});
 		this.searchEl.addEventListener("input", () => {
 			this.navigating = false;
-			this.render();
+			this.rebuild();
 		});
 		this.searchEl.addEventListener("keydown", (event) => this.handleKeydown(event));
-
 		if (options.current !== "") {
 			toolbarEl
 				.createEl("button", { cls: "notemoji-picker-remove", text: "Remove" })
@@ -112,7 +117,7 @@ export class PickerModal extends Modal {
 		}
 
 		this.uploadEl = contentEl.createEl("input", {
-			cls: "notemoji-hidden-input notemoji-picker-upload-input",
+			cls: "notemoji-hidden-input",
 			attr: { type: "file", accept: ACCEPT, multiple: true },
 		});
 		this.uploadEl.addEventListener("change", () => void this.upload());
@@ -121,37 +126,38 @@ export class PickerModal extends Modal {
 			cls: "notemoji-picker-tabs",
 			attr: { role: "tablist" },
 		});
-		this.bodyEl = contentEl.createDiv({ cls: "notemoji-picker-body" });
-		this.bodyEl.addEventListener("click", (event) => {
-			const tile = this.tileFromEvent(event);
-			if (tile) this.submit(tile.value);
+
+		const gridWrapEl = contentEl.createDiv({ cls: "notemoji-picker-grid-wrap" });
+		this.stickyEl = gridWrapEl.createDiv({ cls: "notemoji-picker-sticky" });
+		this.grid = new VirtualGrid(
+			gridWrapEl,
+			(tileEl, item, index) => this.renderTile(tileEl, item, index),
+			() => this.onGridScroll(),
+		);
+		this.emptyEl = gridWrapEl.createDiv({
+			cls: "notemoji-picker-empty",
+			text: "No emoji found. You can also paste any emoji here.",
 		});
-		this.bodyEl.addEventListener("mouseover", (event) => {
-			const tile = this.tileFromEvent(event);
-			if (tile) this.showInFooter(tile);
+		const gridEl = this.grid.scrollEl;
+		gridEl.addEventListener("click", (event) => this.chooseFromEvent(event));
+		gridEl.addEventListener("mouseover", (event) => {
+			const index = this.indexFromEvent(event);
+			if (index !== undefined) this.showInFooter(index);
 		});
 		// Right-click, or long-press on touch screens.
-		this.bodyEl.addEventListener("contextmenu", (event) => this.showTileMenu(event));
-		// At most one tab update per frame while scrolling.
-		this.bodyEl.addEventListener(
-			"scroll",
-			() => {
-				if (this.scrollFrame !== null) return;
-				this.scrollFrame = window.requestAnimationFrame(() => {
-					this.scrollFrame = null;
-					this.highlightTab();
-				});
-			},
-			{ passive: true },
-		);
+		gridEl.addEventListener("contextmenu", (event) => this.showTileMenu(event));
 
 		const footerEl = contentEl.createDiv({ cls: "notemoji-picker-footer" });
 		this.footerIconEl = footerEl.createDiv({ cls: "notemoji-picker-footer-emoji" });
 		this.footerNameEl = footerEl.createDiv({ cls: "notemoji-picker-footer-name" });
 
-		// Shown right away; the custom icon list follows when it is read.
 		this.renderTabs();
-		this.render();
+		this.rebuild();
+		// Tiles stretch to the width; lay out again when it changes (e.g. window resize).
+		if (typeof ResizeObserver !== "undefined") {
+			this.resizeObserver = new ResizeObserver(() => this.relayout(true));
+			this.resizeObserver.observe(gridEl);
+		}
 
 		// On phones the keyboard would cover most of the grid; tap to search instead.
 		if (!Platform.isMobile) this.searchEl.focus();
@@ -160,16 +166,12 @@ export class PickerModal extends Modal {
 	}
 
 	onClose(): void {
-		this.cancelPending();
-		if (this.scrollFrame !== null) window.cancelAnimationFrame(this.scrollFrame);
+		this.resizeObserver?.disconnect();
+		this.grid.dispose();
 		this.contentEl.empty();
 	}
 
-	private get source(): IconSource {
-		return { get: () => undefined, url: (file) => this.options.custom.url(file) };
-	}
-
-	// ------------------------------------------------------------------ rendering
+	// ------------------------------------------------------------------ model
 
 	private async loadCustomIcons(): Promise<void> {
 		let files: string[];
@@ -179,14 +181,11 @@ export class PickerModal extends Modal {
 			console.error("[notemoji] Could not list custom icons.", error);
 			files = [];
 		}
-		const recentBefore = this.recent().length;
-		const changed = files.join("\n") !== this.customFiles.join("\n");
+		if (files.join("\n") === this.customFiles.join("\n")) return;
+		const hadRecent = this.recent().length > 0;
 		this.customFiles = files;
-		if (!changed) return;
-		if (this.recent().length !== recentBefore) this.renderTabs();
-		const scrollTop = this.bodyEl.scrollTop;
-		this.render();
-		this.bodyEl.scrollTop = scrollTop;
+		if (this.recent().length > 0 !== hadRecent) this.renderTabs();
+		this.rebuild(true);
 	}
 
 	/** Recent entries that can still be shown (custom icons may have been deleted). */
@@ -197,9 +196,120 @@ export class PickerModal extends Modal {
 		});
 	}
 
+	private item(value: string, name: string): GridItem {
+		return { kind: parseIcon(value)?.type === "custom" ? "custom" : "emoji", value, name };
+	}
+
+	private browseSections(): GridSection[] {
+		const sections: GridSection[] = [];
+		const recent = this.recent();
+		if (recent.length > 0) {
+			sections.push({
+				id: RECENT.id,
+				label: RECENT.label,
+				items: recent.map((value) => this.item(value, this.nameOf(value))),
+			});
+		}
+		sections.push({
+			id: CUSTOM.id,
+			label: CUSTOM.label,
+			items: [
+				...this.customFiles.map((file) => this.item(customValue(file), file)),
+				UPLOAD_ITEM,
+			],
+		});
+		for (const category of getCatalog()) {
+			sections.push({
+				id: category.id,
+				label: category.label,
+				items: category.entries.map((entry) => ({
+					kind: "emoji",
+					value: entry.emoji,
+					name: entry.name,
+				})),
+			});
+		}
+		return sections;
+	}
+
+	private searchSections(query: string): GridSection[] {
+		const items: GridItem[] = [];
+		const pasted = parseEmojiInput(query);
+		if (pasted.status === "ok") {
+			items.push(this.item(pasted.emoji, findEntry(pasted.emoji)?.name ?? ""));
+		}
+		const lower = query.toLowerCase();
+		for (const file of this.customFiles) {
+			if (file.toLowerCase().includes(lower)) items.push(this.item(customValue(file), file));
+		}
+		for (const entry of searchEmoji(getCatalog(), query)) {
+			if (entry.emoji === items[0]?.value) continue;
+			items.push({ kind: "emoji", value: entry.emoji, name: entry.name });
+		}
+		return items.length > 0 ? [{ id: "results", label: "", items }] : [];
+	}
+
+	private nameOf(value: string): string {
+		const icon = parseIcon(value);
+		if (icon?.type === "custom") return icon.file;
+		return findEntry(value)?.name ?? "";
+	}
+
+	// ------------------------------------------------------------------ rendering
+
+	/** Rebuilds the grid for the current query. */
+	private rebuild(keepScroll = false): void {
+		const query = this.searchEl.value.trim();
+		this.contentEl.toggleClass("is-searching", query !== "");
+		this.sections = query === "" ? this.browseSections() : this.searchSections(query);
+		this.activeIndex = -1;
+		this.emptyEl.toggleClass("is-visible", this.sections.length === 0);
+		this.layout = null;
+		this.relayout(keepScroll);
+		this.showDefaultFooter();
+		if (query !== "" && this.sections.length > 0) this.setActive(0, false);
+	}
+
+	/** Lays the current sections out for the grid's width (skipped when nothing changed). */
+	private relayout(keepScroll: boolean): void {
+		const width = this.grid.scrollEl.clientWidth || FALLBACK_WIDTH_PX;
+		const columns = Math.max(1, Math.floor(width / MIN_TILE_PX));
+		const rowHeight = Math.floor(width / columns);
+		if (
+			this.layout?.metrics.columns === columns &&
+			this.layout.metrics.rowHeight === rowHeight
+		) {
+			return;
+		}
+		this.layout = new GridLayout(this.sections, {
+			columns,
+			rowHeight,
+			headerHeight: HEADER_PX,
+			sectionGap: SECTION_GAP_PX,
+		});
+		this.grid.setLayout(this.layout, keepScroll);
+	}
+
+	private renderTile(tileEl: HTMLElement, item: GridItem, index: number): void {
+		tileEl.className = "notemoji-picker-emoji";
+		tileEl.dataset.index = String(index);
+		if (index === this.activeIndex) tileEl.addClass("is-active");
+		if (item.value !== "" && item.value === this.options.current) tileEl.addClass("is-current");
+		if (item.kind === "emoji") {
+			tileEl.setText(item.value);
+		} else if (item.kind === "custom") {
+			renderIcon(tileEl, item.value, this.customSource);
+		} else {
+			tileEl.addClass("is-upload");
+			// The one labelled tile: its icon alone does not say what it does.
+			tileEl.setAttr("aria-label", item.name);
+			setIcon(tileEl, "image-plus");
+		}
+	}
+
 	private renderTabs(): void {
 		this.tabsEl.empty();
-		const sections: Section[] = [CUSTOM, ...getCatalog()];
+		const sections = [CUSTOM, ...getCatalog()];
 		if (this.recent().length > 0) sections.unshift(RECENT);
 		for (const section of sections) {
 			this.tabsEl
@@ -212,133 +322,100 @@ export class PickerModal extends Modal {
 		}
 	}
 
-	/** Rebuilds the grid for the current query. */
-	private render(): void {
-		this.cancelPending();
-		this.bodyEl.empty();
-		this.tiles = [];
-		this.activeIndex = -1;
-		this.showDefaultFooter();
-
-		const query = this.searchEl.value.trim();
-		this.contentEl.toggleClass("is-searching", query !== "");
-		if (query === "") this.renderBrowse();
-		else this.renderSearch(query);
-
-		this.highlightTab();
-	}
-
-	private renderBrowse(): void {
-		const recent = this.recent();
-		if (recent.length > 0) {
-			const gridEl = this.createSection(RECENT.id, RECENT.label);
-			for (const value of recent) this.addTile(gridEl, value, this.nameOf(value));
+	/** Keeps the tab highlight and the pinned section label in sync with the scroll position. */
+	private onGridScroll(): void {
+		const layout = this.layout;
+		if (!layout) return;
+		const top = this.grid.scrollEl.scrollTop;
+		const section = layout.sectionAt(top);
+		const id = section?.id ?? "";
+		for (const tabEl of Array.from(this.tabsEl.children) as HTMLElement[]) {
+			const active = tabEl.dataset.section === id;
+			tabEl.toggleClass("is-active", active);
+			tabEl.setAttr("aria-selected", String(active));
 		}
-
-		const customEl = this.createSection(CUSTOM.id, CUSTOM.label);
-		for (const file of this.customFiles) this.addTile(customEl, customValue(file), file);
-		const uploadEl = customEl.createEl("button", {
-			cls: "notemoji-picker-upload",
-			attr: { "aria-label": "Upload an image (PNG, SVG and more)" },
-		});
-		setIcon(uploadEl, "image-plus");
-		uploadEl.addEventListener("click", () => this.uploadEl.click());
-
-		// The first category right away, the others one per frame: the picker
-		// opens instantly instead of building ~1,900 tiles before showing.
-		const [first, ...rest] = getCatalog();
-		if (first) this.renderCategory(first);
-		this.pending = rest;
-		this.scheduleNext();
+		// Once a section's own header scrolled away, its name stays pinned at the top.
+		const label = section?.label ?? "";
+		const pinned = label !== "" && top > (layout.sectionTop(id) ?? 0);
+		this.stickyEl.toggleClass("is-visible", pinned);
+		if (pinned && this.stickyEl.textContent !== label) this.stickyEl.setText(label);
 	}
 
-	private renderCategory(category: EmojiCategory): void {
-		const gridEl = this.createSection(category.id, category.label);
-		for (const entry of category.entries) this.addEntry(gridEl, entry);
+	private get customSource(): IconSource {
+		return { get: () => undefined, url: (file) => this.options.custom.url(file) };
 	}
 
-	private scheduleNext(): void {
-		if (this.pending.length === 0) return;
-		this.pendingFrame = window.requestAnimationFrame(() => {
-			this.pendingFrame = null;
-			const next = this.pending.shift();
-			if (next) this.renderCategory(next);
-			this.scheduleNext();
-		});
-	}
+	// ------------------------------------------------------------------ interaction
 
-	/** Renders every category that is still queued (before jumping or keyboard navigation). */
-	private flushPending(): void {
-		if (this.pendingFrame !== null) window.cancelAnimationFrame(this.pendingFrame);
-		this.pendingFrame = null;
-		for (const category of this.pending.splice(0)) this.renderCategory(category);
-	}
-
-	private cancelPending(): void {
-		if (this.pendingFrame !== null) window.cancelAnimationFrame(this.pendingFrame);
-		this.pendingFrame = null;
-		this.pending = [];
-	}
-
-	private renderSearch(query: string): void {
-		const gridEl = this.createSection("results", "");
-		const pasted = parseEmojiInput(query);
-		if (pasted.status === "ok") {
-			this.addTile(gridEl, pasted.emoji, findEntry(pasted.emoji)?.name ?? "");
+	private handleKeydown(event: KeyboardEvent): void {
+		if (event.isComposing || !this.layout) return;
+		const direction = ARROWS[event.key];
+		if (direction) {
+			// ←/→ keep moving the caret until the arrow keys entered the grid.
+			if ((direction === "left" || direction === "right") && !this.navigating) return;
+			event.preventDefault();
+			this.navigating = true;
+			this.setActive(this.layout.move(this.activeIndex, direction), true);
+		} else if (event.key === "Enter") {
+			event.preventDefault();
+			this.choose(Math.max(0, this.activeIndex));
 		}
-		const lower = query.toLowerCase();
-		for (const file of this.customFiles) {
-			if (file.toLowerCase().includes(lower)) this.addTile(gridEl, customValue(file), file);
-		}
-		for (const entry of searchEmoji(getCatalog(), query)) {
-			if (entry.emoji !== this.tiles[0]?.value) this.addEntry(gridEl, entry);
-		}
+	}
 
-		if (this.tiles.length === 0) {
-			this.bodyEl.createDiv({
-				cls: "notemoji-picker-empty",
-				text: "No emoji found. You can also paste any emoji here.",
-			});
+	private setActive(index: number, reveal: boolean): void {
+		if (!this.layout || index < 0 || index >= this.layout.items.length) return;
+		this.grid.tileElement(this.activeIndex)?.removeClass("is-active");
+		this.activeIndex = index;
+		if (reveal) this.grid.revealItem(index);
+		this.grid.tileElement(index)?.addClass("is-active");
+		this.showInFooter(index);
+	}
+
+	private jumpTo(sectionId: string): void {
+		if (this.searchEl.value !== "") {
+			this.searchEl.value = "";
+			this.rebuild();
+		}
+		const top = this.layout?.sectionTop(sectionId);
+		if (top !== undefined) this.grid.scrollTo(top);
+	}
+
+	private chooseFromEvent(event: MouseEvent): void {
+		const index = this.indexFromEvent(event);
+		if (index !== undefined) this.choose(index);
+	}
+
+	/** Uses an item: submits an icon, or opens the file dialog for the upload tile. */
+	private choose(index: number): void {
+		const item = this.layout?.items[index];
+		if (!item) return;
+		if (item.kind === "upload") this.uploadEl.click();
+		else this.submit(item.value);
+	}
+
+	private showInFooter(index: number): void {
+		const item = this.layout?.items[index];
+		if (!item) return;
+		if (item.kind === "upload") {
+			this.footerIconEl.empty();
+			this.footerNameEl.setText(item.name);
 			return;
 		}
-		this.setActive(0, false);
+		renderIcon(this.footerIconEl, item.value, this.customSource);
+		this.footerNameEl.setText(item.name || "Custom emoji");
 	}
 
-	private createSection(id: string, label: string): HTMLElement {
-		const sectionEl = this.bodyEl.createDiv({
-			cls: "notemoji-picker-section",
-			attr: { "data-section": id },
-		});
-		if (label !== "")
-			sectionEl.createDiv({ cls: "notemoji-picker-section-title", text: label });
-		return sectionEl.createDiv({ cls: "notemoji-picker-grid" });
+	private showDefaultFooter(): void {
+		const { current } = this.options;
+		renderIcon(this.footerIconEl, current, this.customSource);
+		this.footerNameEl.setText(current === "" ? HINT : this.nameOf(current) || "Current emoji");
 	}
 
-	/** Fast path for catalog emoji: plain text, no parsing (they are known to be valid). */
-	private addEntry(gridEl: HTMLElement, entry: EmojiEntry): void {
-		const el = gridEl.createEl("button", {
-			cls: "notemoji-picker-emoji",
-			text: entry.emoji,
-			attr: { "aria-label": entry.name, "data-index": this.tiles.length, tabindex: -1 },
-		});
-		if (entry.emoji === this.options.current) el.addClass("is-current");
-		this.tiles.push({ value: entry.emoji, name: entry.name, el });
-	}
-
-	private addTile(gridEl: HTMLElement, value: string, name: string): void {
-		const el = gridEl.createEl("button", {
-			cls: "notemoji-picker-emoji",
-			attr: { "aria-label": name || value, "data-index": this.tiles.length, tabindex: -1 },
-		});
-		renderIcon(el, value, this.source);
-		el.toggleClass("is-current", value === this.options.current);
-		this.tiles.push({ value, name, el });
-	}
-
-	private nameOf(value: string): string {
-		const icon = parseIcon(value);
-		if (icon?.type === "custom") return icon.file;
-		return findEntry(value)?.name ?? "";
+	private indexFromEvent(event: Event): number | undefined {
+		const el = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+			".notemoji-picker-emoji",
+		);
+		return el ? Number(el.dataset.index) : undefined;
 	}
 
 	// ------------------------------------------------------------------ custom icons
@@ -369,7 +446,8 @@ export class PickerModal extends Modal {
 	}
 
 	private showTileMenu(event: MouseEvent): void {
-		const icon = parseIcon(this.tileFromEvent(event)?.value);
+		const index = this.indexFromEvent(event);
+		const icon = parseIcon(index === undefined ? undefined : this.layout?.items[index]?.value);
 		if (icon?.type !== "custom") return;
 		event.preventDefault();
 		new Menu()
@@ -385,127 +463,15 @@ export class PickerModal extends Modal {
 			.showAtMouseEvent(event);
 	}
 
-	// ------------------------------------------------------------------ interaction
-
-	private handleKeydown(event: KeyboardEvent): void {
-		if (event.isComposing) return;
-		switch (event.key) {
-			case "ArrowDown":
-			case "ArrowUp":
-				event.preventDefault();
-				this.flushPending();
-				this.navigating = true;
-				this.moveVertically(event.key === "ArrowDown" ? 1 : -1);
-				break;
-			case "ArrowRight":
-			case "ArrowLeft":
-				if (!this.navigating) return;
-				event.preventDefault();
-				this.setActive(this.activeIndex + (event.key === "ArrowRight" ? 1 : -1), true);
-				break;
-			case "Enter": {
-				event.preventDefault();
-				const tile = this.tiles[this.activeIndex] ?? this.tiles[0];
-				if (tile) this.submit(tile.value);
-				break;
-			}
-		}
-	}
-
-	/** Moves to the closest tile in the next or previous visual row. */
-	private moveVertically(direction: 1 | -1): void {
-		const current = this.tiles[this.activeIndex];
-		if (!current) {
-			this.setActive(direction === 1 ? 0 : this.tiles.length - 1, true);
-			return;
-		}
-
-		const from = current.el.getBoundingClientRect();
-		let best = -1;
-		let bestTop = 0;
-		let bestDistance = Infinity;
-		for (
-			let i = this.activeIndex + direction;
-			i >= 0 && i < this.tiles.length;
-			i += direction
-		) {
-			const rect = this.tiles[i].el.getBoundingClientRect();
-			const inOtherRow = direction === 1 ? rect.top > from.top + 1 : rect.top < from.top - 1;
-			if (!inOtherRow) continue;
-			// Stop once we moved past the nearest row.
-			if (best !== -1 && Math.abs(rect.top - bestTop) > 1) break;
-			const distance = Math.abs(rect.left - from.left);
-			if (distance < bestDistance) {
-				best = i;
-				bestTop = rect.top;
-				bestDistance = distance;
-			}
-		}
-		// Layout without geometry (e.g. hidden): fall back to the next tile.
-		this.setActive(best !== -1 ? best : this.activeIndex + direction, true);
-	}
-
-	private setActive(index: number, scroll: boolean): void {
-		const tile = this.tiles[index];
-		if (!tile) return;
-		this.tiles[this.activeIndex]?.el.removeClass("is-active");
-		this.activeIndex = index;
-		tile.el.addClass("is-active");
-		if (scroll) tile.el.scrollIntoView({ block: "nearest" });
-		this.showInFooter(tile);
-	}
-
-	private jumpTo(sectionId: string): void {
-		if (this.searchEl.value !== "") {
-			this.searchEl.value = "";
-			this.render();
-		}
-		this.flushPending();
-		const sectionEl = this.bodyEl.querySelector<HTMLElement>(`[data-section="${sectionId}"]`);
-		if (sectionEl) this.bodyEl.scrollTop = sectionEl.offsetTop - this.bodyEl.offsetTop;
-		this.highlightTab(sectionId);
-	}
-
-	/** Marks the tab of the section at the top of the grid (or `sectionId`). */
-	private highlightTab(sectionId?: string): void {
-		let currentId = sectionId ?? "";
-		if (sectionId === undefined) {
-			const top = this.bodyEl.scrollTop + this.bodyEl.offsetTop + 4;
-			for (const el of Array.from(
-				this.bodyEl.querySelectorAll<HTMLElement>("[data-section]"),
-			)) {
-				if (el.offsetTop <= top) currentId = el.dataset.section ?? "";
-			}
-		}
-		for (const tabEl of Array.from(
-			this.tabsEl.querySelectorAll<HTMLElement>("[data-section]"),
-		)) {
-			const active = tabEl.dataset.section === currentId;
-			tabEl.toggleClass("is-active", active);
-			tabEl.setAttr("aria-selected", String(active));
-		}
-	}
-
-	private showInFooter(tile: Tile): void {
-		renderIcon(this.footerIconEl, tile.value, this.source);
-		this.footerNameEl.setText(tile.name || "Custom emoji");
-	}
-
-	private showDefaultFooter(): void {
-		const { current } = this.options;
-		renderIcon(this.footerIconEl, current, this.source);
-		this.footerNameEl.setText(current === "" ? HINT : this.nameOf(current) || "Current emoji");
-	}
-
-	private tileFromEvent(event: Event): Tile | undefined {
-		const el = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-			".notemoji-picker-emoji",
-		);
-		return el ? this.tiles[Number(el.dataset.index)] : undefined;
-	}
-
 	private submit(value: string): void {
 		this.close();
 		this.options.onSubmit(value);
 	}
 }
+
+const ARROWS: Record<string, "up" | "down" | "left" | "right" | undefined> = {
+	ArrowUp: "up",
+	ArrowDown: "down",
+	ArrowLeft: "left",
+	ArrowRight: "right",
+};

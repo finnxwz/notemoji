@@ -87,10 +87,8 @@ export class NoteTitleIcons {
 
 	private createIcon(): HTMLElement {
 		const icon = createDiv({ cls: ICON_CLASS, attr: { contenteditable: "false" } });
-		icon.createEl("button", {
-			cls: "notemoji-title-icon-button",
-			attr: { "aria-label": "Change emoji" },
-		});
+		// No aria-label: Obsidian would show it as a tooltip on every hover.
+		icon.createEl("button", { cls: "notemoji-title-icon-button" });
 		// Keep the editor from moving the cursor or taking focus.
 		icon.addEventListener("mousedown", (event) => event.preventDefault());
 		icon.addEventListener("click", (event) => {

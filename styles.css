@@ -30,6 +30,10 @@ body {
 
 /* ---------------------------------------------------------------------------
    Emoji picker
+
+   The grid is virtualized: rows are absolutely positioned inside a canvas as
+   tall as the whole grid, and only the rows on screen exist (virtual-grid.ts).
+   Tiles are plain elements, not buttons, to keep them as light as possible.
    --------------------------------------------------------------------------- */
 
 .modal.notemoji-picker-modal {
@@ -69,27 +73,21 @@ body {
 	opacity: 0.5;
 }
 
-/* Tiles and tabs are plain, borderless buttons regardless of the theme. */
-.notemoji-picker .notemoji-picker-tab,
-.notemoji-picker .notemoji-picker-emoji {
-	height: auto;
-	padding: 0;
-	background: none;
-	border: none;
-	box-shadow: none;
-	font-family: var(--notemoji-font);
-	line-height: 1;
-	cursor: var(--cursor);
-}
-
 .notemoji-picker .notemoji-picker-tab {
 	flex: 1 1 0;
-	padding-block: var(--size-4-2);
+	height: auto;
+	padding: var(--size-4-2) 0;
+	font-family: var(--notemoji-font);
 	font-size: 1.15em;
+	line-height: 1;
+	background: none;
+	border: none;
 	border-block-end: 2px solid transparent;
 	border-radius: 0;
+	box-shadow: none;
 	filter: grayscale(1);
 	opacity: 0.6;
+	cursor: var(--cursor);
 }
 
 .notemoji-picker .notemoji-picker-tab:hover,
@@ -102,55 +100,107 @@ body {
 	border-block-end-color: var(--interactive-accent);
 }
 
+.notemoji-picker-grid-wrap {
+	position: relative;
+}
+
 .notemoji-picker-body {
 	height: min(18rem, 45vh);
 	overflow-y: auto;
 	overscroll-behavior: contain;
+	/* Changes inside never affect layout outside, keeping each frame cheap. */
+	contain: strict;
 }
 
+.notemoji-picker-canvas {
+	position: relative;
+	height: var(--notemoji-grid-height, 0);
+}
+
+.notemoji-picker-row,
 .notemoji-picker-section-title {
-	position: sticky;
+	position: absolute;
+	inset-inline: 0;
 	top: 0;
-	z-index: 1;
-	padding-block: var(--size-4-1);
+	height: var(--notemoji-row-height);
+	transform: translateY(var(--notemoji-row-top));
+}
+
+.notemoji-picker-row {
+	display: grid;
+	grid-template-columns: repeat(var(--notemoji-columns), 1fr);
+}
+
+.notemoji-picker-section-title,
+.notemoji-picker-sticky {
+	display: flex;
+	align-items: center;
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 	font-weight: var(--font-semibold);
+}
+
+/* The current section's name, pinned once its own header scrolled away. */
+.notemoji-picker-sticky {
+	position: absolute;
+	inset-inline: 0 var(--size-4-3);
+	top: 0;
+	z-index: 1;
+	height: 28px;
+	visibility: hidden;
 	background-color: var(--modal-background, var(--background-primary));
+	pointer-events: none;
 }
 
-.notemoji-picker-grid {
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(2.4rem, 1fr));
-	margin-block-end: var(--size-4-2);
+.notemoji-picker-sticky.is-visible {
+	visibility: visible;
 }
 
-.notemoji-picker .notemoji-picker-emoji {
+.notemoji-picker-emoji {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	aspect-ratio: 1;
+	font-family: var(--notemoji-font);
 	font-size: 1.5rem;
+	line-height: 1;
 	border-radius: var(--radius-s);
+	cursor: var(--cursor);
+	user-select: none;
 }
 
-.notemoji-picker .notemoji-picker-emoji:hover,
-.notemoji-picker .notemoji-picker-emoji.is-active {
+.notemoji-picker-emoji:hover,
+.notemoji-picker-emoji.is-active {
 	background-color: var(--background-modifier-hover);
 }
 
-.notemoji-picker .notemoji-picker-emoji.is-active {
+.notemoji-picker-emoji.is-active {
 	box-shadow: inset 0 0 0 2px var(--interactive-accent);
 }
 
-.notemoji-picker .notemoji-picker-emoji.is-current {
+.notemoji-picker-emoji.is-current {
 	background-color: var(--background-modifier-active-hover);
 }
 
+.notemoji-picker-emoji.is-upload {
+	margin: 4px;
+	color: var(--text-muted);
+	border: 1px dashed var(--background-modifier-border);
+}
+
+.notemoji-picker-emoji.is-upload:hover {
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
 .notemoji-picker-empty {
+	display: none;
 	padding: var(--size-4-8) var(--size-4-4);
 	color: var(--text-muted);
 	text-align: center;
+}
+
+.notemoji-picker-empty.is-visible {
+	display: block;
 }
 
 .notemoji-picker-footer {
@@ -251,26 +301,6 @@ body:not(.show-inline-title) .notemoji-title-icon {
 	margin-inline-end: 0.3em;
 	vertical-align: -0.125em;
 	background: var(--notemoji-image) center / contain no-repeat;
-}
-
-.notemoji-picker .notemoji-picker-upload {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	aspect-ratio: 1;
-	height: auto;
-	padding: 0;
-	color: var(--text-muted);
-	background: none;
-	border: 1px dashed var(--background-modifier-border);
-	border-radius: var(--radius-s);
-	box-shadow: none;
-	cursor: var(--cursor);
-}
-
-.notemoji-picker .notemoji-picker-upload:hover {
-	color: var(--text-normal);
-	border-color: var(--interactive-accent);
 }
 
 /* Emoji style: an emoji font chosen in the settings, with the system's emoji as fallback. */
@@ -380,12 +410,6 @@ body.notemoji-custom-font {
 .notemoji-style-hint {
 	color: var(--text-faint);
 	font-size: var(--font-ui-small);
-}
-
-/* Sections out of view are not laid out or painted until scrolled near. */
-.notemoji-picker-section {
-	content-visibility: auto;
-	contain-intrinsic-size: auto 320px;
 }
 
 .notemoji-styles .notemoji-style-card:focus-visible {
