@@ -167,7 +167,7 @@ describe("context menu", () => {
 		await flush();
 		expect(harness.lastSaved()).toEqual({
 			version: 2,
-			settings: { noteTitle: "above", showInTabs: true, showInViewHeader: true },
+			settings: { noteTitle: "off", showInTabs: true, showInViewHeader: true },
 			icons: { Projects: "📁" },
 			recent: ["📁"],
 		});
@@ -292,7 +292,10 @@ describe("settings tab", () => {
 
 describe("titles", () => {
 	it("renders on load, follows changes and cleans up on unload", async () => {
-		const harness = await loadPlugin({ frontmatter: { "A.md": { icon: "🚀" } } });
+		const harness = await loadPlugin({
+			frontmatter: { "A.md": { icon: "🚀" } },
+			data: { version: 2, settings: { noteTitle: "above" } },
+		});
 		const leaf = new WorkspaceLeaf(harness.app.asApp);
 		leaf.root = harness.app.workspace.rootSplit;
 		const view = new MarkdownView(leaf);

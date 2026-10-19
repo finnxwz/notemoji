@@ -8,7 +8,7 @@ wherever the note goes.
 
 ## ⚒️ Features
 
-- **Page icons.** A large emoji sits above the note title. Click it to change it.
+- **Page icons.** Optionally, a large emoji above the note title. Click it to change it.
 - **Everywhere you look.** File explorer, note title, tab titles and the title bar of each tab.
   Every place except the file explorer can be turned off.
 - **A real emoji picker.** Search by name or keyword (`rocket`, `party`, `:tada:`), browse
@@ -38,13 +38,13 @@ wherever the note goes.
 
 ## ⚙️ Settings
 
-| Setting                        | Default                | What it does                                                   |
-| ------------------------------ | ---------------------- | -------------------------------------------------------------- |
-| Emoji at note title            | Large, above the title | Or _Inline, before the title_, or _Off_                        |
-| Emoji in tab titles            | On                     | The emoji in front of each tab's name                          |
-| Emoji in view header title     | On                     | The emoji in front of the title in the bar at the top of a tab |
-| Move note emoji to frontmatter | –                      | Only shown after upgrading from 1.x, see below                 |
-| Remove emoji of missing files  | –                      | Cleans up emoji of folders and files that no longer exist      |
+| Setting                        | Default | What it does                                                                              |
+| ------------------------------ | ------- | ----------------------------------------------------------------------------------------- |
+| Emoji at note title            | Off     | Or _Large, above the title_ (click it to change the emoji), or _Inline, before the title_ |
+| Emoji in tab titles            | On      | The emoji in front of each tab's name                                                     |
+| Emoji in view header title     | On      | The emoji in front of the title in the bar at the top of a tab                            |
+| Move note emoji to frontmatter | –       | Only shown after upgrading from 1.x, see below                                            |
+| Remove emoji of missing files  | –       | Cleans up emoji of folders and files that no longer exist                                 |
 
 ## 💻 Installation
 

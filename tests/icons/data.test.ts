@@ -38,7 +38,7 @@ describe("parseData", () => {
 			showInTabs: false,
 			showInViewHeader: true,
 		});
-		expect(parseData({ settings: { noteTitle: "huge" } }).settings.noteTitle).toBe("above");
+		expect(parseData({ settings: { noteTitle: "huge" } }).settings.noteTitle).toBe("off");
 	});
 
 	it("cleans the recent list", () => {
