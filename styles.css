@@ -283,3 +283,101 @@ body.notemoji-custom-font {
 .notemoji-hidden-input {
 	display: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Settings: emoji style cards
+   --------------------------------------------------------------------------- */
+
+.notemoji-styles {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+	gap: var(--size-4-2);
+	padding-block: var(--size-4-2);
+}
+
+.notemoji-styles .notemoji-style-card {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--size-4-2);
+	height: auto;
+	padding: var(--size-4-2) var(--size-4-3);
+	color: var(--text-normal);
+	text-align: start;
+	white-space: normal;
+	background-color: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	box-shadow: none;
+	cursor: var(--cursor);
+}
+
+.notemoji-styles .notemoji-style-card:hover {
+	border-color: var(--background-modifier-border-hover);
+}
+
+.notemoji-styles .notemoji-style-card.is-selected {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.notemoji-style-header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+}
+
+.notemoji-style-name {
+	font-weight: var(--font-semibold);
+}
+
+.notemoji-style-meta {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.notemoji-style-preview {
+	display: flex;
+	align-items: center;
+	min-height: 24px;
+	overflow: hidden;
+}
+
+.notemoji-style-image {
+	height: 24px;
+	width: auto;
+	max-width: 100%;
+	object-fit: contain;
+	object-position: left;
+}
+
+/* The black-and-white set is rendered white; dark glyphs read better on light themes. */
+.theme-light .notemoji-style-image.is-monochrome {
+	filter: invert(1);
+}
+
+.notemoji-style-sample {
+	font-size: 20px;
+	letter-spacing: 2px;
+	line-height: 1;
+	white-space: nowrap;
+}
+
+/* Always the device's own emoji, whatever style is active. */
+.notemoji-style-sample.is-system {
+	font-family:
+		"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+}
+
+.notemoji-style-sample.is-own {
+	font-family: "Notemoji Emoji", sans-serif;
+}
+
+.notemoji-style-hint {
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+}

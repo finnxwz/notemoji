@@ -9,6 +9,7 @@ import type { PluginManifest } from "obsidian";
 import NotemojiPlugin from "../../src/main";
 import { createFakeApp } from "../../tests/fake-app";
 import {
+	customIcons,
 	FileView,
 	MarkdownView,
 	Menu,
@@ -170,8 +171,28 @@ document.addEventListener("mousemove", (event) => {
 document.addEventListener("mousedown", () => cursorEl.classList.add("is-down"));
 document.addEventListener("mouseup", () => cursorEl.classList.remove("is-down"));
 
+/** A minimal stand-in for Obsidian's settings window, showing Notemoji's tab. */
+function showSettings(): void {
+	const overlay = document.body.createDiv({ cls: "demo-settings" });
+	const sidebar = overlay.createDiv({ cls: "demo-settings-sidebar" });
+	sidebar.createDiv({ cls: "demo-settings-group", text: "Core plugins" });
+	for (const name of ["Backlinks", "Canvas", "Templates"]) {
+		sidebar.createDiv({ cls: "demo-settings-item", text: name });
+	}
+	sidebar.createDiv({ cls: "demo-settings-group", text: "Community plugins" });
+	const item = sidebar.createDiv({ cls: "demo-settings-item is-active" });
+	const icon = item.createSpan({ cls: "demo-settings-icon" });
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="svg-icon">${customIcons.get("notemoji-emoji") ?? ""}</svg>`;
+	icon.append(new DOMParser().parseFromString(svg, "image/svg+xml").documentElement);
+	item.createSpan({ text: "Notemoji" });
+	const tab = fake.settingTabs[0];
+	overlay.createDiv({ cls: "demo-settings-content" }).appendChild(tab.containerEl);
+	tab.display();
+}
+
 /** Lets the recorder switch the note title mode. */
 Object.assign(window, {
+	showSettings,
 	demoReady: true,
 	setIconOf(path: string, value: string) {
 		const file = app.vault.getAbstractFileByPath(path);

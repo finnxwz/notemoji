@@ -5,7 +5,6 @@ import {
 	EMOJI_FONT_FAMILY,
 	EmojiFontError,
 	EmojiFonts,
-	MAX_FONT_BYTES,
 } from "../../src/icons/emoji-font";
 import { EMOJI_SETS, findEmojiSet } from "../../src/icons/emoji-sets";
 import { isFontFileName } from "../../src/icons/icon-value";
@@ -94,7 +93,11 @@ describe("downloadable sets", () => {
 		expect(adapter.files.has(`${FOLDER}/twemoji.ttf`)).toBe(true);
 
 		await fonts.apply("twemoji", "");
-		expect(loader).toHaveBeenCalledWith(EMOJI_FONT_FAMILY, expect.any(ArrayBuffer));
+		// Loaded from the file by URL, so large fonts are not copied into memory.
+		expect(loader).toHaveBeenCalledWith(
+			EMOJI_FONT_FAMILY,
+			`url("app://local/${FOLDER}/twemoji.ttf")`,
+		);
 		expect(uses(main) && uses(popout)).toBe(true);
 	});
 
@@ -169,9 +172,6 @@ describe("own font file", () => {
 	it("rejects wrong types, huge files and broken fonts", async () => {
 		const { fonts } = setup();
 		await expect(fonts.installOwn("emoji.png", data())).rejects.toBeInstanceOf(EmojiFontError);
-		await expect(fonts.installOwn("big.ttf", data(MAX_FONT_BYTES + 1))).rejects.toThrow(
-			/30 MB/,
-		);
 		const broken = setup({ broken: true });
 		await expect(broken.fonts.installOwn("bad.ttf", data())).rejects.toThrow(
 			/could not be loaded/,

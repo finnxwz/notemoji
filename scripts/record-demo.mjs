@@ -150,6 +150,10 @@ try {
 		});
 		await pause(stills.page, 200);
 		await stills.page.screenshot({ path: path.join(buildDir, "check-custom-titles.png") });
+		await stills.page.evaluate(() => window.showSettings());
+		await pause(stills.page, 300);
+		await stills.page.screenshot({ path: path.join(buildDir, "check-settings.png") });
+		await stills.page.evaluate(() => document.querySelector(".demo-settings")?.remove());
 		await rightClick(stills.page, '[data-path="Projects"]');
 		await pause(stills.page, 300);
 		await stills.page.screenshot({ path: path.join(buildDir, "check-menu.png") });

@@ -16,8 +16,11 @@ export interface EmojiSet {
 	/** File name inside the plugin's fonts folder. */
 	file: string;
 	bytes: number;
+	/** Black-and-white glyphs: the preview is inverted in light themes. */
+	monochrome?: boolean;
 }
 
+/** In the order shown in the settings: related styles stay next to each other. */
 export const EMOJI_SETS: readonly EmojiSet[] = [
 	{
 		id: "twemoji",
@@ -29,15 +32,6 @@ export const EMOJI_SETS: readonly EmojiSet[] = [
 		bytes: 1474284,
 	},
 	{
-		id: "noto-color",
-		name: "Noto Color Emoji",
-		credit: "Noto Color Emoji by Google, SIL Open Font License 1.1 (v2.051).",
-		url: "https://raw.githubusercontent.com/googlefonts/noto-emoji/v2.051/fonts/Noto-COLRv1.ttf",
-		sha256: "0ae57fe58645638523ba35f388d93739d292539a9acb84df5700c81b1e1a28d2",
-		file: "noto-color.ttf",
-		bytes: 4991984,
-	},
-	{
 		id: "openmoji",
 		name: "OpenMoji",
 		credit: "OpenMoji by HfG Schwäbisch Gmünd, CC BY-SA 4.0 (17.0.0).",
@@ -47,6 +41,15 @@ export const EMOJI_SETS: readonly EmojiSet[] = [
 		bytes: 976028,
 	},
 	{
+		id: "noto-color",
+		name: "Noto Color Emoji",
+		credit: "Noto Color Emoji by Google, SIL Open Font License 1.1 (v2.051).",
+		url: "https://raw.githubusercontent.com/googlefonts/noto-emoji/v2.051/fonts/Noto-COLRv1.ttf",
+		sha256: "0ae57fe58645638523ba35f388d93739d292539a9acb84df5700c81b1e1a28d2",
+		file: "noto-color.ttf",
+		bytes: 4991984,
+	},
+	{
 		id: "noto-mono",
 		name: "Noto Emoji (black and white)",
 		credit: "Noto Emoji by Google, SIL Open Font License 1.1.",
@@ -54,6 +57,7 @@ export const EMOJI_SETS: readonly EmojiSet[] = [
 		sha256: "de6c18832938afc99caf132b39d6a30a19bac7f2e812e28db2535b4608d27551",
 		file: "noto-mono.ttf",
 		bytes: 1982596,
+		monochrome: true,
 	},
 ];
 

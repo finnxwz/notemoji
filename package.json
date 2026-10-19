@@ -1,7 +1,7 @@
 {
 	"name": "notemoji",
 	"version": "1.0.1",
-	"description": "Emoji for notes and folders: in the file explorer, in tabs and above the note title. Your notes are never modified.",
+	"description": "Give notes, folders and files an emoji or your own icon, shown in the file explorer, in tabs and above the note title.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -13,7 +13,8 @@
 		"test:watch": "vitest",
 		"check": "prettier --check . && eslint --max-warnings 0 . && tsc --noEmit && vitest run && node esbuild.config.mjs production",
 		"emoji-data": "node scripts/generate-emoji-data.mjs",
-		"demo": "node scripts/record-demo.mjs"
+		"demo": "node scripts/record-demo.mjs",
+		"set-previews": "node scripts/generate-set-previews.mjs"
 	},
 	"keywords": [
 		"obsidian",

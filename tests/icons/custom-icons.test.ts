@@ -71,4 +71,5 @@ it("formats sizes", () => {
 	expect(formatBytes(512)).toBe("512 B");
 	expect(formatBytes(2048)).toBe("2 KB");
 	expect(formatBytes(3.5 * 1024 * 1024)).toBe("3.5 MB");
+	expect(formatBytes(250 * 1024 * 1024)).toBe("250 MB");
 });

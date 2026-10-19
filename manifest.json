@@ -3,7 +3,7 @@
 	"name": "Notemoji",
 	"version": "1.0.1",
 	"minAppVersion": "1.7.2",
-	"description": "Emoji for notes and folders: in the file explorer, in tabs and above the note title. Your notes are never modified.",
+	"description": "Give notes, folders and files an emoji or your own icon, shown in the file explorer, in tabs and above the note title.",
 	"author": "Finn-Christopher Krause",
 	"authorUrl": "https://github.com/finnxwz",
 	"isDesktopOnly": false

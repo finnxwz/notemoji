@@ -116,6 +116,13 @@ export const Platform = {
 	isLinux: true,
 };
 
+/** Icons registered with addIcon, by id. */
+export const customIcons = new Map<string, string>();
+
+export function addIcon(iconId: string, svgContent: string): void {
+	customIcons.set(iconId, svgContent);
+}
+
 /** Stand-in for Obsidian's Lucide icons: a span naming the icon (shown as "+" in the demo). */
 export function setIcon(parent: HTMLElement, iconId: string): void {
 	parent.empty();
@@ -524,6 +531,10 @@ export class Setting {
 	}
 	setDesc(desc: string | DocumentFragment): this {
 		this.descEl.replaceChildren(desc);
+		return this;
+	}
+	setClass(cls: string): this {
+		this.settingEl.addClass(cls);
 		return this;
 	}
 	setHeading(): this {

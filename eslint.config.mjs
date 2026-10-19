@@ -1,8 +1,15 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
+import tseslint from "typescript-eslint";
 
 export default defineConfig([
-	globalIgnores(["main.js", "node_modules/", ".test-build/", "src/picker/emoji-data.ts"]),
+	globalIgnores([
+		"main.js",
+		"node_modules/",
+		".test-build/",
+		"src/picker/emoji-data.ts",
+		"src/icons/emoji-set-previews.ts",
+	]),
 	...obsidianmd.configs.recommended,
 	{
 		languageOptions: {
@@ -14,12 +21,30 @@ export default defineConfig([
 		},
 	},
 	{
+		// Obsidian's review rules for manifest.json (description format, forbidden words, …).
+		files: ["manifest.json"],
+		languageOptions: {
+			parser: tseslint.parser,
+			parserOptions: { projectService: false, project: null },
+		},
+		plugins: { obsidianmd },
+		rules: { "obsidianmd/validate-manifest": "error" },
+	},
+	{
 		// minAppVersion is 1.7.2: display() and setWarning() are the supported APIs there.
 		// Their replacements (getSettingDefinitions, setDestructive) need Obsidian 1.13.
 		files: ["src/**"],
 		rules: {
 			"@typescript-eslint/no-deprecated": "off",
 			"obsidianmd/settings-tab/prefer-setting-definitions": "off",
+		},
+	},
+	{
+		// Node tooling (never shipped): fetch and dynamic imports are fine here.
+		files: ["scripts/**"],
+		rules: {
+			"no-restricted-globals": "off",
+			"no-unsanitized/method": "off",
 		},
 	},
 	{

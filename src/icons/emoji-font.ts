@@ -7,15 +7,24 @@ export const EMOJI_FONT_FAMILY = "Notemoji Emoji";
 /** Body class that switches Notemoji's emoji to the chosen font (see styles.css). */
 export const EMOJI_FONT_CLASS = "notemoji-custom-font";
 
-export const MAX_FONT_BYTES = 30 * 1024 * 1024;
+/**
+ * Fonts above this size get a warning before they are used: they slow down
+ * Obsidian's start, can exceed the memory of phones, and many sync services
+ * limit file sizes. There is no hard limit.
+ */
+export const LARGE_FONT_BYTES = 50 * 1024 * 1024;
 
 /** `system`, `file` (your own font file) or the id of a downloadable set. */
 export type EmojiStyle = string;
 
 export class EmojiFontError extends Error {}
 
-/** Turns font file data into a loaded `FontFace`; injectable for tests. */
-export type FontLoader = (family: string, data: ArrayBuffer) => Promise<FontFace>;
+/**
+ * Turns a font into a loaded `FontFace`: from data in memory, or from a CSS
+ * `url(…)` so the browser reads the file itself (no copy in memory, which
+ * matters for large fonts). Injectable for tests.
+ */
+export type FontLoader = (family: string, source: ArrayBuffer | string) => Promise<FontFace>;
 
 /** Downloads and hashes files; injectable for tests. */
 export interface Downloader {
@@ -23,7 +32,7 @@ export interface Downloader {
 	sha256(data: ArrayBuffer): Promise<string>;
 }
 
-const browserLoader: FontLoader = (family, data) => new FontFace(family, data).load();
+const browserLoader: FontLoader = (family, source) => new FontFace(family, source).load();
 
 const browserDownloader: Downloader = {
 	async download(url) {
@@ -76,7 +85,8 @@ export class EmojiFonts {
 			return;
 		}
 		try {
-			const face = await this.loader(EMOJI_FONT_FAMILY, await this.adapter.readBinary(path));
+			const url = this.adapter.getResourcePath(path);
+			const face = await this.loader(EMOJI_FONT_FAMILY, `url(${JSON.stringify(url)})`);
 			if (generation === this.generation) this.use(face);
 		} catch (error) {
 			console.error(`[notemoji] Could not load the emoji font "${path}".`, error);
@@ -124,9 +134,6 @@ export class EmojiFonts {
 	async installOwn(name: string, data: ArrayBuffer): Promise<string> {
 		if (!isFontFileName(name)) {
 			throw new EmojiFontError(`"${name}" is not a TTF, OTF, WOFF or WOFF2 font.`);
-		}
-		if (data.byteLength > MAX_FONT_BYTES) {
-			throw new EmojiFontError(`"${name}" is larger than 30 MB.`);
 		}
 		// Fail before replacing anything when the browser cannot use the font.
 		try {
