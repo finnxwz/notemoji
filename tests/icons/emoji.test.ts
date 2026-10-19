@@ -1,11 +1,11 @@
 import { strict as assert } from "node:assert";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import {
 	firstGrapheme,
 	isEmojiLike,
 	parseEmojiInput,
 	sanitizeStoredEmoji,
-} from "../src/emoji";
+} from "../../src/icons/emoji";
 
 describe("firstGrapheme", () => {
 	it("returns the whole sequence for multi code point emoji", () => {
@@ -25,27 +25,35 @@ describe("firstGrapheme", () => {
 
 describe("isEmojiLike", () => {
 	it("accepts emoji and symbol clusters", () => {
-		for (const value of [
-			"🚀",
-			"❤️",
-			"❤",
-			"☺️",
-			"🇩🇪",
-			"👍🏽",
-			"👨‍👩‍👧‍👦",
-			"1️⃣",
-			"#️⃣",
-			"🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-			"★",
-			"→",
-		]) {
-			assert.equal(isEmojiLike(value), true, `expected ${JSON.stringify(value)} to be emoji-like`);
+		for (const value of ["🚀", "❤️", "❤", "☺️", "🇩🇪", "👍🏽", "👨‍👩‍👧‍👦", "1️⃣", "#️⃣", "🏴󠁧󠁢󠁳󠁣󠁴󠁿", "★", "→"]) {
+			assert.equal(
+				isEmojiLike(value),
+				true,
+				`expected ${JSON.stringify(value)} to be emoji-like`,
+			);
 		}
 	});
 
 	it("rejects words, digits, punctuation and bare modifiers", () => {
-		for (const value of ["", "a", "hello", "1", "42", ".", "!", "§", "é", "\u0301", "\uFE0F", "\u200D"]) {
-			assert.equal(isEmojiLike(value), false, `expected ${JSON.stringify(value)} to be rejected`);
+		for (const value of [
+			"",
+			"a",
+			"hello",
+			"1",
+			"42",
+			".",
+			"!",
+			"§",
+			"é",
+			"\u0301",
+			"\uFE0F",
+			"\u200D",
+		]) {
+			assert.equal(
+				isEmojiLike(value),
+				false,
+				`expected ${JSON.stringify(value)} to be rejected`,
+			);
 		}
 	});
 });
@@ -86,7 +94,11 @@ describe("parseEmojiInput", () => {
 	it("rejects text that does not start with an emoji", () => {
 		for (const value of ["hello", "hi 🚀", "note.md", "42 🚀", ". 🚀"]) {
 			const parsed = parseEmojiInput(value);
-			assert.equal(parsed.status, "invalid", `expected ${JSON.stringify(value)} to be invalid`);
+			assert.equal(
+				parsed.status,
+				"invalid",
+				`expected ${JSON.stringify(value)} to be invalid`,
+			);
 			assert.equal(parsed.emoji, "");
 			assert.notEqual(parsed.message, "");
 		}

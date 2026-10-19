@@ -1,7 +1,7 @@
 import { Menu, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
-import { EmojiModal } from "./src/emoji-modal";
-import { FileExplorerRenderer } from "./src/file-explorer";
-import { IconStore } from "./src/icon-store";
+import { EmojiModal } from "./picker/picker-modal";
+import { FileExplorerRenderer } from "./display/file-explorer";
+import { IconStore } from "./icons/icon-store";
 
 /** How an item is called in the UI. */
 type ItemKind = "note" | "file" | "folder";
@@ -34,7 +34,9 @@ export default class NotemojiPlugin extends Plugin {
 
 		// Right-click menu for notes and folders in the file explorer.
 		this.registerEvent(
-			this.app.workspace.on("file-menu", (menu, file) => this.addExplorerMenuItems(menu, file)),
+			this.app.workspace.on("file-menu", (menu, file) =>
+				this.addExplorerMenuItems(menu, file),
+			),
 		);
 
 		// Both commands need an open note, so they are only offered when there is one.
@@ -169,7 +171,10 @@ export default class NotemojiPlugin extends Plugin {
 		try {
 			raw = (await this.loadData()) as unknown;
 		} catch (error) {
-			console.error("[notemoji] Could not read the plugin data file; starting without icons.", error);
+			console.error(
+				"[notemoji] Could not read the plugin data file; starting without icons.",
+				error,
+			);
 		}
 		return IconStore.fromData(raw);
 	}
@@ -180,7 +185,9 @@ export default class NotemojiPlugin extends Plugin {
 			.then(() => this.saveData(snapshot))
 			.catch((error: unknown) => {
 				console.error("[notemoji] Could not save icons.", error);
-				new Notice("Notemoji could not save the emoji. Please check the developer console.");
+				new Notice(
+					"Notemoji could not save the emoji. Please check the developer console.",
+				);
 			});
 	}
 }

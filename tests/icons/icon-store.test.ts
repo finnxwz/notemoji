@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
-import { describe, it } from "node:test";
-import { ICON_DATA_VERSION, IconStore } from "../src/icon-store";
+import { describe, it } from "vitest";
+import { ICON_DATA_VERSION, IconStore } from "../../src/icons/icon-store";
 
 function storeOf(entries: Record<string, string>): IconStore {
 	return IconStore.fromData({ version: ICON_DATA_VERSION, icons: entries });
@@ -136,15 +136,32 @@ describe("IconStore.prune", () => {
 
 	it("keeps everything when all paths exist", () => {
 		const store = storeOf({ "A.md": "🚀" });
-		assert.deepEqual(store.prune(() => true), []);
+		assert.deepEqual(
+			store.prune(() => true),
+			[],
+		);
 		assert.equal(store.size, 1);
 	});
 });
 
 describe("IconStore.fromData", () => {
 	it("starts empty for missing or unusable data", () => {
-		for (const raw of [null, undefined, 42, "string", true, [], {}, { icons: null }, { icons: 5 }]) {
-			assert.equal(IconStore.fromData(raw).size, 0, `expected ${JSON.stringify(raw)} to be empty`);
+		for (const raw of [
+			null,
+			undefined,
+			42,
+			"string",
+			true,
+			[],
+			{},
+			{ icons: null },
+			{ icons: 5 },
+		]) {
+			assert.equal(
+				IconStore.fromData(raw).size,
+				0,
+				`expected ${JSON.stringify(raw)} to be empty`,
+			);
 		}
 	});
 

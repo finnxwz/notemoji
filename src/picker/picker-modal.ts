@@ -1,5 +1,5 @@
 import { App, Modal } from "obsidian";
-import { parseEmojiInput } from "./emoji";
+import { parseEmojiInput } from "../icons/emoji";
 
 export interface EmojiModalOptions {
 	/** Modal heading, e.g. "Set emoji" or "Change folder emoji". */
@@ -52,7 +52,7 @@ export class EmojiModal extends Modal {
 				type: "text",
 				autocomplete: "off",
 				spellcheck: "false",
-				placeholder: "Emoji (Win + . or ⌃⌘Space)",
+				placeholder: "Type or paste an emoji",
 			},
 		});
 		this.inputEl.value = this.options.current;
@@ -67,7 +67,10 @@ export class EmojiModal extends Modal {
 
 		const actionsEl = contentEl.createDiv({ cls: "notemoji-actions" });
 		if (this.options.current !== "") {
-			const removeEl = actionsEl.createEl("button", { text: "Remove", cls: "notemoji-remove" });
+			const removeEl = actionsEl.createEl("button", {
+				text: "Remove",
+				cls: "notemoji-remove",
+			});
 			removeEl.addEventListener("click", () => this.remove());
 		}
 		this.submitEl = actionsEl.createEl("button", { text: "Set emoji", cls: "mod-cta" });

@@ -11,10 +11,6 @@
 import type { TAbstractFile } from "obsidian";
 
 export interface FileExplorerItem {
-	/** @deprecated Obsidian < 1.2 exposed the title element as `titleEl`. */
-	titleEl?: HTMLElement;
-	/** @deprecated Obsidian < 1.2 exposed the inner title as `titleInnerEl`. */
-	titleInnerEl?: HTMLElement;
 	/** The `.nav-file-title` / `.nav-folder-title` element. */
 	selfEl?: HTMLElement;
 	/** The `.tree-item-inner` element that contains the visible name. */
@@ -26,4 +22,3 @@ export interface FileExplorerView {
 	containerEl?: HTMLElement;
 	fileItems?: Record<string, FileExplorerItem>;
 }
-

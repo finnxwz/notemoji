@@ -1,6 +1,6 @@
 import type { App } from "obsidian";
-import type { IconStore } from "./icon-store";
-import type { FileExplorerView } from "./types";
+import type { IconStore } from "../icons/icon-store";
+import type { FileExplorerView } from "../internals";
 
 /** Marker class of the emoji nodes owned by this plugin. */
 const ICON_CLASS = "notemoji-icon";
@@ -82,7 +82,9 @@ export class FileExplorerRenderer {
 		}
 
 		for (const container of this.observers.keys()) {
-			for (const node of Array.from(container.querySelectorAll<HTMLElement>(`.${ICON_CLASS}`))) {
+			for (const node of Array.from(
+				container.querySelectorAll<HTMLElement>(`.${ICON_CLASS}`),
+			)) {
 				node.remove();
 			}
 		}
@@ -142,10 +144,10 @@ export class FileExplorerRenderer {
 				const item = view.fileItems?.[path];
 				if (!item) continue;
 
-				const titleEl = item.selfEl ?? item.titleEl;
+				const titleEl = item.selfEl;
 				if (!titleEl) continue;
 
-				this.applyIcon(titleEl, item.innerEl ?? item.titleInnerEl ?? null, emoji);
+				this.applyIcon(titleEl, item.innerEl ?? null, emoji);
 				decorated.add(titleEl);
 			}
 		}
@@ -153,7 +155,9 @@ export class FileExplorerRenderer {
 		// Remove icon nodes that are not backed by data anymore: cleared emoji,
 		// deleted items, or elements Obsidian re-created for an item.
 		for (const container of this.observers.keys()) {
-			for (const node of Array.from(container.querySelectorAll<HTMLElement>(`.${ICON_CLASS}`))) {
+			for (const node of Array.from(
+				container.querySelectorAll<HTMLElement>(`.${ICON_CLASS}`),
+			)) {
 				const titleEl = node.parentElement;
 				if (!titleEl || !decorated.has(titleEl)) node.remove();
 			}
