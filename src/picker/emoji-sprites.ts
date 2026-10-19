@@ -10,7 +10,9 @@ import type { EmojiCategory } from "./catalog";
  * in idle time and small slices, in the active emoji style; tiles then show
  * a slice of that image, so scrolling only moves pictures.
  *
- * Until a category's image is ready, its tiles fall back to text.
+ * Finished images are kept in a cache (see SpriteCache), so each style is
+ * drawn only once per device. Until a category's image is ready, its tiles
+ * fall back to text.
  */
 
 /** Font size the emoji are drawn at (CSS px), like text emoji in the grid. */
@@ -22,6 +24,8 @@ const EMOJI_PX = 24;
  */
 const CELL_PX = 32;
 const COLUMNS = 32;
+/** Bump when the way images are drawn changes, so cached images are drawn again. */
+const SPRITE_FORMAT = 1;
 /** Highest pixel density rendered; more costs memory without a visible gain. */
 const MAX_RATIO = 2;
 /** Longest stretch of drawing at once when no idle deadline is available (ms). */
@@ -31,9 +35,9 @@ const SLICE_BUDGET_MS = 8;
 export interface SpriteSlot {
 	/** `url("blob:…")` */
 	image: string;
-	/** e.g. `-56px -28px` */
+	/** e.g. `-64px -32px` */
 	position: string;
-	/** e.g. `896px 392px` */
+	/** e.g. `1024px 384px` */
 	size: string;
 }
 
@@ -43,7 +47,13 @@ export interface SpriteSource {
 	onChange(listener: () => void): () => void;
 }
 
-/** Runs `task` when the browser is idle; `deadline()` tells how much time is left (ms). */
+/** Stores finished images (PNG) by cache key and category. */
+export interface SpriteCache {
+	read(key: string, category: string): Promise<ArrayBuffer | null>;
+	write(key: string, category: string, data: ArrayBuffer): Promise<void>;
+}
+
+/** Runs `task` when the browser is idle; `timeLeft()` tells how much time is left (ms). */
 export type IdleScheduler = (task: (timeLeft: () => number) => void) => void;
 
 export interface SpriteOptions {
@@ -51,13 +61,20 @@ export interface SpriteOptions {
 	categories: () => readonly EmojiCategory[];
 	/** CSS font-family list of the active emoji style, already loaded. */
 	fontFamily: () => string;
+	/**
+	 * The cache key for images that look like this: style, device, emoji list
+	 * and the given `details` (pixel density and drawing format, e.g. "2x-f1").
+	 */
+	cacheKey?: (details: string) => string;
+	cache?: SpriteCache;
 	pixelRatio?: () => number;
 	scheduler?: IdleScheduler;
 	createCanvas?: (width: number, height: number) => HTMLCanvasElement;
-	toUrl?: (canvas: HTMLCanvasElement) => Promise<string>;
+	toPng?: (canvas: HTMLCanvasElement) => Promise<Blob>;
+	createUrl?: (blob: Blob) => string;
+	revokeUrl?: (url: string) => void;
 	/** Decodes an image ahead of time, so showing it first does not stall a frame. */
 	decode?: (url: string) => Promise<void>;
-	revokeUrl?: (url: string) => void;
 }
 
 const idleScheduler: IdleScheduler = (task) => {
@@ -80,11 +97,11 @@ const createCanvas = (width: number, height: number): HTMLCanvasElement => {
 	return canvas;
 };
 
-const canvasToUrl = (canvas: HTMLCanvasElement): Promise<string> =>
+const canvasToPng = (canvas: HTMLCanvasElement): Promise<Blob> =>
 	new Promise((resolve, reject) =>
 		canvas.toBlob(
 			(blob) =>
-				blob ? resolve(URL.createObjectURL(blob)) : reject(new Error("toBlob failed")),
+				blob ? resolve(blob) : reject(new Error("Could not encode the sprite sheet.")),
 			"image/png",
 		),
 	);
@@ -103,7 +120,7 @@ export class EmojiSprites implements SpriteSource {
 	private readonly slots = new Map<string, SpriteSlot>();
 	private readonly urls: string[] = [];
 	private readonly listeners = new Set<() => void>();
-	/** Increased by every rebuild; stale builds stop at their next slice. */
+	/** Increased by every rebuild; stale builds stop at their next step. */
 	private generation = 0;
 
 	constructor(private readonly options: SpriteOptions) {}
@@ -117,18 +134,32 @@ export class EmojiSprites implements SpriteSource {
 		return () => this.listeners.delete(listener);
 	}
 
-	/** Drops the current images and draws all categories again (e.g. after the emoji style changed). */
+	/**
+	 * Drops the current images and prepares all categories again (e.g. after
+	 * the emoji style changed): from the cache where possible, drawn otherwise.
+	 */
 	rebuild(): void {
 		const generation = ++this.generation;
 		this.clear();
 		this.notify();
-		const queue = [...this.options.categories()];
-		const next = () => {
-			const category = queue.shift();
-			if (category && generation === this.generation)
-				void this.build(category, generation).then(next);
-		};
-		next();
+		const ratio = Math.min(
+			MAX_RATIO,
+			Math.max(1, Math.ceil(this.options.pixelRatio?.() ?? window.devicePixelRatio)),
+		);
+		const key = this.options.cacheKey?.(`${ratio}x-f${SPRITE_FORMAT}`);
+		void (async () => {
+			for (const category of this.options.categories()) {
+				if (generation !== this.generation) return;
+				try {
+					await this.prepare(category, ratio, key, generation);
+				} catch (error) {
+					console.error(
+						`[notemoji] Could not prepare the "${category.id}" emoji images.`,
+						error,
+					);
+				}
+			}
+		})();
 	}
 
 	dispose(): void {
@@ -147,19 +178,56 @@ export class EmojiSprites implements SpriteSource {
 		for (const listener of this.listeners) listener();
 	}
 
-	/** Draws one category in idle slices, then publishes its image. */
-	private async build(category: EmojiCategory, generation: number): Promise<void> {
-		const ratio = Math.min(
-			MAX_RATIO,
-			Math.max(1, this.options.pixelRatio?.() ?? window.devicePixelRatio),
-		);
-		const cell = Math.round(CELL_PX * ratio);
+	/** Gets one category's image (cached or freshly drawn) and publishes it. */
+	private async prepare(
+		category: EmojiCategory,
+		ratio: number,
+		key: string | undefined,
+		generation: number,
+	): Promise<void> {
+		const { cache } = this.options;
+		const cached = key && cache ? await cache.read(key, category.id) : null;
+		let png: Blob | null = cached ? new Blob([cached], { type: "image/png" }) : null;
+		if (!png) {
+			png = await this.draw(category, ratio, generation);
+			if (!png) return;
+			if (key && cache) await cache.write(key, category.id, await png.arrayBuffer());
+		}
+		if (generation !== this.generation) return;
+
+		const url = (this.options.createUrl ?? ((blob: Blob) => URL.createObjectURL(blob)))(png);
+		await (this.options.decode ?? decodeImage)(url);
+		if (generation !== this.generation) {
+			(this.options.revokeUrl ?? ((value: string) => URL.revokeObjectURL(value)))(url);
+			return;
+		}
+		this.urls.push(url);
+		const image = `url(${JSON.stringify(url)})`;
+		const rows = Math.ceil(category.entries.length / COLUMNS);
+		const size = `${COLUMNS * CELL_PX}px ${rows * CELL_PX}px`;
+		category.entries.forEach((entry, i) => {
+			const x = (i % COLUMNS) * CELL_PX;
+			const y = Math.floor(i / COLUMNS) * CELL_PX;
+			this.slots.set(entry.emoji, { image, position: `-${x}px -${y}px`, size });
+		});
+		this.notify();
+	}
+
+	/** Draws one category in idle slices; null when cancelled or no canvas is available. */
+	private async draw(
+		category: EmojiCategory,
+		ratio: number,
+		generation: number,
+	): Promise<Blob | null> {
+		const cell = CELL_PX * ratio;
 		const entries = category.entries;
-		const rows = Math.ceil(entries.length / COLUMNS);
-		const canvas = (this.options.createCanvas ?? createCanvas)(COLUMNS * cell, rows * cell);
+		const canvas = (this.options.createCanvas ?? createCanvas)(
+			COLUMNS * cell,
+			Math.ceil(entries.length / COLUMNS) * cell,
+		);
 		const context = canvas.getContext("2d");
-		if (!context) return;
-		context.font = `${Math.round(EMOJI_PX * ratio)}px ${this.options.fontFamily()}`;
+		if (!context) return null;
+		context.font = `${EMOJI_PX * ratio}px ${this.options.fontFamily()}`;
 		context.textAlign = "left";
 		context.textBaseline = "alphabetic";
 
@@ -186,22 +254,7 @@ export class EmojiSprites implements SpriteSource {
 			};
 			schedule(slice);
 		});
-		if (generation !== this.generation || index < entries.length) return;
-
-		const url = await (this.options.toUrl ?? canvasToUrl)(canvas);
-		await (this.options.decode ?? decodeImage)(url);
-		if (generation !== this.generation) {
-			(this.options.revokeUrl ?? ((value: string) => URL.revokeObjectURL(value)))(url);
-			return;
-		}
-		this.urls.push(url);
-		const image = `url(${JSON.stringify(url)})`;
-		const size = `${COLUMNS * CELL_PX}px ${rows * CELL_PX}px`;
-		entries.forEach((entry, i) => {
-			const x = (i % COLUMNS) * CELL_PX;
-			const y = Math.floor(i / COLUMNS) * CELL_PX;
-			this.slots.set(entry.emoji, { image, position: `-${x}px -${y}px`, size });
-		});
-		this.notify();
+		if (generation !== this.generation || index < entries.length) return null;
+		return (this.options.toPng ?? canvasToPng)(canvas);
 	}
 }

@@ -124,8 +124,38 @@ export class NotemojiSettingTab extends PluginSettingTab {
 	}
 
 	private displayStoredData(containerEl: HTMLElement): void {
-		const { icons } = this.plugin;
+		const { icons, spriteCache } = this.plugin;
 		new Setting(containerEl).setName("Maintenance").setHeading();
+
+		const cacheSetting = new Setting(containerEl)
+			.setName("Picker image cache")
+			.setDesc(
+				"Pre-rendered emoji for each style, so the picker opens and scrolls smoothly. Removed with the plugin.",
+			);
+		cacheSetting.addButton((button) => {
+			button
+				.setButtonText("Clear")
+				.setDisabled(true)
+				.onClick(async () => {
+					try {
+						await spriteCache.clear();
+					} catch (error) {
+						console.error("[notemoji] Could not clear the picker image cache.", error);
+					}
+					this.display();
+				});
+			void spriteCache.size().then(
+				(bytes) => {
+					if (bytes === 0) return;
+					cacheSetting.setDesc(
+						`${formatBytes(bytes)} of pre-rendered emoji for each style, so the picker opens and scrolls smoothly. They are drawn again when needed and removed with the plugin.`,
+					);
+					button.setDisabled(false);
+				},
+				(error: unknown) =>
+					console.error("[notemoji] Could not read the picker image cache.", error),
+			);
+		});
 
 		const missing = icons.missingPaths().length;
 		new Setting(containerEl)

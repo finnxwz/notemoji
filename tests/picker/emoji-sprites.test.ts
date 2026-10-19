@@ -54,7 +54,8 @@ function setup(overrides: Partial<SpriteOptions> = {}) {
 			canvases.push({ width, height });
 			return { width, height, getContext: () => context } as unknown as HTMLCanvasElement;
 		},
-		toUrl: () => Promise.resolve(`blob:sprite-${++urls}`),
+		toPng: () => Promise.resolve(new Blob(["png"], { type: "image/png" })),
+		createUrl: () => `blob:sprite-${++urls}`,
 		decode: () => Promise.resolve(),
 		revokeUrl: (url) => revoked.push(url),
 		...overrides,
@@ -122,6 +123,30 @@ describe("EmojiSprites", () => {
 		await flush(10);
 		expect(drawn).toEqual([]);
 		expect(sprites.slot("😀")).toBeUndefined();
+	});
+
+	it("keeps images in the cache and reuses them instead of drawing again", async () => {
+		const stored = new Map<string, ArrayBuffer>();
+		const cache = {
+			read: (key: string, id: string) => Promise.resolve(stored.get(`${key}/${id}`) ?? null),
+			write: (key: string, id: string, data: ArrayBuffer) => {
+				stored.set(`${key}/${id}`, data);
+				return Promise.resolve();
+			},
+		};
+		const first = setup({ cache, cacheKey: (details) => `twemoji/windows-${details}-fp` });
+		first.sprites.rebuild();
+		await flush(10);
+		expect([...stored.keys()]).toEqual([
+			"twemoji/windows-2x-f1-fp/a",
+			"twemoji/windows-2x-f1-fp/b",
+		]);
+
+		const second = setup({ cache, cacheKey: (details) => `twemoji/windows-${details}-fp` });
+		second.sprites.rebuild();
+		await flush(10);
+		expect(second.drawn).toEqual([]);
+		expect(second.sprites.slot("🐻")).toBeDefined();
 	});
 
 	it("does nothing without a canvas context", async () => {

@@ -579,3 +579,34 @@ it("gives the settings tab a colourful emoji icon", async () => {
 		"notemoji-emoji",
 	);
 });
+
+describe("picker image cache", () => {
+	const CACHE = ".obsidian/plugins/notemoji/cache/sprites";
+
+	it("deleting a style removes its cached images", async () => {
+		const harness = await loadPlugin();
+		const adapter = harness.app.vault.adapter;
+		adapter.files.set(".obsidian/plugins/notemoji/fonts/twemoji.ttf", new ArrayBuffer(8));
+		adapter.files.set(`${CACHE}/twemoji/windows-1x-f1-x/smileys.png`, new ArrayBuffer(8));
+		adapter.files.set(`${CACHE}/system/windows-1x-f1-x/smileys.png`, new ArrayBuffer(8));
+		await harness.plugin.deleteEmojiSet(findEmojiSet("twemoji")!);
+		expect([...adapter.files.keys()]).toEqual([`${CACHE}/system/windows-1x-f1-x/smileys.png`]);
+	});
+
+	it("shows the cache size in the settings and clears it", async () => {
+		const harness = await loadPlugin();
+		harness.app.vault.adapter.files.set(
+			`${CACHE}/system/windows-1x-f1-x/smileys.png`,
+			new ArrayBuffer(3 * 1024),
+		);
+		settingsCreated.length = 0;
+		harness.fake.settingTabs[0].display();
+		await flush(10);
+		const setting = settingsCreated.find(
+			(entry) => entry.nameEl.textContent === "Picker image cache",
+		)!;
+		expect(setting.descEl.textContent).toContain("3 KB");
+		await (setting.components[0] as ButtonComponent).click();
+		expect(harness.app.vault.adapter.files.size).toBe(0);
+	});
+});

@@ -1,4 +1,13 @@
-import { Menu, normalizePath, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
+import {
+	Menu,
+	normalizePath,
+	Notice,
+	Platform,
+	Plugin,
+	TAbstractFile,
+	TFile,
+	TFolder,
+} from "obsidian";
 import { confirm } from "./confirm-modal";
 import { ExplorerSource, FileExplorerRenderer } from "./display/file-explorer";
 import { TitleDecorations } from "./display/titles";
@@ -7,8 +16,9 @@ import { CustomIconLibrary } from "./icons/custom-icons";
 import { EmojiFonts } from "./icons/emoji-font";
 import type { EmojiSet } from "./icons/emoji-sets";
 import { IconService, isNote } from "./icons/icon-service";
-import { getCatalog, warmUpCatalog } from "./picker/catalog";
+import { catalogFingerprint, getCatalog, warmUpCatalog } from "./picker/catalog";
 import { EmojiSprites } from "./picker/emoji-sprites";
+import { SpriteCacheFolder } from "./picker/sprite-cache";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings";
 
@@ -35,6 +45,7 @@ export default class NotemojiPlugin extends Plugin {
 	private warmUpTimer: number | null = null;
 	/** Pre-rendered emoji for the picker; built after startup and after every style change. */
 	private sprites!: EmojiSprites;
+	spriteCache!: SpriteCacheFolder;
 	private warmedUp = false;
 
 	/** Serialised save queue; a newer snapshot is never overwritten by an older one. */
@@ -55,9 +66,15 @@ export default class NotemojiPlugin extends Plugin {
 			normalizePath(`${pluginFolder}/fonts`),
 		);
 		this.emojiFonts.attach(document);
+		this.spriteCache = new SpriteCacheFolder(
+			this.app.vault.adapter,
+			normalizePath(`${pluginFolder}/cache/sprites`),
+		);
 		this.sprites = new EmojiSprites({
 			categories: () => getCatalog(),
 			fontFamily: () => this.resolvedEmojiFont(),
+			cache: this.spriteCache,
+			cacheKey: (details) => this.spriteCacheKey(details),
 		});
 
 		const source: ExplorerSource = {
@@ -127,6 +144,29 @@ export default class NotemojiPlugin extends Plugin {
 		this.sprites.rebuild();
 	}
 
+	/**
+	 * Cache key for the picker's emoji images: `<style>/<device>-<details>-<emoji list>`.
+	 * Keyed by what is actually drawn: a style whose font is not on this device
+	 * yet is drawn (and cached) as system emoji.
+	 */
+	private spriteCacheKey(details: string): string {
+		const { emojiStyle, emojiFont } = this.data.settings;
+		const style = this.emojiFonts.active ? emojiStyle : "system";
+		const device = Platform.isIosApp
+			? "ios"
+			: Platform.isAndroidApp
+				? "android"
+				: Platform.isMacOS
+					? "macos"
+					: Platform.isWin
+						? "windows"
+						: "linux";
+		const base = `${device}-${details}-${catalogFingerprint()}`;
+		if (style !== "file") return `${style}/${base}`;
+		// One folder for the own font; a different file replaces its images.
+		return `own/${base}-${emojiFont.toLowerCase().replace(/[^a-z0-9]+/g, "")}`;
+	}
+
 	/** The font-family list Notemoji's emoji currently use, as the browser resolves it. */
 	private resolvedEmojiFont(): string {
 		const probe = document.body.createSpan({ cls: "notemoji-font-probe" });
@@ -159,6 +199,7 @@ export default class NotemojiPlugin extends Plugin {
 	/** Deletes a downloaded set; deleting the active one switches to system emoji. */
 	async deleteEmojiSet(set: EmojiSet): Promise<void> {
 		await this.emojiFonts.deleteSet(set);
+		await this.spriteCache.removeStyle(set.id);
 		if (this.data.settings.emojiStyle === set.id) await this.setEmojiStyle("system");
 	}
 
@@ -172,6 +213,7 @@ export default class NotemojiPlugin extends Plugin {
 	/** Deletes your own font file and switches back to the system's emoji. */
 	async removeOwnEmojiFont(): Promise<void> {
 		await this.emojiFonts.removeOwn();
+		await this.spriteCache.removeStyle("own");
 		this.updateSettings({ emojiStyle: "system", emojiFont: "" });
 		await this.loadEmojiFont();
 	}

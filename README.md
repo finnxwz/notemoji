@@ -76,6 +76,9 @@ never modified.
   then, and on devices where the file has not arrived through your sync, your system's emoji are
   shown. Downloaded styles are kept in `.obsidian/plugins/notemoji/fonts/` (removed with the
   plugin), and _Delete_ removes the ones you do not use.
+- **The picker** shows pre-rendered images of the emoji, so it opens and scrolls smoothly. They
+  are drawn once per style and device and kept in `.obsidian/plugins/notemoji/cache/` (a few MB,
+  removed with the plugin; _Clear_ under Maintenance deletes them).
 - **Upgrading from 1.x:** your emoji keep working as they are.
 - **The note title emoji** follows Obsidian's _Show inline title_ setting.
 - **Emoji look** comes from your operating system's font unless you choose an emoji style. Some

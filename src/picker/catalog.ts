@@ -48,6 +48,29 @@ export function getCatalog(): EmojiCategory[] {
 	return catalog;
 }
 
+let fingerprint: string | null = null;
+
+/**
+ * A short fingerprint of the emoji list (which emoji, in which order), so
+ * caches built from it can tell when the list changed with an update.
+ */
+export function catalogFingerprint(): string {
+	if (fingerprint === null) {
+		let hash = 5381;
+		let count = 0;
+		for (const category of getCatalog()) {
+			for (const entry of category.entries) {
+				count += 1;
+				for (let i = 0; i < entry.emoji.length; i++) {
+					hash = ((hash << 5) + hash + entry.emoji.charCodeAt(i)) | 0;
+				}
+			}
+		}
+		fingerprint = `${count}-${(hash >>> 0).toString(36)}`;
+	}
+	return fingerprint;
+}
+
 /** Prepares the catalog and the name lookup ahead of time (e.g. while Obsidian is idle). */
 export function warmUpCatalog(): void {
 	findEntry("");

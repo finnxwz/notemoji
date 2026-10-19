@@ -18,13 +18,22 @@ export class FakeAdapter {
 	readonly folders = new Set<string>();
 
 	exists(path: string): Promise<boolean> {
-		return Promise.resolve(this.files.has(path) || this.folders.has(path));
+		const implied = [...this.files.keys()].some((file) => file.startsWith(`${path}/`));
+		return Promise.resolve(this.files.has(path) || this.folders.has(path) || implied);
 	}
 	list(folder: string): Promise<{ files: string[]; folders: string[] }> {
-		const files = [...this.files.keys()].filter(
-			(path) => path.startsWith(`${folder}/`) && !path.slice(folder.length + 1).includes("/"),
-		);
-		return Promise.resolve({ files, folders: [] });
+		const prefix = `${folder}/`;
+		const isChild = (path: string) =>
+			path.startsWith(prefix) && !path.slice(prefix.length).includes("/");
+		const files = [...this.files.keys()].filter(isChild);
+		const folders = new Set([...this.folders].filter(isChild));
+		// Folders implied by deeper files count too.
+		for (const path of this.files.keys()) {
+			if (!path.startsWith(prefix)) continue;
+			const rest = path.slice(prefix.length);
+			if (rest.includes("/")) folders.add(prefix + rest.slice(0, rest.indexOf("/")));
+		}
+		return Promise.resolve({ files, folders: [...folders] });
 	}
 	mkdir(path: string): Promise<void> {
 		this.folders.add(path);
@@ -45,7 +54,8 @@ export class FakeAdapter {
 	rmdir(path: string): Promise<void> {
 		for (const file of [...this.files.keys()])
 			if (file.startsWith(`${path}/`)) this.files.delete(file);
-		this.folders.delete(path);
+		for (const folder of [...this.folders])
+			if (folder === path || folder.startsWith(`${path}/`)) this.folders.delete(folder);
 		return Promise.resolve();
 	}
 	stat(path: string): Promise<{ size: number } | null> {
