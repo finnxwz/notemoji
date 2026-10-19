@@ -5,7 +5,8 @@ import type { IconSource } from "./display/icon-source";
 import { TitleDecorations } from "./display/titles";
 import { NotemojiSettings, parseData, PluginData, serializeData } from "./icons/data";
 import { CustomIconLibrary } from "./icons/custom-icons";
-import { EmojiFont } from "./icons/emoji-font";
+import { EmojiFonts } from "./icons/emoji-font";
+import type { EmojiSet } from "./icons/emoji-sets";
 import { IconService, isNote } from "./icons/icon-service";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings";
@@ -22,7 +23,7 @@ function describeItem(file: TAbstractFile): "note" | "file" | "folder" {
 export default class NotemojiPlugin extends Plugin {
 	icons!: IconService;
 	customIcons!: CustomIconLibrary;
-	emojiFont!: EmojiFont;
+	emojiFonts!: EmojiFonts;
 	private data!: PluginData;
 	private explorer!: FileExplorerRenderer;
 	private titles!: TitleDecorations;
@@ -41,11 +42,11 @@ export default class NotemojiPlugin extends Plugin {
 			this.app.vault.adapter,
 			normalizePath(`${pluginFolder}/icons`),
 		);
-		this.emojiFont = new EmojiFont(
+		this.emojiFonts = new EmojiFonts(
 			this.app.vault.adapter,
 			normalizePath(`${pluginFolder}/fonts`),
 		);
-		this.emojiFont.attach(document);
+		this.emojiFonts.attach(document);
 
 		const source: IconSource = {
 			get: (path) => this.icons.get(path),
@@ -63,7 +64,7 @@ export default class NotemojiPlugin extends Plugin {
 
 	onunload(): void {
 		if (this.titleTimer !== null) window.clearTimeout(this.titleTimer);
-		this.emojiFont?.unload();
+		this.emojiFonts?.unload();
 		this.explorer?.dispose();
 		this.titles?.dispose();
 	}
@@ -77,7 +78,9 @@ export default class NotemojiPlugin extends Plugin {
 		const data = parseData(await this.readData());
 		if (JSON.stringify(serializeData(data)) === JSON.stringify(serializeData(this.data)))
 			return;
-		const fontChanged = data.settings.emojiFont !== this.data.settings.emojiFont;
+		const fontChanged =
+			data.settings.emojiStyle !== this.data.settings.emojiStyle ||
+			data.settings.emojiFont !== this.data.settings.emojiFont;
 		this.data = data;
 		this.icons.replaceData(data);
 		if (fontChanged) await this.loadEmojiFont();
@@ -98,21 +101,40 @@ export default class NotemojiPlugin extends Plugin {
 
 	// ------------------------------------------------------------------ emoji font
 
-	private async loadEmojiFont(): Promise<void> {
-		const name = this.data.settings.emojiFont;
-		if (name === "") this.emojiFont.unload();
-		else await this.emojiFont.load(name);
+	/** Applies the chosen emoji style; a file missing on this device means system emoji. */
+	async loadEmojiFont(): Promise<void> {
+		const { emojiStyle, emojiFont } = this.data.settings;
+		await this.emojiFonts.apply(emojiStyle, emojiFont);
 	}
 
-	/** Installs a font file as the emoji style. Throws with a message for the user. */
-	async setEmojiFont(name: string, data: ArrayBuffer): Promise<void> {
-		this.updateSettings({ emojiFont: await this.emojiFont.install(name, data) });
+	async setEmojiStyle(style: string): Promise<void> {
+		this.updateSettings({ emojiStyle: style });
+		await this.loadEmojiFont();
 	}
 
-	/** Switches back to the system's emoji and deletes the font file. */
-	async clearEmojiFont(): Promise<void> {
-		await this.emojiFont.uninstall();
-		this.updateSettings({ emojiFont: "" });
+	/** Downloads a set (only ever on the user's request) and uses it if it is selected. */
+	async downloadEmojiSet(set: EmojiSet): Promise<void> {
+		await this.emojiFonts.download(set);
+		if (this.data.settings.emojiStyle === set.id) await this.loadEmojiFont();
+	}
+
+	async deleteEmojiSet(set: EmojiSet): Promise<void> {
+		await this.emojiFonts.deleteSet(set);
+		if (this.data.settings.emojiStyle === set.id) await this.loadEmojiFont();
+	}
+
+	/** Installs your own font file and uses it. Throws with a message for the user. */
+	async setOwnEmojiFont(name: string, data: ArrayBuffer): Promise<void> {
+		const file = await this.emojiFonts.installOwn(name, data);
+		this.updateSettings({ emojiStyle: "file", emojiFont: file });
+		await this.loadEmojiFont();
+	}
+
+	/** Deletes your own font file and switches back to the system's emoji. */
+	async removeOwnEmojiFont(): Promise<void> {
+		await this.emojiFonts.removeOwn();
+		this.updateSettings({ emojiStyle: "system", emojiFont: "" });
+		await this.loadEmojiFont();
 	}
 
 	// ------------------------------------------------------------------ wiring
@@ -131,7 +153,7 @@ export default class NotemojiPlugin extends Plugin {
 		this.registerEvent(workspace.on("active-leaf-change", () => this.scheduleTitleSync()));
 		// Pop-out windows need the emoji font too.
 		this.registerEvent(
-			workspace.on("window-open", (_window, win) => this.emojiFont.attach(win.document)),
+			workspace.on("window-open", (_window, win) => this.emojiFonts.attach(win.document)),
 		);
 		this.registerEvent(workspace.on("file-open", () => this.scheduleTitleSync()));
 

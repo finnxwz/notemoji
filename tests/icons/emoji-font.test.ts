@@ -3,14 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	EMOJI_FONT_CLASS,
 	EMOJI_FONT_FAMILY,
-	EmojiFont,
 	EmojiFontError,
+	EmojiFonts,
 	MAX_FONT_BYTES,
 } from "../../src/icons/emoji-font";
+import { EMOJI_SETS, findEmojiSet } from "../../src/icons/emoji-sets";
 import { isFontFileName } from "../../src/icons/icon-value";
 import { FakeAdapter } from "../fake-app";
 
 const FOLDER = ".obsidian/plugins/notemoji/fonts";
+const twemoji = findEmojiSet("twemoji")!;
 
 /** A window document with its own font set, like the main window or a pop-out. */
 function fakeDocument() {
@@ -20,20 +22,47 @@ function fakeDocument() {
 	};
 }
 
-function setup(options: { broken?: boolean } = {}) {
+function setup(options: { broken?: boolean; hash?: string; offline?: boolean } = {}) {
 	const adapter = new FakeAdapter();
 	const loader = vi.fn((family: string) =>
 		options.broken
 			? Promise.reject(new Error("bad font"))
 			: Promise.resolve({ family } as unknown as FontFace),
 	);
-	const font = new EmojiFont(adapter as unknown as DataAdapter, FOLDER, loader);
+	let lastUrl = "";
+	const downloader = {
+		download: vi.fn((url: string) => {
+			lastUrl = url;
+			return options.offline
+				? Promise.reject(new Error("offline"))
+				: Promise.resolve(data(32));
+		}),
+		// The pinned checksum of whatever was downloaded, unless a test overrides it.
+		sha256: vi.fn(() =>
+			Promise.resolve(options.hash ?? EMOJI_SETS.find((set) => set.url === lastUrl)!.sha256),
+		),
+	};
+	const fonts = new EmojiFonts(adapter as unknown as DataAdapter, FOLDER, loader, downloader);
 	const main = fakeDocument();
-	font.attach(main);
-	return { adapter, loader, font, main };
+	fonts.attach(main);
+	return { adapter, loader, downloader, fonts, main };
 }
 
 const data = (size = 16) => new Uint8Array(size).buffer;
+const uses = (doc: Document & { fonts: Set<FontFace> }) =>
+	doc.fonts.size === 1 && doc.body.hasClass(EMOJI_FONT_CLASS);
+
+describe("emoji sets", () => {
+	it("are pinned, open and have unique files", () => {
+		for (const set of EMOJI_SETS) {
+			expect(set.url).toMatch(/^https:\/\/(github\.com|raw\.githubusercontent\.com)\//);
+			expect(set.sha256).toMatch(/^[0-9a-f]{64}$/);
+			expect(isFontFileName(set.file), set.file).toBe(true);
+			expect(set.credit).not.toBe("");
+		}
+		expect(new Set(EMOJI_SETS.map((set) => set.file)).size).toBe(EMOJI_SETS.length);
+	});
+});
 
 describe("isFontFileName", () => {
 	it("accepts font files only", () => {
@@ -46,66 +75,107 @@ describe("isFontFileName", () => {
 	});
 });
 
-describe("EmojiFont", () => {
-	it("installs a font and uses it in every attached window", async () => {
-		const { adapter, loader, font, main } = setup();
+describe("downloadable sets", () => {
+	it("shows system emoji while a set is not downloaded, and never downloads on its own", async () => {
+		const { downloader, fonts, main } = setup();
+		await fonts.apply("twemoji", "");
+		expect(fonts.active).toBe(false);
+		expect(uses(main)).toBe(false);
+		expect(downloader.download).not.toHaveBeenCalled();
+		expect(await fonts.isAvailable("twemoji", "")).toBe(false);
+	});
+
+	it("downloads, verifies and then uses a set in every window", async () => {
+		const { adapter, loader, downloader, fonts, main } = setup();
 		const popout = fakeDocument();
-		font.attach(popout);
+		fonts.attach(popout);
+		await fonts.download(twemoji);
+		expect(downloader.download).toHaveBeenCalledWith(twemoji.url);
+		expect(adapter.files.has(`${FOLDER}/twemoji.ttf`)).toBe(true);
 
-		expect(await font.install("Twemoji.ttf", data())).toBe("Twemoji.ttf");
+		await fonts.apply("twemoji", "");
 		expect(loader).toHaveBeenCalledWith(EMOJI_FONT_FAMILY, expect.any(ArrayBuffer));
-		expect(adapter.files.has(`${FOLDER}/Twemoji.ttf`)).toBe(true);
-		for (const doc of [main, popout]) {
-			expect(doc.fonts.size).toBe(1);
-			expect(doc.body.hasClass(EMOJI_FONT_CLASS)).toBe(true);
-		}
-		expect(font.active).toBe(true);
+		expect(uses(main) && uses(popout)).toBe(true);
 	});
 
-	it("uses the font in windows opened later", async () => {
-		const { font } = setup();
-		await font.install("Twemoji.ttf", data());
-		const later = fakeDocument();
-		font.attach(later);
-		expect(later.body.hasClass(EMOJI_FONT_CLASS)).toBe(true);
+	it("rejects a download with the wrong checksum and stores nothing", async () => {
+		const { adapter, fonts } = setup({ hash: "0".repeat(64) });
+		await expect(fonts.download(twemoji)).rejects.toThrow(/not the expected file/);
+		expect(adapter.files.size).toBe(0);
 	});
 
-	it("replaces the previous font file", async () => {
-		const { adapter, font, main } = setup();
-		await font.install("Twemoji.ttf", data());
-		await font.install("Noto.woff2", data());
-		expect([...adapter.files.keys()]).toEqual([`${FOLDER}/Noto.woff2`]);
-		expect(main.fonts.size).toBe(1);
+	it("explains a failed download", async () => {
+		const { fonts } = setup({ offline: true });
+		await expect(fonts.download(twemoji)).rejects.toThrow(/Check your connection/);
 	});
 
-	it("rejects wrong types, huge files and broken fonts without touching the current one", async () => {
-		const { adapter, font } = setup();
-		await font.install("Twemoji.ttf", data());
-		await expect(font.install("emoji.png", data())).rejects.toBeInstanceOf(EmojiFontError);
-		await expect(font.install("big.ttf", data(MAX_FONT_BYTES + 1))).rejects.toThrow(/30 MB/);
+	it("keeps downloaded sets and can delete them", async () => {
+		const { fonts } = setup();
+		await fonts.download(twemoji);
+		await fonts.download(findEmojiSet("openmoji")!);
+		expect((await fonts.downloadedSets()).map((entry) => entry.set.id)).toEqual([
+			"twemoji",
+			"openmoji",
+		]);
+		await fonts.deleteSet(twemoji);
+		expect((await fonts.downloadedSets()).map((entry) => entry.set.id)).toEqual(["openmoji"]);
+	});
+
+	it("goes back to system emoji for system, unknown styles and broken files", async () => {
+		const { fonts, main } = setup();
+		await fonts.download(twemoji);
+		await fonts.apply("twemoji", "");
+		await fonts.apply("system", "");
+		expect(uses(main)).toBe(false);
+		await fonts.apply("apple", "");
+		expect(fonts.active).toBe(false);
 
 		const broken = setup({ broken: true });
-		await expect(broken.font.install("bad.ttf", data())).rejects.toThrow(/could not be loaded/);
+		await broken.fonts.download(twemoji);
+		await broken.fonts.apply("twemoji", "");
+		expect(broken.fonts.active).toBe(false);
+	});
+
+	it("lets only the latest choice win when switching quickly", async () => {
+		const { fonts, main } = setup();
+		await fonts.download(twemoji);
+		const slow = fonts.apply("twemoji", "");
+		const fast = fonts.apply("system", "");
+		await Promise.all([slow, fast]);
+		expect(uses(main)).toBe(false);
+	});
+});
+
+describe("own font file", () => {
+	it("installs one file at a time and uses it in windows opened later", async () => {
+		const { adapter, fonts } = setup();
+		await fonts.installOwn("Mine.ttf", data());
+		await fonts.installOwn("Other.woff2", data());
+		expect([...adapter.files.keys()]).toEqual([`${FOLDER}/own/Other.woff2`]);
+		await fonts.apply("file", "Other.woff2");
+		const later = fakeDocument();
+		fonts.attach(later);
+		expect(uses(later)).toBe(true);
+	});
+
+	it("keeps downloaded sets when the own font changes", async () => {
+		const { adapter, fonts } = setup();
+		await fonts.download(twemoji);
+		await fonts.installOwn("Mine.ttf", data());
+		await fonts.removeOwn();
+		expect([...adapter.files.keys()]).toEqual([`${FOLDER}/twemoji.ttf`]);
+	});
+
+	it("rejects wrong types, huge files and broken fonts", async () => {
+		const { fonts } = setup();
+		await expect(fonts.installOwn("emoji.png", data())).rejects.toBeInstanceOf(EmojiFontError);
+		await expect(fonts.installOwn("big.ttf", data(MAX_FONT_BYTES + 1))).rejects.toThrow(
+			/30 MB/,
+		);
+		const broken = setup({ broken: true });
+		await expect(broken.fonts.installOwn("bad.ttf", data())).rejects.toThrow(
+			/could not be loaded/,
+		);
 		expect(broken.adapter.files.size).toBe(0);
-		expect([...adapter.files.keys()]).toEqual([`${FOLDER}/Twemoji.ttf`]);
-	});
-
-	it("loads an installed font on startup and reports missing ones", async () => {
-		const { adapter, font, main } = setup();
-		adapter.files.set(`${FOLDER}/Twemoji.ttf`, data());
-		expect(await font.load("Twemoji.ttf")).toBe(true);
-		expect(main.body.hasClass(EMOJI_FONT_CLASS)).toBe(true);
-		expect(await font.load("Missing.ttf")).toBe(false);
-		expect(main.body.hasClass(EMOJI_FONT_CLASS)).toBe(false);
-	});
-
-	it("goes back to the system's emoji", async () => {
-		const { adapter, font, main } = setup();
-		await font.install("Twemoji.ttf", data());
-		await font.uninstall();
-		expect(adapter.files.size).toBe(0);
-		expect(main.fonts.size).toBe(0);
-		expect(main.body.hasClass(EMOJI_FONT_CLASS)).toBe(false);
-		expect(font.active).toBe(false);
 	});
 });

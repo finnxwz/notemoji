@@ -37,15 +37,20 @@ describe("parseData", () => {
 			noteTitle: "inline",
 			showInTabs: false,
 			showInViewHeader: false,
+			emojiStyle: "system",
 			emojiFont: "",
 		});
 		expect(parseData({ settings: { noteTitle: "huge" } }).settings.noteTitle).toBe("off");
 	});
 
-	it("reads the emoji font and ignores invalid names", () => {
-		expect(parseData({ settings: { emojiFont: "Twemoji.ttf" } }).settings.emojiFont).toBe(
-			"Twemoji.ttf",
+	it("reads the emoji style and font, ignoring invalid values", () => {
+		expect(parseData({ settings: { emojiStyle: "twemoji" } }).settings.emojiStyle).toBe(
+			"twemoji",
 		);
+		expect(parseData({ settings: { emojiStyle: "apple" } }).settings.emojiStyle).toBe("system");
+		// Saved before styles existed: an own font file means the "file" style.
+		const legacy = parseData({ settings: { emojiFont: "Twemoji.ttf" } }).settings;
+		expect([legacy.emojiStyle, legacy.emojiFont]).toEqual(["file", "Twemoji.ttf"]);
 		expect(parseData({ settings: { emojiFont: "../x.ttf" } }).settings.emojiFont).toBe("");
 		expect(parseData({ settings: { emojiFont: 3 } }).settings.emojiFont).toBe("");
 	});

@@ -1,3 +1,4 @@
+import { findEmojiSet } from "./emoji-sets";
 import { isFontFileName, normalizeIcon } from "./icon-value";
 import { IconStore } from "./icon-store";
 
@@ -23,7 +24,9 @@ export interface NotemojiSettings {
 	showInTabs: boolean;
 	/** Emoji in front of the title in the view header (top bar). */
 	showInViewHeader: boolean;
-	/** File name of the emoji font in the plugin's fonts folder, or "" for the system's emoji. */
+	/** `system`, `file` (own font file) or the id of a downloadable emoji set. */
+	emojiStyle: string;
+	/** File name of your own emoji font (used with `emojiStyle: "file"`), or "". */
 	emojiFont: string;
 }
 
@@ -31,6 +34,7 @@ export const DEFAULT_SETTINGS: Readonly<NotemojiSettings> = {
 	noteTitle: "off",
 	showInTabs: true,
 	showInViewHeader: false,
+	emojiStyle: "system",
 	emojiFont: "",
 };
 
@@ -65,6 +69,16 @@ function readSettings(raw: unknown): NotemojiSettings {
 	if (typeof raw.showInViewHeader === "boolean") settings.showInViewHeader = raw.showInViewHeader;
 	if (typeof raw.emojiFont === "string" && isFontFileName(raw.emojiFont)) {
 		settings.emojiFont = raw.emojiFont;
+	}
+	const style = raw.emojiStyle;
+	if (
+		typeof style === "string" &&
+		(style === "system" || style === "file" || findEmojiSet(style))
+	) {
+		settings.emojiStyle = style;
+	} else if (settings.emojiFont !== "") {
+		// Saved before emoji styles existed: an own font file was the only option.
+		settings.emojiStyle = "file";
 	}
 	return settings;
 }

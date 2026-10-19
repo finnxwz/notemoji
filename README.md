@@ -18,8 +18,8 @@ never modified.
   your notes, and follow them when you rename or move them in Obsidian.
 - **Your own icons.** Upload PNG, JPG, GIF, WebP or SVG images in the picker and use them
   just like emoji.
-- **Your emoji style.** Prefer Twemoji or Noto over your system's emoji? Add the font file in
-  the settings and Notemoji shows its emoji in that style on every device.
+- **Your emoji style.** Show Notemoji's emoji as Twemoji, Noto Color Emoji, OpenMoji or
+  black-and-white Noto Emoji on every device, or use your own font file.
 - **Folders and other files too.** Folders, PDFs, images and canvases can have an emoji as well.
 - **Any emoji.** Flags, skin tones, keycaps and family sequences (`🇩🇪`, `👍🏽`, `1️⃣`,
   `👨‍👩‍👧‍👦`) stay intact. Symbols such as `★` or `✓` work as well.
@@ -46,7 +46,7 @@ never modified.
 | Emoji at note title           | Off          | Or _Large, above the title_ (click it to change the emoji), or _Inline, before the title_ |
 | Emoji in tab titles           | On           | The emoji in front of each tab's name                                                     |
 | Emoji in view header title    | Off          | The emoji in front of the title in the bar at the top of a tab                            |
-| Emoji font                    | System emoji | A font file (TTF, OTF, WOFF, WOFF2) that changes how Notemoji's emoji look                |
+| Emoji style                   | System emoji | Twemoji, Noto Color Emoji, OpenMoji, Noto Emoji (black and white) or your own font file   |
 | Custom icons                  | –            | Shows how many custom icons you have and their size; _Delete all_ removes them            |
 | Remove emoji of missing files | –            | Cleans up emoji of notes, folders and files that no longer exist                          |
 
@@ -69,17 +69,30 @@ never modified.
   together with the plugin when you uninstall it. They reach your other devices if your sync
   copies plugin folders (with Obsidian Sync: _Installed community plugins_). Images are shown
   as they are: a black icon stays black, also in a dark theme.
-- **Emoji fonts** only change Notemoji's emoji (explorer, titles, tabs, picker); emoji in your
-  notes stay as they are. Emoji the font does not contain fall back to your system's emoji.
-  Free fonts include [Twemoji](https://github.com/jdecked/twemoji) (CC-BY 4.0) and
-  [Noto Color Emoji](https://github.com/googlefonts/noto-emoji) (OFL). Apple's emoji may only
-  be used on Apple devices, where Notemoji shows them anyway. The font file is stored in
-  `.obsidian/plugins/notemoji/fonts/`.
+- **Emoji styles** only change Notemoji's emoji (explorer, titles, tabs, picker); emoji in your
+  notes stay as they are. Emoji a style does not contain use your system's emoji. Apple's emoji
+  may only be used on Apple devices, where Notemoji shows them anyway.
+- **Downloads happen only when you click _Download_** for an emoji style, once per device. Until
+  then, and on devices where the file has not arrived through your sync, your system's emoji are
+  shown. Downloaded styles are kept in `.obsidian/plugins/notemoji/fonts/` (removed with the
+  plugin), and _Delete_ removes the ones you do not use.
 - **Upgrading from 1.x:** your emoji keep working as they are.
 - **The note title emoji** follows Obsidian's _Show inline title_ setting.
-- **Emoji look** comes from your operating system's font. Some systems, notably Windows, show
-  flags as letters (`🇩🇪` as `DE`); the real emoji is stored either way. The picker lists
+- **Emoji look** comes from your operating system's font unless you choose an emoji style. Some
+  systems, notably Windows, show flags as letters (`🇩🇪` as `DE`); the colour styles fix that, and
+  the real emoji is stored either way. The picker lists
   emoji up to Emoji 15.0, which every current system can display; newer ones can be pasted.
+
+## 🌐 Network use
+
+Notemoji works offline. It only connects to the internet when you click _Download_ for an emoji
+style, and then downloads exactly that font from GitHub. Each file is pinned to a release and
+checked against its SHA-256 checksum before it is used:
+
+- Twemoji: `github.com/mozilla/twemoji-colr` (release v0.7.0, 1.5 MB)
+- Noto Color Emoji: `github.com/googlefonts/noto-emoji` (v2.051, 5.0 MB)
+- OpenMoji: `github.com/hfg-gmuend/openmoji` (17.0.0, 1.0 MB)
+- Noto Emoji: `github.com/google/fonts` (2.0 MB)
 
 ## 🛠️ Development
 
@@ -103,4 +116,8 @@ Found a bug or have a suggestion? Open an issue in this repository's **GitHub Is
 ## 🙏 Credits
 
 Emoji names and keywords come from [Emojibase](https://emojibase.dev) (MIT), based on the
-[Unicode CLDR](https://cldr.unicode.org) data.
+[Unicode CLDR](https://cldr.unicode.org) data. Downloadable emoji styles:
+[Twemoji](https://github.com/jdecked/twemoji) by Twitter (CC-BY 4.0, font by
+[Mozilla](https://github.com/mozilla/twemoji-colr)),
+[Noto Color Emoji and Noto Emoji](https://github.com/googlefonts/noto-emoji) by Google (SIL Open
+Font License 1.1) and [OpenMoji](https://openmoji.org) by HfG Schwäbisch Gmünd (CC BY-SA 4.0).

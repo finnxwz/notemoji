@@ -129,6 +129,26 @@ export function normalizePath(path: string): string {
 		.replace(/^\/|\/$/g, "");
 }
 
+/**
+ * Network for `requestUrl`: tests register responses by URL. Anything else
+ * fails, so a test can never reach the real network.
+ */
+export const network = {
+	responses: new Map<string, ArrayBuffer>(),
+	requests: [] as string[],
+};
+
+export function requestUrl(
+	request: { url: string } | string,
+): Promise<{ arrayBuffer: ArrayBuffer }> {
+	const url = typeof request === "string" ? request : request.url;
+	network.requests.push(url);
+	const data = network.responses.get(url);
+	return data
+		? Promise.resolve({ arrayBuffer: data })
+		: Promise.reject(new Error(`No network in tests: ${url}`));
+}
+
 /** Every notice shown, oldest first. Tests may clear it. */
 export const notices: string[] = [];
 

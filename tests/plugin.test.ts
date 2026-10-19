@@ -4,6 +4,7 @@ import {
 	ButtonComponent,
 	DropdownComponent,
 	MarkdownView,
+	network,
 	notices,
 	openModals,
 	settingsCreated,
@@ -12,6 +13,7 @@ import {
 	ToggleComponent,
 	WorkspaceLeaf,
 } from "./obsidian";
+import { findEmojiSet } from "../src/icons/emoji-sets";
 import { loadPlugin } from "./plugin-harness";
 
 interface PickerLike {
@@ -95,6 +97,7 @@ describe("commands", () => {
 				noteTitle: "off",
 				showInTabs: true,
 				showInViewHeader: false,
+				emojiStyle: "system",
 				emojiFont: "",
 			},
 			icons: { "Notes/A.md": "🚀" },
@@ -216,6 +219,7 @@ describe("settings tab", () => {
 			noteTitle: "above",
 			showInTabs: false,
 			showInViewHeader: false,
+			emojiStyle: "system",
 			emojiFont: "",
 		});
 	});
@@ -359,11 +363,13 @@ describe("custom icons", () => {
 	});
 });
 
-describe("emoji font", () => {
+describe("emoji style", () => {
 	const FONTS = ".obsidian/plugins/notemoji/fonts";
+	const twemoji = findEmojiSet("twemoji")!;
+	/** Bytes whose SHA-256 is mocked to the pinned checksum (or not). */
+	const download = new Uint8Array([1, 2, 3]).buffer;
 
 	beforeEach(() => {
-		// Browser font APIs, as far as Notemoji uses them.
 		vi.stubGlobal(
 			"FontFace",
 			class {
@@ -376,37 +382,104 @@ describe("emoji font", () => {
 			Object.defineProperty(document, "fonts", { value: new Set(), configurable: true });
 		}
 		document.body.removeClass("notemoji-custom-font");
+		network.responses.clear();
+		network.requests.length = 0;
 	});
 
-	it("installs a font from the settings, loads it on start and can switch back", async () => {
-		const harness = await loadPlugin();
-		await harness.plugin.setEmojiFont("Twemoji.ttf", new Uint8Array(8).buffer);
-		expect(harness.app.vault.adapter.files.has(`${FONTS}/Twemoji.ttf`)).toBe(true);
-		expect(harness.lastSaved()?.settings).toMatchObject({ emojiFont: "Twemoji.ttf" });
-		expect(document.body.hasClass("notemoji-custom-font")).toBe(true);
+	function mockChecksum(hex: string) {
+		const bytes = new Uint8Array(hex.match(/../g)!.map((pair) => parseInt(pair, 16)));
+		vi.spyOn(crypto.subtle, "digest").mockResolvedValue(bytes.buffer);
+	}
 
+	async function openSettings(harness: Awaited<ReturnType<typeof loadPlugin>>) {
 		settingsCreated.length = 0;
 		harness.fake.settingTabs[0].display();
-		const setting = settingsCreated.find((entry) => entry.nameEl.textContent === "Emoji font")!;
-		expect(setting.descEl.textContent).toContain("Twemoji.ttf");
-		const useSystem = setting.components[1] as ButtonComponent;
-		expect(useSystem.buttonEl.textContent).toBe("Use system emoji");
+		await flush(10);
+		const setting = (name: string) =>
+			[...settingsCreated].reverse().find((entry) => entry.nameEl.textContent === name);
+		return setting;
+	}
 
-		await useSystem.click();
+	it("uses system emoji until a chosen set is downloaded, and downloads only on request", async () => {
+		const harness = await loadPlugin();
+		let setting = await openSettings(harness);
+		const dropdown = setting("Emoji style")!.components[0] as DropdownComponent;
+		expect(Object.keys(dropdown.options)).toEqual([
+			"system",
+			"twemoji",
+			"noto-color",
+			"openmoji",
+			"noto-mono",
+			"file",
+		]);
+
+		await dropdown.change("twemoji");
+		await flush(10);
+		expect(harness.lastSaved()?.settings).toMatchObject({ emojiStyle: "twemoji" });
+		expect(network.requests).toEqual([]);
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
+
+		setting = await openSettings(harness);
+		expect(setting("Emoji style")!.descEl.textContent).toContain("Not on this device yet");
+		const downloadButton = setting("Emoji style")!.components[1] as ButtonComponent;
+		expect(downloadButton.buttonEl.textContent).toBe("Download");
+
+		network.responses.set(twemoji.url, download);
+		mockChecksum(twemoji.sha256);
+		await downloadButton.click();
+		expect(network.requests).toEqual([twemoji.url]);
+		expect(harness.app.vault.adapter.files.has(`${FONTS}/twemoji.ttf`)).toBe(true);
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(true);
+		expect(notices.at(-1)).toBe("Twemoji is ready.");
+	});
+
+	it("refuses a download that is not the pinned file", async () => {
+		const harness = await loadPlugin({ data: { settings: { emojiStyle: "twemoji" } } });
+		network.responses.set(twemoji.url, download);
+		mockChecksum("0".repeat(64));
+		await expect(harness.plugin.downloadEmojiSet(twemoji)).rejects.toThrow(
+			/not the expected file/,
+		);
 		expect(harness.app.vault.adapter.files.size).toBe(0);
-		expect(harness.lastSaved()?.settings).toMatchObject({ emojiFont: "" });
 		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
 	});
 
-	it("falls back to the system's emoji when the font file is missing (e.g. not synced yet)", async () => {
-		const harness = await loadPlugin({ data: { settings: { emojiFont: "Twemoji.ttf" } } });
-		expect(harness.plugin.emojiFont.active).toBe(false);
-		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
-		expect(notices).toEqual([]);
+	it("lists other downloaded styles and deletes them", async () => {
+		const harness = await loadPlugin({ data: { settings: { emojiStyle: "system" } } });
+		harness.app.vault.adapter.files.set(`${FONTS}/twemoji.ttf`, new ArrayBuffer(2048));
+		const setting = await openSettings(harness);
+		const other = setting("Other downloaded styles")!;
+		expect(other.descEl.textContent).toContain("Twemoji (2 KB)");
+		await (other.components[0] as ButtonComponent).click();
+		expect(harness.app.vault.adapter.files.size).toBe(0);
+	});
 
-		// Once the file arrives, the next start (or sync reload) picks it up.
-		harness.app.vault.adapter.files.set(`${FONTS}/Twemoji.ttf`, new ArrayBuffer(8));
-		expect(await harness.plugin.emojiFont.load("Twemoji.ttf")).toBe(true);
+	it("installs and removes an own font file", async () => {
+		const harness = await loadPlugin();
+		await harness.plugin.setOwnEmojiFont("Mine.ttf", new Uint8Array(8).buffer);
+		expect(harness.lastSaved()?.settings).toMatchObject({
+			emojiStyle: "file",
+			emojiFont: "Mine.ttf",
+		});
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(true);
+
+		const setting = await openSettings(harness);
+		const buttons = setting("Emoji style")!.components.slice(1) as ButtonComponent[];
+		expect(buttons.map((button) => button.buttonEl.textContent)).toEqual([
+			"Change font",
+			"Remove font",
+		]);
+		await buttons[1].click();
+		expect(harness.lastSaved()?.settings).toMatchObject({
+			emojiStyle: "system",
+			emojiFont: "",
+		});
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
+	});
+
+	it("unload removes the font everywhere", async () => {
+		const harness = await loadPlugin();
+		await harness.plugin.setOwnEmojiFont("Mine.ttf", new Uint8Array(8).buffer);
 		harness.unload();
 		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
 	});

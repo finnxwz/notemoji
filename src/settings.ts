@@ -1,6 +1,7 @@
 import { Notice, PluginSettingTab, Setting } from "obsidian";
 import { confirm } from "./confirm-modal";
 import { formatBytes } from "./icons/custom-icons";
+import { EMOJI_SETS, findEmojiSet } from "./icons/emoji-sets";
 import { FONT_EXTENSIONS } from "./icons/icon-value";
 import type { NoteTitleMode } from "./icons/data";
 import type NotemojiPlugin from "./main";
@@ -62,11 +63,103 @@ export class NotemojiSettingTab extends PluginSettingTab {
 	}
 
 	private displayEmojiStyle(containerEl: HTMLElement): void {
-		const { plugin } = this;
-		const font = plugin.icons.settings.emojiFont;
 		new Setting(containerEl).setName("Emoji style").setHeading();
+		// Filled in once file availability is known; keeps the section in place.
+		const sectionEl = containerEl.createDiv();
+		void this.fillEmojiStyle(sectionEl).catch((error: unknown) =>
+			console.error("[notemoji] Could not show the emoji style settings.", error),
+		);
+	}
 
-		const fileInput = containerEl.createEl("input", {
+	private async fillEmojiStyle(sectionEl: HTMLElement): Promise<void> {
+		const { plugin } = this;
+		const { emojiStyle, emojiFont } = plugin.icons.settings;
+		const fonts = plugin.emojiFonts;
+		const set = findEmojiSet(emojiStyle);
+		const available = await fonts.isAvailable(emojiStyle, emojiFont);
+
+		const styleSetting = new Setting(sectionEl)
+			.setName("Emoji style")
+			.addDropdown((dropdown) => {
+				dropdown.addOption("system", "System emoji");
+				for (const entry of EMOJI_SETS) dropdown.addOption(entry.id, entry.name);
+				dropdown.addOption("file", "Own font file");
+				dropdown.setValue(emojiStyle).onChange(async (value) => {
+					await plugin.setEmojiStyle(value);
+					this.display();
+				});
+			});
+
+		if (emojiStyle === "system") {
+			styleSetting.setDesc(
+				"Your device's own emoji. Emoji in your notes always stay as they are.",
+			);
+		} else if (set) {
+			styleSetting.setDesc(
+				available
+					? `${set.credit} Emoji it does not contain use your system's emoji.`
+					: `${set.credit} Not on this device yet, so your system's emoji are shown. Download it once (${formatBytes(set.bytes)}) from GitHub.`,
+			);
+			if (!available) {
+				styleSetting.addButton((button) =>
+					button
+						.setButtonText("Download")
+						.setCta()
+						.onClick(async () => {
+							button.setDisabled(true).setButtonText("Downloading…");
+							try {
+								await plugin.downloadEmojiSet(set);
+								new Notice(`${set.name} is ready.`);
+							} catch (error) {
+								new Notice(
+									error instanceof Error ? error.message : "Could not download.",
+								);
+							}
+							this.display();
+						}),
+				);
+			}
+		} else {
+			this.addOwnFontSetting(sectionEl, styleSetting, emojiFont, available);
+		}
+
+		const downloaded = await fonts.downloadedSets();
+		const unused = downloaded.filter((entry) => entry.set.id !== emojiStyle);
+		if (unused.length > 0) {
+			const total = unused.reduce((sum, entry) => sum + entry.bytes, 0);
+			new Setting(sectionEl)
+				.setName("Other downloaded styles")
+				.setDesc(
+					`${unused.map((entry) => entry.set.name).join(", ")} (${formatBytes(total)}) stay on this device, so switching back is instant.`,
+				)
+				.addButton((button) =>
+					button
+						.setButtonText("Delete")
+						.setWarning()
+						.onClick(async () => {
+							for (const entry of unused) await plugin.deleteEmojiSet(entry.set);
+							this.display();
+						}),
+				);
+		}
+	}
+
+	private addOwnFontSetting(
+		sectionEl: HTMLElement,
+		styleSetting: Setting,
+		emojiFont: string,
+		available: boolean,
+	): void {
+		const { plugin } = this;
+		styleSetting.setDesc(
+			emojiFont === ""
+				? "Choose a font file (TTF, OTF, WOFF or WOFF2). Until then your system's emoji are shown."
+				: available
+					? `Uses "${emojiFont}". Emoji it does not contain use your system's emoji.`
+					: `"${emojiFont}" is not on this device yet, so your system's emoji are shown.`,
+		);
+
+		const fileInput = sectionEl.createEl("input", {
 			cls: "notemoji-hidden-input",
 			attr: {
 				type: "file",
@@ -79,7 +172,7 @@ export class NotemojiSettingTab extends PluginSettingTab {
 			if (!file) return;
 			void file
 				.arrayBuffer()
-				.then((data) => plugin.setEmojiFont(file.name, data))
+				.then((data) => plugin.setOwnEmojiFont(file.name, data))
 				.then(
 					() => new Notice(`Notemoji now uses "${file.name}" for its emoji.`),
 					(error: unknown) =>
@@ -90,23 +183,16 @@ export class NotemojiSettingTab extends PluginSettingTab {
 				.finally(() => this.display());
 		});
 
-		const setting = new Setting(containerEl)
-			.setName("Emoji font")
-			.setDesc(
-				font === ""
-					? "Uses your system's emoji. Choose a font file (TTF, OTF, WOFF or WOFF2) to show Notemoji's emoji in another style. Emoji in your notes are not affected."
-					: `Uses "${font}" for Notemoji's emoji. Emoji the font does not contain are shown with your system's emoji. Emoji in your notes are not affected.`,
-			)
-			.addButton((button) =>
-				button
-					.setButtonText(font === "" ? "Choose font" : "Change font")
-					.onClick(() => fileInput.click()),
-			);
-		if (font !== "") {
-			setting.addButton((button) =>
-				button.setButtonText("Use system emoji").onClick(async () => {
+		styleSetting.addButton((button) =>
+			button
+				.setButtonText(emojiFont === "" ? "Choose font" : "Change font")
+				.onClick(() => fileInput.click()),
+		);
+		if (emojiFont !== "") {
+			styleSetting.addButton((button) =>
+				button.setButtonText("Remove font").onClick(async () => {
 					try {
-						await plugin.clearEmojiFont();
+						await plugin.removeOwnEmojiFont();
 					} catch (error) {
 						console.error("[notemoji] Could not remove the emoji font.", error);
 						new Notice("Could not remove the emoji font.");

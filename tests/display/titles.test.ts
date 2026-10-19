@@ -23,6 +23,7 @@ const settings = (overrides: Partial<NotemojiSettings> = {}): NotemojiSettings =
 	noteTitle: "above",
 	showInTabs: true,
 	showInViewHeader: true,
+	emojiStyle: "system",
 	emojiFont: "",
 	...overrides,
 });
