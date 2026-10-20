@@ -27,16 +27,10 @@ the top and sync to your other devices. Paste any emoji or symbol, or use your s
 picker, including flags, skin tones and families (`🇩🇪`, `👍🏽`, `👨‍👩‍👧‍👦`). The keyboard works
 too: type, use the arrow keys, press Enter.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/picker.gif" alt="Browsing, searching and choosing in the emoji picker" width="70%">
-</p>
-
 ### Your own icons
 
 Upload PNG, SVG, GIF, WebP or JPG images, such as logos or project icons, right in the picker.
 They live in your own icon library and work just like emoji.
-
-![Your own icons in the picker and on notes and folders](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/custom-icons.png)
 
 ### Emoji styles and your own emoji font
 

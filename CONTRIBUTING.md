@@ -27,8 +27,8 @@ Obsidian-like page:
 
 ```sh
 npm run set-previews   # once: downloads the pinned emoji fonts the style GIF uses
-npm run demo           # re-records everything; --only=picker,banner for some of it
+npm run demo           # re-records everything; --only=styles,banner for some of it
 ```
 
 It needs Chromium for Playwright (`npx playwright-core install chromium`), ffmpeg, and a colour
-emoji font. gifsicle, when installed, makes the GIFs smaller.
+emoji font. gifsicle and pngquant, when installed, make the files smaller.

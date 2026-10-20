@@ -3,16 +3,16 @@
  * runs the real plugin in an Obsidian-like page.
  *
  *   npm run demo                    # every GIF and image
- *   npm run demo -- --only=picker   # some of them (comma-separated names)
+ *   npm run demo -- --only=styles   # some of them (comma-separated names)
  *   npm run demo -- --open          # only build .test-build/demo.html to look at it
  *
  * Needs Chromium for Playwright (`npx playwright-core install chromium`),
  * ffmpeg for the GIFs, a colour emoji font (built into Windows and macOS;
  * Noto Color Emoji on Linux) and, for the style GIF, the fonts cached by
- * `npm run set-previews`. Uses gifsicle to shrink the GIFs when installed.
+ * `npm run set-previews`. Uses gifsicle and pngquant to shrink the files when installed.
  */
 import { execFileSync } from "node:child_process";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -229,36 +229,6 @@ const GIFS = {
 		},
 	},
 
-	/** Browsing, searching by keyword and choosing with the keyboard; the title follows. */
-	picker: {
-		width: 960,
-		async setup(page) {
-			await page.evaluate((note) => window.demo.setIcon(note, "🚀"), NOTE);
-		},
-		async play(actor) {
-			await actor.rightClick(`[data-path="${NOTE}"]`);
-			await actor.hold(300);
-			await actor.click('.menu-item:text-is("Change note emoji")');
-			await actor.hold(600);
-			await actor.moveOnto(".notemoji-picker-body", { x: 0.6, y: 0.6 });
-			await actor.scroll(1400, 900);
-			await actor.hold(300);
-			await actor.click('.notemoji-picker-tab[data-section="nature"]');
-			await actor.hold(400);
-			// Hovering names the emoji in the footer.
-			for (const x of [0.12, 0.3, 0.48]) {
-				await actor.moveOnto(".notemoji-picker-body", { x, y: 0.42 });
-				await actor.hold(450);
-			}
-			await actor.click(".notemoji-picker-search", { x: 0.3 });
-			await actor.type(":tada:");
-			await actor.hold(700);
-			await actor.press("Enter", 300);
-			await actor.moveTo(820, 470);
-			await actor.hold(2200);
-		},
-	},
-
 	/** Switching the emoji style in the settings; the explorer, tab and title follow. */
 	styles: {
 		width: 960,
@@ -335,6 +305,17 @@ async function recordGif(browser, name, { hash = "", setup, play, clip, width })
 	shrinkGif(gif);
 }
 
+/** Fewer colours when pngquant is installed: about 80% smaller, no visible difference. */
+function shrinkPng(file) {
+	try {
+		execFileSync("pngquant", ["--quality=80-95", "--speed=1", "--force", "--ext=.png", file], {
+			stdio: "ignore",
+		});
+	} catch {
+		// Optional.
+	}
+}
+
 /** Lossless GIF optimisation when gifsicle is installed. */
 function shrinkGif(file) {
 	try {
@@ -363,57 +344,6 @@ async function takeShot(browser, name, { hash, viewport }) {
 	await scene.page.screenshot({ path: file });
 	await scene.close();
 	return file;
-}
-
-// ---------------------------------------------------------------- screenshots
-
-/** The custom icons used in the showcase: original drawings in scripts/demo/icons, and the logo. */
-async function addCustomIcons(page) {
-	const folder = path.join(demoDir, "icons");
-	const files = (await readdir(folder)).map((name) => path.join(folder, name));
-	files.push(path.join(mediaDir, "logo.svg"));
-	for (const file of files) {
-		const name = path.basename(file) === "logo.svg" ? "notemoji.svg" : path.basename(file);
-		await page.evaluate(
-			({ name, svg }) => {
-				const data = new TextEncoder().encode(svg).buffer;
-				window.demo.adapter.files.set(`.obsidian/plugins/notemoji/icons/${name}`, data);
-			},
-			{ name, svg: await readFile(file, "utf8") },
-		);
-	}
-}
-
-/** Screenshots of the scene, written to docs/media as they are. */
-const SCREENSHOTS = {
-	/** Your own icons in the picker, and on notes and folders. */
-	"custom-icons": async (page) => {
-		await addCustomIcons(page);
-		await page.evaluate((note) => {
-			const icons = {
-				[note]: "custom:frog.svg",
-				Projects: "custom:planet.svg",
-				"Projects/Roadmap.md": "custom:q3.svg",
-				Recipes: "custom:coffee.svg",
-				Travel: "custom:mountains.svg",
-				"Reading list.md": "custom:leaf.svg",
-			};
-			for (const [path, value] of Object.entries(icons)) window.demo.setIcon(path, value);
-		}, NOTE);
-		await page.click(`[data-path="${NOTE}"]`, { button: "right" });
-		await page.click('.menu-item:text-is("Change note emoji")');
-		await page.click('.notemoji-picker-tab[data-section="custom"]');
-		await page.hover(".notemoji-picker-emoji img[src]:near(.notemoji-picker-emoji.is-current)");
-		await page.waitForTimeout(400);
-	},
-};
-
-async function takeScreenshot(browser, name, play) {
-	const scene = await openScene(browser, "theme=dark");
-	await play(scene.page);
-	await scene.page.evaluate(() => document.querySelector(".demo-cursor")?.remove());
-	await scene.page.screenshot({ path: path.join(mediaDir, `${name}.png`) });
-	await scene.close();
 }
 
 // ---------------------------------------------------------------- composed images
@@ -508,6 +438,7 @@ async function compose(browser, name, { size, shots, html }, shotFiles) {
 	await page.waitForTimeout(200);
 	await page.screenshot({ path: path.join(mediaDir, `${name}.png`) });
 	await page.close();
+	shrinkPng(path.join(mediaDir, `${name}.png`));
 }
 
 async function renderLogo(browser) {
@@ -518,6 +449,7 @@ async function renderLogo(browser) {
 	);
 	await page.screenshot({ path: path.join(mediaDir, "logo.png"), omitBackground: true });
 	await page.close();
+	shrinkPng(path.join(mediaDir, "logo.png"));
 }
 
 // ---------------------------------------------------------------- main
@@ -545,12 +477,6 @@ try {
 		if (!wanted(name)) continue;
 		await recordGif(browser, name, gif);
 		console.log(`docs/media/${name}.gif`);
-	}
-
-	for (const [name, play] of Object.entries(SCREENSHOTS)) {
-		if (!wanted(name)) continue;
-		await takeScreenshot(browser, name, play);
-		console.log(`docs/media/${name}.png`);
 	}
 
 	const composed = Object.entries(COMPOSED).filter(([name]) => wanted(name));
