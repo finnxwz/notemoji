@@ -291,7 +291,9 @@ const GIFS = {
 				window.demo.showSettings(true);
 				// The "Emoji style" heading at the top of the panel.
 				const content = document.querySelector(".demo-settings-content");
-				const heading = document.querySelector(".notemoji-styles-section")?.previousElementSibling;
+				const heading = document.querySelector(
+					".notemoji-styles-section",
+				)?.previousElementSibling;
 				if (content && heading) {
 					content.scrollTop +=
 						heading.getBoundingClientRect().top - content.getBoundingClientRect().top;
