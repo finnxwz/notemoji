@@ -57,7 +57,7 @@ right-click.
 | Action               | How                                                                                         |
 | -------------------- | ------------------------------------------------------------------------------------------- |
 | Set an emoji         | Right-click a note, folder or file → _Set … emoji_, or run _Set emoji for current note_     |
-| Change an emoji      | Click the large emoji above the note title, or right-click → _Change … emoji_               |
+| Change an emoji      | Right-click → _Change … emoji_, or click the large emoji above the note title (if shown)    |
 | Remove an emoji      | _Remove_ in the picker, right-click → _Remove … emoji_, or _Remove emoji from current note_ |
 | Use your own icon    | In the picker's _Custom icons_ section, click the upload tile and choose an image           |
 | Delete your own icon | Right-click (or long-press) it in the picker → _Delete custom icon_                         |
@@ -88,8 +88,7 @@ right-click.
 <summary><b>Where are the emoji stored? Are my notes changed?</b></summary>
 
 Your notes are never changed. Emoji are stored in `.obsidian/plugins/notemoji/data.json`, by the
-path of each note, folder or file. Renaming or
-moving items inside Obsidian keeps their emoji; doing it outside of Obsidian (file manager, Git,
+path of each note, folder or file. Renaming or moving items inside Obsidian keeps their emoji; doing it outside of Obsidian (file manager, Git,
 another editor) does not. Deleted items keep their entry, so a restore or a sync brings the emoji
 back; _Remove emoji of missing files_ cleans them up.
 
