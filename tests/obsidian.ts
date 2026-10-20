@@ -124,9 +124,18 @@ export function addIcon(iconId: string, svgContent: string): void {
 }
 
 /** Stand-in for Obsidian's Lucide icons: a span naming the icon (shown as "+" in the demo). */
+/** SVG contents of line icons by id; the showcase scene fills it so buttons look real. */
+export const lineIcons = new Map<string, string>();
+
 export function setIcon(parent: HTMLElement, iconId: string): void {
 	parent.empty();
-	parent.createSpan({ cls: "svg-icon", text: "+", attr: { "data-icon": iconId } });
+	const drawing = lineIcons.get(iconId);
+	if (!drawing) {
+		parent.createSpan({ cls: "svg-icon", text: "+", attr: { "data-icon": iconId } });
+		return;
+	}
+	const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon" data-icon="${iconId}">${drawing}</svg>`;
+	parent.append(new DOMParser().parseFromString(svg, "image/svg+xml").documentElement);
 }
 
 export function normalizePath(path: string): string {
@@ -463,6 +472,10 @@ export class ToggleComponent extends ValueComponent<boolean> {
 	constructor(readonly toggleEl: HTMLElement) {
 		super(false);
 	}
+	setValue(value: boolean): this {
+		this.toggleEl.toggleClass("is-enabled", value);
+		return super.setValue(value);
+	}
 }
 
 export class DropdownComponent extends ValueComponent<string> {
@@ -472,7 +485,12 @@ export class DropdownComponent extends ValueComponent<string> {
 	}
 	addOption(value: string, display: string): this {
 		this.options[value] = display;
+		this.selectEl.createEl("option", { text: display, attr: { value } });
 		return this;
+	}
+	setValue(value: string): this {
+		this.selectEl.value = value;
+		return super.setValue(value);
 	}
 	addOptions(options: Record<string, string>): this {
 		Object.assign(this.options, options);

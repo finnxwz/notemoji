@@ -1,8 +1,9 @@
-/* Obsidian-like dark theme for the demo scene (approximates the default theme). */
+/* Obsidian-like themes for the showcase scene (approximate the default theme). */
 body {
 	--background-primary: #1e1e1e;
 	--background-secondary: #262626;
 	--background-modifier-border: #363636;
+	--background-modifier-border-hover: #4a4a4a;
 	--background-modifier-hover: rgba(255, 255, 255, 0.075);
 	--background-modifier-active-hover: rgba(139, 108, 239, 0.22);
 	--modal-background: #1e1e1e;
@@ -25,6 +26,8 @@ body {
 	--size-4-4: 16px;
 	--size-4-8: 32px;
 	--font-interface: "Inter", "Ubuntu Sans", sans-serif;
+	--menu-background: #2a2a2a;
+	--shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
 
 	margin: 0;
 	overflow: hidden;
@@ -69,6 +72,31 @@ input[type="text"]:focus {
 .svg-icon {
 	width: var(--icon-s);
 	height: var(--icon-s);
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.ribbon .svg-icon,
+.sidebar-header .svg-icon {
+	width: 18px;
+	height: 18px;
+	fill: none;
+	stroke: currentColor;
+	stroke-width: 1.75;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.ribbon-icon,
+.sidebar-header span {
+	display: flex;
+}
+
+input[type="search"]::-webkit-search-cancel-button {
+	-webkit-appearance: none;
 }
 
 .app {
@@ -146,6 +174,7 @@ input[type="text"]:focus {
 }
 .collapse-icon {
 	width: 18px;
+	font-size: 12px;
 	color: var(--text-faint);
 	text-align: center;
 }
@@ -286,7 +315,7 @@ input[type="text"]:focus {
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 12px;
-	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+	box-shadow: var(--shadow);
 }
 .modal-close-button {
 	position: absolute;
@@ -309,10 +338,10 @@ input[type="text"]:focus {
 	display: none;
 	min-width: 190px;
 	padding: 5px;
-	background: #2a2a2a;
+	background: var(--menu-background);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
-	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+	box-shadow: var(--shadow);
 	font-size: 13px;
 	z-index: 5;
 }
@@ -415,12 +444,30 @@ input[type="text"]:focus {
 	gap: 8px;
 }
 .checkbox-container {
+	position: relative;
 	width: 34px;
 	height: 18px;
 	border-radius: 9px;
+	background: var(--interactive-normal);
+}
+.checkbox-container::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: #fff;
+}
+.checkbox-container.is-enabled {
 	background: var(--interactive-accent);
 }
+.checkbox-container.is-enabled::after {
+	left: 18px;
+}
 select.dropdown {
+	font: inherit;
 	background: var(--interactive-normal);
 	color: var(--text-normal);
 	border: none;
@@ -430,4 +477,85 @@ select.dropdown {
 
 .demo-settings.is-hidden {
 	display: none;
+}
+
+/* ---------------------------------------------------------------- light theme */
+
+body.theme-light {
+	--background-primary: #ffffff;
+	--background-secondary: #f6f6f6;
+	--background-modifier-border: #e3e3e3;
+	--background-modifier-border-hover: #c9c9c9;
+	--background-modifier-hover: rgba(0, 0, 0, 0.06);
+	--background-modifier-active-hover: rgba(138, 92, 245, 0.16);
+	--modal-background: #ffffff;
+	--interactive-normal: #f0f0f0;
+	--interactive-accent: #8a5cf5;
+	--text-normal: #222222;
+	--text-muted: #5c5c5c;
+	--text-faint: #ababab;
+	--menu-background: #ffffff;
+	--shadow: 0 12px 40px rgba(0, 0, 0, 0.16);
+}
+
+body.theme-light .modal-bg {
+	background: rgba(0, 0, 0, 0.25);
+}
+
+/* ---------------------------------------------------------------- settings next to the explorer */
+
+.demo-settings.is-side {
+	inset: 24px 24px 24px 316px;
+	box-shadow: var(--shadow);
+}
+
+.demo-settings.is-side .demo-settings-sidebar {
+	display: none;
+}
+
+/* ---------------------------------------------------------------- phone layout */
+
+body.is-phone {
+	font-size: 16px;
+}
+
+body.is-phone .ribbon,
+body.is-phone .tab-bar,
+body.is-phone .sidebar-header,
+body.is-phone .view-header-breadcrumb,
+body.is-phone .view-header-breadcrumb-separator {
+	display: none;
+}
+
+body.is-phone .view-header {
+	height: 52px;
+	font-size: 16px;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+body.is-phone .cm-sizer {
+	padding: 20px 22px;
+	font-size: 17px;
+}
+
+body.phone-note .sidebar {
+	display: none;
+}
+
+body.phone-explorer .main {
+	display: none;
+}
+
+body.phone-explorer .sidebar {
+	width: 100%;
+	padding-top: 12px;
+	border: none;
+}
+
+body.phone-explorer .nav-files-container {
+	font-size: 17px;
+}
+
+body.phone-explorer .tree-item-self {
+	min-height: 40px;
 }
