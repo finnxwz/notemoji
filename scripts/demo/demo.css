@@ -504,13 +504,19 @@ body.theme-light .modal-bg {
 
 /* ---------------------------------------------------------------- settings next to the explorer */
 
+/* Below the tabs and the note title, which change along with the style. */
 .demo-settings.is-side {
-	inset: 24px 24px 24px 316px;
+	inset: 176px 24px 16px 316px;
 	box-shadow: var(--shadow);
 }
 
 .demo-settings.is-side .demo-settings-sidebar {
 	display: none;
+}
+
+/* Room to scroll the emoji style section to the top of the smaller panel. */
+.demo-settings.is-side .demo-settings-content {
+	padding-bottom: 400px;
 }
 
 /* ---------------------------------------------------------------- phone layout */

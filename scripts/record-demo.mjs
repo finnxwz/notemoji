@@ -229,12 +229,14 @@ const GIFS = {
 		},
 	},
 
-	/** Browsing, searching by keyword and choosing with the keyboard. */
+	/** Browsing, searching by keyword and choosing with the keyboard; the title follows. */
 	picker: {
-		clip: { x: 250, y: 50, width: 500, height: 540 },
-		width: 750,
+		width: 960,
+		async setup(page) {
+			await page.evaluate((note) => window.demo.setIcon(note, "🚀"), NOTE);
+		},
 		async play(actor) {
-			await actor.rightClick('[data-path="Reading list.md"]');
+			await actor.rightClick(`[data-path="${NOTE}"]`);
 			await actor.hold(300);
 			await actor.click('.menu-item:text-is("Change note emoji")');
 			await actor.hold(600);
@@ -250,23 +252,23 @@ const GIFS = {
 			}
 			await actor.click(".notemoji-picker-search", { x: 0.3 });
 			await actor.type(":tada:");
-			await actor.hold(900);
-			await actor.page.fill(".notemoji-picker-search", "");
-			await actor.type("book");
-			await actor.hold(500);
-			await actor.press("ArrowDown", 350);
-			await actor.press("ArrowRight", 600);
-			await actor.press("Enter", 1800);
+			await actor.hold(700);
+			await actor.press("Enter", 300);
+			await actor.moveTo(820, 470);
+			await actor.hold(2200);
 		},
 	},
 
 	/** Uploading your own image in the picker, used right away. */
 	"custom-icons": {
 		width: 960,
+		async setup(page) {
+			await page.evaluate((note) => window.demo.setIcon(note, "🚀"), NOTE);
+		},
 		async play(actor) {
-			await actor.rightClick('[data-path="Travel"]');
+			await actor.rightClick(`[data-path="${NOTE}"]`);
 			await actor.hold(400);
-			await actor.click('.menu-item:text-is("Change folder emoji")');
+			await actor.click('.menu-item:text-is("Change note emoji")');
 			await actor.hold(500);
 			await actor.click('.notemoji-picker-tab[data-section="custom"]');
 			await actor.hold(500);
@@ -279,16 +281,21 @@ const GIFS = {
 		},
 	},
 
-	/** Switching the emoji style in the settings; the explorer follows. */
+	/** Switching the emoji style in the settings; the explorer, tab and title follow. */
 	styles: {
 		width: 960,
 		async setup(page) {
 			await addEmojiFonts(page);
+			await page.evaluate((note) => window.demo.setIcon(note, "🚀"), NOTE);
 			await page.evaluate(() => {
 				window.demo.showSettings(true);
-				document
-					.querySelector(".notemoji-styles-section")
-					?.scrollIntoView({ block: "center" });
+				// The "Emoji style" heading at the top of the panel.
+				const content = document.querySelector(".demo-settings-content");
+				const heading = document.querySelector(".notemoji-styles-section")?.previousElementSibling;
+				if (content && heading) {
+					content.scrollTop +=
+						heading.getBoundingClientRect().top - content.getBoundingClientRect().top;
+				}
 			});
 		},
 		async play(actor) {

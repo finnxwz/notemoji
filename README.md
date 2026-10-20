@@ -36,7 +36,7 @@ too: type, use the arrow keys, press Enter.
 Upload PNG, SVG, GIF, WebP or JPG images, such as logos or project icons, right in the picker.
 They live in your own icon library and work just like emoji.
 
-![Uploading your own icon for a folder](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/custom-icons.gif)
+![Uploading your own icon for a note](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/custom-icons.gif)
 
 ### Emoji styles and your own emoji font
 
