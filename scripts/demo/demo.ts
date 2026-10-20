@@ -7,7 +7,6 @@
  * The URL hash configures the scene (see scripts/record-demo.mjs):
  *   theme=light|dark     colour theme (default dark)
  *   layout=phone         a phone-sized layout; view=explorer shows the file list
- *   names=emoji          "before Notemoji": emoji typed into the file names instead
  */
 import type { PluginManifest } from "obsidian";
 import NotemojiPlugin from "../../src/main";
@@ -37,7 +36,6 @@ lineIcons.set(
 	"image-plus",
 	'<path d="M16 5h6M19 2v6M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/><circle cx="9" cy="9" r="2"/>',
 );
-const emojiInNames = params.get("names") === "emoji";
 document.body.addClass(`theme-${params.get("theme") ?? "dark"}`);
 if (params.get("layout") === "phone") {
 	document.body.addClass("is-phone", `phone-${params.get("view") ?? "note"}`);
@@ -70,20 +68,11 @@ const ICONS: Record<string, string> = {
 	"Reading list.md": "📚",
 	"Ideas.md": "custom:acme.svg",
 };
-/** Only used when the emoji are typed into the names. */
-const NAME_EMOJI: Record<string, string> = {
-	...ICONS,
-	"Projects/Website relaunch.md": "🚀",
-	"Ideas.md": "💡",
-};
 
 const paths = TREE.map((entry) => entry.replace(/\/$/, ""));
 const app = createFakeApp({ files: paths });
 
 const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");
-/** The name as shown: with the emoji typed in front of it in the "before" scene. */
-const shownName = (path: string) =>
-	emojiInNames && NAME_EMOJI[path] ? `${NAME_EMOJI[path]} ${baseName(path)}` : baseName(path);
 
 // ---------------------------------------------------------------- file explorer
 
@@ -107,7 +96,7 @@ for (const entry of TREE) {
 	}
 	fileItems[path] = {
 		selfEl,
-		innerEl: selfEl.createDiv({ cls: "tree-item-inner", text: shownName(path) }),
+		innerEl: selfEl.createDiv({ cls: "tree-item-inner", text: baseName(path) }),
 	};
 }
 fileItems["Projects/Website relaunch.md"].selfEl.addClass("is-active");
@@ -146,18 +135,6 @@ const homeView = new FileView(new WorkspaceLeaf(app.asApp));
 homeView.file = app.vault.getFileByPath("Home.md");
 addLeaf(homeView, tabTitle("Home.md"));
 
-for (const el of [
-	tabTitle(NOTE),
-	document.querySelector(".view-header-title")!,
-	document.querySelector(".inline-title")!,
-]) {
-	el.textContent = shownName(NOTE);
-}
-tabTitle("Home.md").textContent = shownName("Home.md");
-document.querySelector(".link")!.textContent = emojiInNames
-	? `${NAME_EMOJI["Projects/Brand guidelines.md"]} Brand guidelines`
-	: "Brand guidelines";
-
 // ---------------------------------------------------------------- the plugin
 
 // Custom icon files live in memory; the page shows them through blob URLs.
@@ -187,8 +164,8 @@ const plugin = new NotemojiPlugin(app.asApp, {
 const fake = plugin as unknown as FakePlugin;
 fake.dataJson = {
 	version: 2,
-	settings: { noteTitle: "above", showInViewHeader: params.get("layout") === "phone" },
-	icons: emojiInNames ? {} : ICONS,
+	settings: { noteTitle: "inline", showInViewHeader: params.get("layout") === "phone" },
+	icons: ICONS,
 	recent: ["📁", "🎨", "🏠", "📚", "✅", "💡", "🔥", "🌱", "🗺️", "🍝"],
 };
 fake.load();

@@ -362,17 +362,13 @@ function shrinkGif(file) {
 /** Window screenshots used by the composed images (written to .test-build/shots). */
 const SHOTS = {
 	dark: { hash: "theme=dark" },
-	light: { hash: "theme=light" },
-	before: { hash: "theme=dark&names=emoji" },
 	"phone-note": { hash: "theme=dark&layout=phone&view=note", viewport: PHONE },
 	"phone-explorer": { hash: "theme=dark&layout=phone&view=explorer", viewport: PHONE },
 };
 
 async function takeShot(browser, name, { hash, viewport }) {
 	const scene = await openScene(browser, hash, { viewport });
-	if (!hash.includes("names=emoji")) {
-		await scene.page.evaluate((note) => window.demo.setIcon(note, "🚀"), NOTE);
-	}
+	await scene.page.evaluate((note) => window.demo.setIcon(note, "🚀"), NOTE);
 	// No cursor in still images.
 	await scene.page.evaluate(() => document.querySelector(".demo-cursor")?.remove());
 	await scene.page.waitForTimeout(300);
@@ -387,12 +383,6 @@ async function takeShot(browser, name, { hash, viewport }) {
 /** Images made from window screenshots, laid out as HTML (CSS size × SCALE). */
 const COMPOSED = {
 	banner: { size: { width: 1280, height: 640 }, shots: ["dark"], html: bannerHtml },
-	themes: { size: { width: 1280, height: 600 }, shots: ["light", "dark"], html: themesHtml },
-	"before-after": {
-		size: { width: 1280, height: 510 },
-		shots: ["before", "dark"],
-		html: beforeAfterHtml,
-	},
 	mobile: {
 		size: { width: 1280, height: 760 },
 		shots: ["phone-note", "phone-explorer"],
@@ -430,44 +420,9 @@ function bannerHtml([dark], logo) {
 	<div class="text">
 		<img class="logo" src="${logo}">
 		<h1>Notemoji</h1>
-		<p>Page icons for your notes, folders and files. Without renaming anything.</p>
+		<p>Give your vault personality with emoji and custom icons for notes, folders and files.</p>
 	</div>
 	<div class="window"><img src="${dark}"></div>`;
-}
-
-function themesHtml([light, dark]) {
-	return `<style>${BASE_CSS}
-		.window { width: 760px; }
-		.light { left: 70px; top: 60px; }
-		.dark { left: 450px; top: 170px; }
-	</style>
-	<div class="window light"><img src="${light}"></div>
-	<div class="window dark"><img src="${dark}"></div>`;
-}
-
-function beforeAfterHtml([before, after]) {
-	const column = (title, image, points, good) => `
-		<div class="column">
-			<div class="label">${title}</div>
-			<div class="frame"><img src="${image}"></div>
-			<ul>${points.map((point) => `<li class="${good ? "good" : "bad"}">${point}</li>`).join("")}</ul>
-		</div>`;
-	return `<style>${BASE_CSS}
-		body { display: flex; gap: 48px; padding: 48px 64px; }
-		.column { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
-		.frame {
-			height: 300px; overflow: hidden; border-radius: 12px;
-			border: 1px solid rgba(255,255,255,0.14); box-shadow: 0 20px 50px rgba(6,2,20,0.5);
-		}
-		.frame img { display: block; width: 100%; }
-		ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 18px; }
-		li::before { display: inline-block; width: 28px; font-weight: 700; }
-		li.bad::before { content: "✕"; color: #ff8a8a; }
-		li.good::before { content: "✓"; color: #7ee2a8; }
-		code { font-family: "Inter", sans-serif; padding: 1px 6px; border-radius: 6px; background: rgba(255,255,255,0.12); }
-	</style>
-	${column("Emoji in file names", before, ["Every link reads <code>[[🎨 Brand guidelines]]</code>", "Changing an emoji renames the file", "Harder to type in search and the quick switcher"], false)}
-	${column("With Notemoji", after, ["Links stay <code>[[Brand guidelines]]</code>", "Change the emoji any time, nothing is renamed", "Your own images work too"], true)}`;
 }
 
 function mobileHtml([note, explorer]) {
@@ -500,7 +455,7 @@ function mobileHtml([note, explorer]) {
 	</style>
 	${phone(note, 90)}
 	${phone(explorer, 450)}
-	<div class="text"><h2>On every device</h2><p>The same emoji on Windows, macOS, Linux, iOS and Android, synced with your vault.</p></div>`;
+	<div class="text"><h2>On your phone too</h2><p>Your emoji and icons sync with your vault to iOS and Android, ready for touch.</p></div>`;
 }
 
 const dataUrl = async (file, type = "image/png") =>

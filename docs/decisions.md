@@ -6,12 +6,23 @@ ideas are listed so they are not proposed again without a new reason.
 
 ## Product
 
-- **Purpose:** page icons. The emoji is shown _next to_ names, never written into
-  them, which is the difference from typing emoji into file names (clean links, no renames, plain
-  names for other apps and Git).
+- **Purpose:** emoji and custom icons for notes, folders and files, shown next to their names
+  (never written into them).
 - **Simple first.** New features only when they fit this purpose; settings only when people
   really disagree about a behaviour.
 - **Same on every device:** Windows, macOS, Linux, iOS, Android, with the same settings.
+
+## Branding
+
+- **Subline:** "Give your vault personality with emoji and custom icons for notes, folders and
+  files." (also the manifest description).
+- **Selling points, in this order:** emoji everywhere (explorer, tabs, title; folders and all
+  files), a full and fast picker (recent, paste anything, keyboard), your own image icons, emoji
+  styles and your own emoji font, synced and working on phones.
+- **Not used for selling:** comparisons with other tools or with emoji in file names,
+  "without renaming", clean links. Most people looking for the plugin do not think about that;
+  facts like "notes are never changed" go into the FAQ.
+- **Media** shows the inline title emoji, the dark theme and the logo (a smiling page).
 
 ## Storage
 

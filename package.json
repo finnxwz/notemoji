@@ -1,7 +1,7 @@
 {
 	"name": "notemoji",
 	"version": "1.0.1",
-	"description": "Page icons. Give notes, folders and files an emoji or your own image, shown in the file explorer, tabs and titles, without renaming them.",
+	"description": "Give your vault personality with emoji and custom icons for notes, folders and files.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",

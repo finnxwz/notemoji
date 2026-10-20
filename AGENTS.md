@@ -1,7 +1,7 @@
 # Notemoji – notes for AI agents
 
-Obsidian plugin: page icons. Notes, folders and files get an emoji or a custom image,
-shown next to their names (file explorer, tabs, note title). Names and notes are never changed.
+Obsidian plugin that gives notes, folders and files an emoji or a custom image, shown next to
+their names (file explorer, tabs, note title). Names and notes are never changed.
 
 **Before changing behaviour, read [docs/decisions.md](docs/decisions.md):** it records what the
 maintainer decided and why, including rejected ideas.

@@ -3,7 +3,7 @@
 	"name": "Notemoji",
 	"version": "1.0.1",
 	"minAppVersion": "1.7.2",
-	"description": "Page icons. Give notes, folders and files an emoji or your own image, shown in the file explorer, tabs and titles, without renaming them.",
+	"description": "Give your vault personality with emoji and custom icons for notes, folders and files.",
 	"author": "Finn-Christopher Krause",
 	"authorUrl": "https://github.com/finnxwz",
 	"isDesktopOnly": false

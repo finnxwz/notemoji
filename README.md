@@ -5,40 +5,27 @@
 <h1 align="center">Notemoji</h1>
 
 <p align="center">
-  Page icons for Obsidian: give notes, folders and files an emoji or your own image,
-  without renaming anything.
+  Give your vault personality with emoji and custom icons for notes, folders and files.
 </p>
 
-![Notemoji: emoji in the file explorer, in tabs and above the note title](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/banner.png)
-
-## 🤔 Why not just put the emoji in the file name?
-
-![Emoji in file names compared with Notemoji](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/before-after.png)
-
-- **Your links stay clean.** `[[Brand guidelines]]`, not `[[🎨 Brand guidelines]]`, in every note
-  that links to it.
-- **Nothing is renamed.** Changing an emoji never renames a file or rewrites links, and other
-  apps, Git and your file manager see the same plain names as before.
-- **Search and the quick switcher** work with the words you type.
-- **Your own images** (logos, project icons) work just like emoji.
-- **Your notes are never modified.** Notemoji keeps everything in its own data file.
+![Notemoji: emoji in the file explorer, in tabs and in the note title](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/banner.png)
 
 ## ⚒️ Features
 
-### Pick an emoji in two clicks
+### Emoji everywhere
 
-Right-click any note, folder or file → _Set … emoji_. The emoji appears in the file explorer, in
-the tab and, if you like, large above the note title. Click it there to
-change it.
+Right-click any note, folder or file → _Set … emoji_. The emoji shows up in the file explorer, in
+tabs and in the note title. Folders, PDFs, images and canvases can have one too.
 
 ![Setting an emoji for a note](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/set-emoji.gif)
 
-### A real emoji picker
+### A full, fast emoji picker
 
-Search by name or keyword (`rocket`, `party`, `:tada:`), browse categories, reuse recently used
-emoji and choose with the arrow keys and Enter. Pasting any emoji, or using your system's emoji
-picker, works too, including flags, skin tones and families (`🇩🇪`, `👍🏽`, `👨‍👩‍👧‍👦`) and symbols
-such as `★`.
+Every emoji up to Emoji 15.0, in categories, searchable by name, keyword or shortcode (`rocket`,
+`party`, `:tada:`). It opens instantly and scrolls smoothly. Your recently used emoji are always at
+the top and sync to your other devices. Paste any emoji or symbol, or use your system's emoji
+picker, including flags, skin tones and families (`🇩🇪`, `👍🏽`, `👨‍👩‍👧‍👦`). The keyboard works
+too: type, use the arrow keys, press Enter.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/picker.gif" alt="Browsing, searching and choosing in the emoji picker" width="70%">
@@ -46,21 +33,22 @@ such as `★`.
 
 ### Your own icons
 
-Upload PNG, JPG, GIF, WebP or SVG images in the picker's _Custom icons_ section and use them just
-like emoji.
+Upload PNG, SVG, GIF, WebP or JPG images, such as logos or project icons, right in the picker.
+They live in your own icon library and work just like emoji.
 
 ![Uploading your own icon for a folder](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/custom-icons.gif)
 
-### The same emoji style everywhere
+### Emoji styles and your own emoji font
 
-Keep your system's emoji, or show Notemoji's emoji as Twemoji, OpenMoji, Noto Color Emoji or
-black-and-white Noto Emoji on every device. You can also use your own emoji font file.
+Choose how your emoji look: your system's emoji, Twemoji, OpenMoji, Noto Color Emoji or
+black-and-white Noto Emoji, each with a live preview. Or use any emoji font file you have.
 
 ![Switching the emoji style in the settings](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/styles.gif)
 
-### Light, dark and mobile
+### On your phone too
 
-![Notemoji in the light and the dark theme](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/themes.png)
+Your emoji and icons sync with your vault to iOS and Android. Long-press works where you would
+right-click.
 
 ![Notemoji on a phone](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/mobile.png)
 
@@ -78,7 +66,7 @@ black-and-white Noto Emoji on every device. You can also use your own emoji font
 
 | Setting                       | Default      | What it does                                                                                            |
 | ----------------------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
-| Emoji at note title           | Off          | Or _Large, above the title_ (click it to change the emoji), or _Inline, before the title_               |
+| Emoji at note title           | Off          | _Inline, before the title_, or _Large, above the title_ (click it to change the emoji)                  |
 | Emoji in tab titles           | On           | The emoji in front of each tab's name                                                                   |
 | Emoji in view header title    | Off          | The emoji in front of the title in the bar at the top of a tab                                          |
 | Emoji style                   | System emoji | Pick a style by its preview: Twemoji, OpenMoji, Noto Color Emoji, Noto Emoji Mono or your own font file |
@@ -97,9 +85,10 @@ black-and-white Noto Emoji on every device. You can also use your own emoji font
 ## ❓ FAQ
 
 <details>
-<summary><b>Where are the emoji stored?</b></summary>
+<summary><b>Where are the emoji stored? Are my notes changed?</b></summary>
 
-In `.obsidian/plugins/notemoji/data.json`, by the path of each note, folder or file. Renaming or
+Your notes are never changed. Emoji are stored in `.obsidian/plugins/notemoji/data.json`, by the
+path of each note, folder or file. Renaming or
 moving items inside Obsidian keeps their emoji; doing it outside of Obsidian (file manager, Git,
 another editor) does not. Deleted items keep their entry, so a restore or a sync brings the emoji
 back; _Remove emoji of missing files_ cleans them up.
@@ -143,6 +132,14 @@ deletes them. Everything is in the plugin folder and is removed with the plugin.
 </details>
 
 <details>
+<summary><b>Where is the emoji at the note title?</b></summary>
+
+Turn it on under _Emoji at note title_ in the settings. It follows Obsidian's _Show inline title_
+setting (Appearance).
+
+</details>
+
+<details>
 <summary><b>I'm upgrading from Notemoji 1.x. Anything to do?</b></summary>
 
 No, your emoji keep working as they are.
@@ -153,7 +150,6 @@ No, your emoji keep working as they are.
 <summary><b>Which emoji are in the picker?</b></summary>
 
 Everything up to Emoji 15.0, which every current system can display. Newer emoji can be pasted.
-The large emoji above the title follows Obsidian's _Show inline title_ setting.
 
 </details>
 
