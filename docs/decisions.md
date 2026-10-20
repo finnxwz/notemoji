@@ -22,7 +22,9 @@ ideas are listed so they are not proposed again without a new reason.
 - **Not used for selling:** comparisons with other tools or with emoji in file names,
   "without renaming", clean links. Most people looking for the plugin do not think about that;
   facts like "notes are never changed" go into the FAQ.
-- **Media** shows the inline title emoji, the dark theme and the logo (a smiling page).
+- **Media** shows the inline title emoji, the dark theme and the logo (a smiling page). Every GIF
+  changes the open note, so the title visibly changes. Custom icons in the showcase are original
+  drawings (`scripts/demo/icons`); no third-party characters or brand logos (e.g. no Pepe).
 
 ## Storage
 

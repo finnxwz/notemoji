@@ -246,10 +246,6 @@ body {
 	overflow-wrap: anywhere;
 }
 
-.notemoji-picker-footer-name::first-letter {
-	text-transform: uppercase;
-}
-
 /* ---------------------------------------------------------------------------
    Titles: note title, tab title, view header title
 

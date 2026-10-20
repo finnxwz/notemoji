@@ -12,7 +12,7 @@
  * `npm run set-previews`. Uses gifsicle to shrink the GIFs when installed.
  */
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -259,28 +259,6 @@ const GIFS = {
 		},
 	},
 
-	/** Uploading your own image in the picker, used right away. */
-	"custom-icons": {
-		width: 960,
-		async setup(page) {
-			await page.evaluate((note) => window.demo.setIcon(note, "🚀"), NOTE);
-		},
-		async play(actor) {
-			await actor.rightClick(`[data-path="${NOTE}"]`);
-			await actor.hold(400);
-			await actor.click('.menu-item:text-is("Change note emoji")');
-			await actor.hold(500);
-			await actor.click('.notemoji-picker-tab[data-section="custom"]');
-			await actor.hold(500);
-			const chooser = actor.page.waitForEvent("filechooser");
-			await actor.click(".notemoji-picker-emoji.is-upload");
-			await actor.hold(500);
-			await (await chooser).setFiles(uploadFile);
-			await actor.moveTo(820, 470);
-			await actor.hold(2400);
-		},
-	},
-
 	/** Switching the emoji style in the settings; the explorer, tab and title follow. */
 	styles: {
 		width: 960,
@@ -357,10 +335,10 @@ async function recordGif(browser, name, { hash = "", setup, play, clip, width })
 	shrinkGif(gif);
 }
 
-/** Lossy GIF compression when gifsicle is installed: much smaller, hardly visible. */
+/** Lossless GIF optimisation when gifsicle is installed. */
 function shrinkGif(file) {
 	try {
-		execFileSync("gifsicle", ["-O3", "--lossy=30", "--batch", file], { stdio: "ignore" });
+		execFileSync("gifsicle", ["-O3", "--batch", file], { stdio: "ignore" });
 	} catch {
 		// Optional.
 	}
@@ -385,6 +363,57 @@ async function takeShot(browser, name, { hash, viewport }) {
 	await scene.page.screenshot({ path: file });
 	await scene.close();
 	return file;
+}
+
+// ---------------------------------------------------------------- screenshots
+
+/** The custom icons used in the showcase: original drawings in scripts/demo/icons, and the logo. */
+async function addCustomIcons(page) {
+	const folder = path.join(demoDir, "icons");
+	const files = (await readdir(folder)).map((name) => path.join(folder, name));
+	files.push(path.join(mediaDir, "logo.svg"));
+	for (const file of files) {
+		const name = path.basename(file) === "logo.svg" ? "notemoji.svg" : path.basename(file);
+		await page.evaluate(
+			({ name, svg }) => {
+				const data = new TextEncoder().encode(svg).buffer;
+				window.demo.adapter.files.set(`.obsidian/plugins/notemoji/icons/${name}`, data);
+			},
+			{ name, svg: await readFile(file, "utf8") },
+		);
+	}
+}
+
+/** Screenshots of the scene, written to docs/media as they are. */
+const SCREENSHOTS = {
+	/** Your own icons in the picker, and on notes and folders. */
+	"custom-icons": async (page) => {
+		await addCustomIcons(page);
+		await page.evaluate((note) => {
+			const icons = {
+				[note]: "custom:frog.svg",
+				Projects: "custom:planet.svg",
+				"Projects/Roadmap.md": "custom:q3.svg",
+				Recipes: "custom:coffee.svg",
+				Travel: "custom:mountains.svg",
+				"Reading list.md": "custom:leaf.svg",
+			};
+			for (const [path, value] of Object.entries(icons)) window.demo.setIcon(path, value);
+		}, NOTE);
+		await page.click(`[data-path="${NOTE}"]`, { button: "right" });
+		await page.click('.menu-item:text-is("Change note emoji")');
+		await page.click('.notemoji-picker-tab[data-section="custom"]');
+		await page.hover(".notemoji-picker-emoji img[src]:near(.notemoji-picker-emoji.is-current)");
+		await page.waitForTimeout(400);
+	},
+};
+
+async function takeScreenshot(browser, name, play) {
+	const scene = await openScene(browser, "theme=dark");
+	await play(scene.page);
+	await scene.page.evaluate(() => document.querySelector(".demo-cursor")?.remove());
+	await scene.page.screenshot({ path: path.join(mediaDir, `${name}.png`) });
+	await scene.close();
 }
 
 // ---------------------------------------------------------------- composed images
@@ -493,14 +522,7 @@ async function renderLogo(browser) {
 
 // ---------------------------------------------------------------- main
 
-/** A sample image to upload, written next to the build output. */
-const uploadFile = path.join(buildDir, "map.svg");
-
 const pageUrl = await buildPage();
-await writeFile(
-	uploadFile,
-	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#0f9d76"/><path d="M14 20l12-5 12 5 12-5v29l-12 5-12-5-12 5z" fill="#fff"/><path d="M26 15v29M38 20v29" stroke="#0f9d76" stroke-width="3"/></svg>',
-);
 if (process.argv.includes("--open")) {
 	console.log(pageUrl);
 	process.exit(0);
@@ -523,6 +545,12 @@ try {
 		if (!wanted(name)) continue;
 		await recordGif(browser, name, gif);
 		console.log(`docs/media/${name}.gif`);
+	}
+
+	for (const [name, play] of Object.entries(SCREENSHOTS)) {
+		if (!wanted(name)) continue;
+		await takeScreenshot(browser, name, play);
+		console.log(`docs/media/${name}.png`);
 	}
 
 	const composed = Object.entries(COMPOSED).filter(([name]) => wanted(name));

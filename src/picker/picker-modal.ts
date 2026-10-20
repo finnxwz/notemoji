@@ -432,13 +432,15 @@ export class PickerModal extends Modal {
 			return;
 		}
 		renderIcon(this.footerIconEl, item.value, this.customUrl);
-		this.footerNameEl.setText(item.name || "Custom emoji");
+		this.footerNameEl.setText(displayName(item.value, item.name || "Custom emoji"));
 	}
 
 	private showDefaultFooter(): void {
 		const { current } = this.options;
 		renderIcon(this.footerIconEl, current, this.customUrl);
-		this.footerNameEl.setText(current === "" ? HINT : this.nameOf(current) || "Current emoji");
+		this.footerNameEl.setText(
+			current === "" ? HINT : displayName(current, this.nameOf(current) || "Current emoji"),
+		);
 	}
 
 	/** Flat index of the tile at (or around) an element. */
@@ -497,6 +499,12 @@ export class PickerModal extends Modal {
 		this.close();
 		this.options.onSubmit(value);
 	}
+}
+
+/** Emoji names start with a capital ("Party popper"); file names stay as they are. */
+function displayName(value: string, name: string): string {
+	if (parseIcon(value)?.type === "custom") return name;
+	return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 const ARROWS: Record<string, "up" | "down" | "left" | "right" | undefined> = {

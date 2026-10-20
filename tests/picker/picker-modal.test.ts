@@ -136,7 +136,7 @@ describe("browsing", () => {
 	it("highlights the current emoji and offers Remove", async () => {
 		const picker = await open({ current: "😀" });
 		expect(picker.tile("😀")!.hasClass("is-current")).toBe(true);
-		expect(picker.footer()).toBe("grinning face");
+		expect(picker.footer()).toBe("Grinning face");
 		picker.query(".notemoji-picker-remove")!.click();
 		expect(picker.onSubmit).toHaveBeenCalledWith("");
 		expect(openModals).toHaveLength(0);
@@ -146,7 +146,7 @@ describe("browsing", () => {
 		const picker = await open();
 		const tile = picker.tile("😃")!;
 		tile.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
-		expect(picker.footer()).toBe("grinning face with big eyes");
+		expect(picker.footer()).toBe("Grinning face with big eyes");
 		tile.click();
 		expect(picker.onSubmit).toHaveBeenCalledWith("😃");
 		expect(openModals).toHaveLength(0);
@@ -184,7 +184,7 @@ describe("searching", () => {
 		picker.type("rocket");
 		expect(picker.tiles()[0].textContent).toBe("🚀");
 		expect(picker.tiles()[0].hasClass("is-active")).toBe(true);
-		expect(picker.footer()).toBe("rocket");
+		expect(picker.footer()).toBe("Rocket");
 		picker.press("Enter");
 		expect(picker.onSubmit).toHaveBeenCalledWith("🚀");
 	});
@@ -225,7 +225,7 @@ describe("searching", () => {
 	it("stores a pasted emoji the way the list has it", async () => {
 		const picker = await open();
 		picker.type(String.fromCodePoint(0x2764)); // ❤ without the emoji variation selector
-		expect(picker.footer()).toBe("red heart");
+		expect(picker.footer()).toBe("Red heart");
 		picker.press("Enter");
 		expect(picker.onSubmit).toHaveBeenCalledWith(String.fromCodePoint(0x2764, 0xfe0f));
 	});
