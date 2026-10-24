@@ -40,6 +40,47 @@ export interface Downloader {
 
 const browserLoader: FontLoader = (family, source) => new FontFace(family, source).load();
 
+/**
+ * Whether a loaded font really draws emoji on this device: `color` needs
+ * coloured pixels, `visible` any. Injectable for tests.
+ */
+export type GlyphCheck = (face: FontFace, family: string, need: "color" | "visible") => boolean;
+
+/**
+ * Draws 😀 with the font. Some formats are not supported everywhere: Noto
+ * Color Emoji uses COLRv1, which Safari and iOS (also Obsidian on iPhone and
+ * iPad) can't draw, so its emoji would be empty there.
+ */
+const browserGlyphCheck: GlyphCheck = (face, family, need) => {
+	try {
+		document.fonts.add(face);
+		const size = 48;
+		const canvas = createEl("canvas", { attr: { width: size, height: size } });
+		const context = canvas.getContext("2d", { willReadFrequently: true });
+		// Can't tell without a canvas: assume it works, as before.
+		if (!context) return true;
+		context.font = `40px ${JSON.stringify(family)}`;
+		context.textBaseline = "top";
+		context.fillStyle = "#000";
+		context.fillText("😀", 2, 2);
+		const { data } = context.getImageData(0, 0, size, size);
+		let visible = false;
+		for (let i = 0; i < data.length; i += 4) {
+			if (data[i + 3] < 64) continue;
+			visible = true;
+			const spread =
+				Math.max(data[i], data[i + 1], data[i + 2]) -
+				Math.min(data[i], data[i + 1], data[i + 2]);
+			if (need === "visible" || spread > 48) return true;
+		}
+		return need === "visible" && visible;
+	} catch {
+		return true;
+	} finally {
+		document.fonts?.delete(face);
+	}
+};
+
 const browserDownloader: Downloader = {
 	async download(url) {
 		return (await requestUrl({ url })).arrayBuffer;
@@ -72,21 +113,29 @@ export class EmojiFonts {
 	private readonly documents = new Set<Document>();
 	/** Only the most recent `apply` may change the font. */
 	private generation = 0;
+	private cannotDraw = false;
 
 	constructor(
 		private readonly adapter: DataAdapter,
 		readonly folder: string,
 		private readonly loader: FontLoader = browserLoader,
 		private readonly downloader: Downloader = browserDownloader,
+		private readonly glyphCheck: GlyphCheck = browserGlyphCheck,
 	) {}
 
 	get active(): boolean {
 		return this.face !== null;
 	}
 
+	/** The chosen style's file is on this device, but this device can't draw it (system emoji are shown). */
+	get unsupported(): boolean {
+		return this.cannotDraw;
+	}
+
 	/** Uses a style. Missing files mean system emoji; nothing is downloaded here. */
 	async apply(style: EmojiStyle, ownFont: string): Promise<void> {
 		const generation = ++this.generation;
+		this.cannotDraw = false;
 		const path = this.pathOf(style, ownFont);
 		if (!path || !(await this.adapter.exists(path))) {
 			if (generation === this.generation) this.unload();
@@ -96,7 +145,14 @@ export class EmojiFonts {
 			const url = this.adapter.getResourcePath(path);
 			const family = `${EMOJI_FONT_FAMILY} ${generation}`;
 			const face = await this.loader(family, `url(${JSON.stringify(url)})`);
-			if (generation === this.generation) this.use(face, family);
+			if (generation !== this.generation) return;
+			const color = style !== "file" && findEmojiSet(style)?.monochrome !== true;
+			if (!this.glyphCheck(face, family, color ? "color" : "visible")) {
+				this.cannotDraw = true;
+				this.unload();
+				return;
+			}
+			this.use(face, family);
 		} catch (error) {
 			console.error(`[notemoji] Could not load the emoji font "${path}".`, error);
 			if (generation === this.generation) this.unload();

@@ -216,18 +216,23 @@ export class EmojiStyleSection {
 	): string {
 		if (style === "system")
 			return "Your device's own emoji. Emoji in your notes always stay as they are.";
+		const { unsupported } = this.plugin.style.fonts;
 		if (style === "file") {
 			if (ownFont === "")
 				return "Choose a font file. Until then your system's emoji are shown.";
-			return ownAvailable
-				? `Uses "${ownFont}". Emoji it does not contain use your system's emoji.`
-				: `"${ownFont}" is not on this device yet, so your system's emoji are shown.`;
+			if (!ownAvailable)
+				return `"${ownFont}" is not on this device yet, so your system's emoji are shown.`;
+			return unsupported
+				? `"${ownFont}" can't be drawn on this device, so your system's emoji are shown here.`
+				: `Uses "${ownFont}". Emoji it does not contain use your system's emoji.`;
 		}
 		const set = EMOJI_SETS.find((entry) => entry.id === style);
 		if (!set) return "";
-		return downloaded.has(set.id)
-			? set.credit
-			: `${set.credit} Not on this device yet: your system's emoji are shown until you download it.`;
+		if (!downloaded.has(set.id))
+			return `${set.credit} Not on this device yet: your system's emoji are shown until you download it.`;
+		return unsupported
+			? `${set.credit} This device can't draw ${set.name} (its colour format isn't supported here, for example on iPhone and iPad), so your system's emoji are shown here. Other devices still use it.`
+			: set.credit;
 	}
 
 	// ------------------------------------------------------------------ actions

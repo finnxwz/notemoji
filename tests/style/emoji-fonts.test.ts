@@ -20,7 +20,9 @@ function fakeDocument() {
 	};
 }
 
-function setup(options: { broken?: boolean; hash?: string; offline?: boolean } = {}) {
+function setup(
+	options: { broken?: boolean; hash?: string; offline?: boolean; canDraw?: boolean } = {},
+) {
 	const adapter = new FakeAdapter();
 	const loader = vi.fn((family: string) =>
 		options.broken
@@ -41,10 +43,17 @@ function setup(options: { broken?: boolean; hash?: string; offline?: boolean } =
 			Promise.resolve(options.hash ?? EMOJI_SETS.find((set) => set.url === lastUrl)!.sha256),
 		),
 	};
-	const fonts = new EmojiFonts(adapter as unknown as DataAdapter, FOLDER, loader, downloader);
+	const glyphCheck = vi.fn(() => options.canDraw ?? true);
+	const fonts = new EmojiFonts(
+		adapter as unknown as DataAdapter,
+		FOLDER,
+		loader,
+		downloader,
+		glyphCheck,
+	);
 	const main = fakeDocument();
 	fonts.attach(main);
-	return { adapter, loader, downloader, fonts, main };
+	return { adapter, loader, downloader, fonts, main, glyphCheck };
 }
 
 const data = (size = 16) => new Uint8Array(size).buffer;
@@ -190,5 +199,35 @@ describe("own font file", () => {
 			/could not be loaded/,
 		);
 		expect(broken.adapter.files.size).toBe(0);
+	});
+});
+
+describe("devices that can't draw a style", () => {
+	it("show system emoji and say so, e.g. Noto Color Emoji on iPhone", async () => {
+		const { adapter, fonts, main, glyphCheck } = setup({ canDraw: false });
+		const noto = findEmojiSet("noto-color")!;
+		adapter.files.set(`${FOLDER}/${noto.file}`, data());
+		await fonts.apply("noto-color", "");
+		expect(glyphCheck).toHaveBeenCalledWith(expect.anything(), expect.any(String), "color");
+		expect(fonts.unsupported).toBe(true);
+		expect(fonts.active).toBe(false);
+		expect(uses(main)).toBe(false);
+
+		// Switching to system emoji is not "unsupported".
+		await fonts.apply("system", "");
+		expect(fonts.unsupported).toBe(false);
+	});
+
+	it("only need visible glyphs for black-and-white styles and own fonts", async () => {
+		const { adapter, fonts, glyphCheck } = setup();
+		const mono = findEmojiSet("noto-mono")!;
+		adapter.files.set(`${FOLDER}/${mono.file}`, data());
+		await fonts.apply("noto-mono", "");
+		expect(glyphCheck).toHaveBeenLastCalledWith(
+			expect.anything(),
+			expect.any(String),
+			"visible",
+		);
+		expect(fonts.active).toBe(true);
 	});
 });
