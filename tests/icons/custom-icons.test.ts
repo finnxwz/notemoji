@@ -168,6 +168,22 @@ describe("readCustomIcons", () => {
 		expect(icons.get("logo")).toEqual({ type: "image/png", data: "iVBORw0K" });
 	});
 
+	it("keeps entries it can't use, also with names of a newer version", () => {
+		const unreadable: Record<string, unknown> = {};
+		readCustomIcons(
+			{
+				logo: { type: "image/png", data: "iVBORw0K" },
+				"lucide:star": { type: "image/svg+xml", data: "PHN2Zz4=" },
+				avif: { type: "image/avif", data: "AAAA" },
+			},
+			unreadable,
+		);
+		expect(unreadable).toEqual({
+			"lucide:star": { type: "image/svg+xml", data: "PHN2Zz4=" },
+			avif: { type: "image/avif", data: "AAAA" },
+		});
+	});
+
 	it("is empty for anything that is not a map", () => {
 		for (const raw of [undefined, null, "x", 3, [], [["a", {}]]]) {
 			expect(readCustomIcons(raw).size).toBe(0);

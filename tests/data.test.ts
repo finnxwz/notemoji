@@ -116,6 +116,7 @@ describe("compatibility with other versions", () => {
 			customIcons: {
 				logo: { type: "image/png", data: "AAAA" },
 				photo: { type: "image/avif", data: "AAAA", width: 512 },
+				"lucide:star": { type: "image/svg+xml", data: "AAAA" },
 			},
 			bookmarks: { "C.md": "⭐" },
 		};

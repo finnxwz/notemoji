@@ -36,8 +36,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * Reads the `customIcons` section of data.json leniently. Entries this
- * version can't use (e.g. a format added later) go to `unreadable` as they
- * are, so they are saved again unchanged.
+ * version can't use (e.g. a format or a kind of name added later) go to
+ * `unreadable` as they are, so they are saved again unchanged.
  */
 export function readCustomIcons(
 	raw: unknown,
@@ -46,9 +46,9 @@ export function readCustomIcons(
 	const icons = new Map<string, StoredIcon>();
 	if (!isRecord(raw)) return icons;
 	for (const [id, entry] of Object.entries(raw)) {
-		if (!isCustomIconId(id)) continue;
 		const { type, data } = isRecord(entry) ? entry : {};
 		if (
+			isCustomIconId(id) &&
 			(STORED_TYPES as readonly unknown[]).includes(type) &&
 			typeof data === "string" &&
 			isBase64(data)
