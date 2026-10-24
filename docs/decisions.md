@@ -83,7 +83,8 @@ ideas are listed so they are not proposed again without a new reason.
   when no tile is selected), Esc closes.
 - Mobile: the search field is not focused automatically (the keyboard would cover the grid).
 - Emoji up to Emoji 15.0, generated from emojibase.
-  - _Rejected:_ skin tone selector, random button.
+  - _Rejected:_ skin tone selector, random button. (Random emoji for new notes is a separate,
+    opt-in use the maintainer asked for; see "Automatic emoji for new notes".)
 - **Performance:** the grid is virtualized and shows pre-rendered sprite sheets of the emoji,
   drawn in idle time after startup and cached in `cache/sprites/` per style, device type,
   density and a fingerprint of how the device draws emoji. Chosen after real lag on Windows,
@@ -112,6 +113,40 @@ ideas are listed so they are not proposed again without a new reason.
 
 - Right-click menu (_Set / Change / Remove … emoji_) and two commands.
   - _Rejected:_ multi-select actions, ribbon icon.
+
+## Automatic emoji for new notes
+
+- **Opt-in setting, off by default**, requested by the maintainer. Only notes (`.md`), never
+  folders, attachments, canvases or bases, and never existing notes.
+- **Only notes made on this device:** a note counts when it is opened within 5 seconds of being
+  created (_New note_, daily notes, templates, a click on an unresolved link). Notes that arrive
+  by sync (Obsidian Sync, iCloud, Git), imports and notes other plugins create in bulk are hardly
+  ever opened that quickly, so two devices don't pick different random emoji for the same note:
+  the device that made it picks, and the emoji syncs like any other. Creates are ignored until the
+  layout is ready, because Obsidian reports every file as created while it starts (checked with
+  `workspace.layoutReady` rather than by registering later, so a daily note created at startup
+  still counts).
+- **Your own emoji win:** a note that already has an icon (moved there with a rename, or kept from
+  a deleted note at the same path) is left as it is. The pick is stored like an emoji set in the
+  picker (synced, changeable, removable) but not added to the recently used emoji: nobody chose
+  it.
+- **Themed random** (`src/icons/auto-emoji.ts`, lists in `auto-emoji-themes.ts`). The first
+  source that fits wins: English key words in the name (whole words only, plurals listed, no
+  stemming: loose matching gave "Bank balance" → ☯️-style mistakes); a date the name starts with
+  (the season of its month); the note's folder, else the folder above (key words in its name, or
+  its emoji when that belongs to a theme); otherwise about 150 friendly emoji (no flags, people,
+  skin tones, sequences, nothing ambiguous, religious or political). A key word with one obvious
+  emoji (pizza → 🍕) beats other key words and is taken unless a neighbour has it.
+- **Variety:** chosen by chance among the theme's least used emoji: first not used by an item in
+  the same folder, then not among the last 8 automatic picks of the session.
+- **Seasons by hemisphere**, from the time zone (a short list of southern zones; north
+  otherwise). Holiday emoji (🎄, 🎃) only in their month.
+- **"Untitled", then named:** Obsidian names a new note _Untitled_ (in any language) and the real
+  name follows right away. A pick from the friendly emoji is remembered for this session; at the
+  note's first rename within 5 minutes, if it still has that emoji and the new name fits a theme,
+  the emoji is replaced. Picks that already fit (name, date or folder) stay.
+- Every listed emoji is in the picker's list, written as the list writes it (a test checks), so
+  emoji styles can draw it.
 
 ## Custom icons and emoji styles
 

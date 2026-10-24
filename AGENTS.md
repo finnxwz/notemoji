@@ -38,6 +38,7 @@ npm run set-previews # regenerate the emoji style previews (downloads the pinned
 | `src/data-file.ts`        | Loading, saving, reloading after sync, read-only guard, `backup.json`      |
 | `src/internals.ts`        | The only place that touches undocumented Obsidian internals                |
 | `src/icons/`              | What an item's icon is: emoji, values, path store, custom, Obsidian icons  |
+| `src/icons/auto-emoji.ts` | Automatic emoji for new notes (pure); `new-note-emoji.ts` decides when     |
 | `src/style/`              | Emoji styles: downloadable sets, font loading, `EmojiStyle` (font + cache) |
 | `src/picker/`             | Picker modal, catalog/search, grid geometry, virtual grid, sprite sheets   |
 | `src/display/`            | Rendering in the explorer and on titles (note, tab, view header)           |

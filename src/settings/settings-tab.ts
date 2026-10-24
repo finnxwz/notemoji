@@ -62,6 +62,17 @@ export class NotemojiSettingTab extends PluginSettingTab {
 					.onChange((value) => plugin.updateSettings({ showInViewHeader: value })),
 			);
 
+		new Setting(containerEl)
+			.setName("Automatic emoji for new notes")
+			.setDesc(
+				"Give each new note an emoji that fits its name or folder, with a bit of chance so notes next to each other differ. Your own emoji always win.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(settings.autoEmoji)
+					.onChange((value) => plugin.updateSettings({ autoEmoji: value })),
+			);
+
 		this.displayEmojiStyle(containerEl);
 		this.displayCustomIcons(containerEl);
 		this.displayStoredData(containerEl);

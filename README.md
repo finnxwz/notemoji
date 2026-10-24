@@ -16,6 +16,7 @@
 
 Right-click any note, folder or file → _Set … emoji_. The emoji shows up in the file explorer, in
 tabs and in the note title. Folders, PDFs, images and canvases can have one too.
+Turn on _Automatic emoji for new notes_, and each note you create gets a fitting emoji by itself.
 
 ![Setting an emoji for a note](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/set-emoji.gif)
 
@@ -66,6 +67,7 @@ right-click.
 | Emoji at note title           | Off          | _Inline, before the title_, or _Large, above the title_ (click it to change the emoji)                  |
 | Emoji in tab titles           | On           | The emoji in front of each tab's name                                                                   |
 | Emoji in view header title    | Off          | The emoji in front of the title in the bar at the top of a tab                                          |
+| Automatic emoji for new notes | Off          | Gives each note you create an emoji that fits its name or folder; your own emoji always win             |
 | Emoji style                   | System emoji | Pick a style by its preview: Twemoji, OpenMoji, Noto Color Emoji, Noto Emoji Mono or your own font file |
 | Custom icons                  | –            | Every icon with its size and how often it is used, the storage used (up to 3 MB), and _Delete_          |
 | Picker image cache            | –            | Shows the size of the picker's pre-rendered emoji; _Clear_ deletes them                                 |
@@ -150,6 +152,19 @@ deletes them. Everything is in the plugin folder and is removed with the plugin.
 
 Turn it on under _Emoji at note title_ in the settings. It follows Obsidian's _Show inline title_
 setting (Appearance).
+
+</details>
+
+<details>
+<summary><b>How does the automatic emoji for new notes choose?</b></summary>
+
+With _Automatic emoji for new notes_ on, each note you create on this device gets an emoji that
+fits an English word in its name (`Pizza night` → 🍕, `Trip to Rome` → ✈️ or 🧳), the season of a
+daily note's date, or its folder; otherwise a pleasant one by chance. Notes next to each other get
+different emoji. An _Untitled_ note that you name right away gets an emoji for its name. Your own emoji always
+win: notes that have one are never changed, and you can change or remove the automatic one like
+any other (it is not added to your recently used emoji). Notes that arrive by sync or import are
+left alone, so your devices never pick different emoji for the same note.
 
 </details>
 

@@ -37,6 +37,8 @@ export interface NotemojiSettings {
 	emojiStyle: string;
 	/** File name of your own emoji font (used with `emojiStyle: "file"`), or "". */
 	emojiFont: string;
+	/** Gives notes made on this device an emoji that fits their name or folder. */
+	autoEmoji: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<NotemojiSettings> = {
@@ -45,6 +47,7 @@ export const DEFAULT_SETTINGS: Readonly<NotemojiSettings> = {
 	showInViewHeader: false,
 	emojiStyle: "system",
 	emojiFont: "",
+	autoEmoji: false,
 };
 
 /** Which version of Notemoji wrote the data. */
@@ -145,6 +148,7 @@ function readSettings(raw: unknown, unknown: UnknownData): NotemojiSettings {
 	}
 	if (typeof raw.showInTabs === "boolean") settings.showInTabs = raw.showInTabs;
 	if (typeof raw.showInViewHeader === "boolean") settings.showInViewHeader = raw.showInViewHeader;
+	if (typeof raw.autoEmoji === "boolean") settings.autoEmoji = raw.autoEmoji;
 	if (typeof raw.emojiFont === "string" && isFontFileName(raw.emojiFont)) {
 		settings.emojiFont = raw.emojiFont;
 	}

@@ -25,6 +25,7 @@ const settings = (overrides: Partial<NotemojiSettings> = {}): NotemojiSettings =
 	showInViewHeader: true,
 	emojiStyle: "system",
 	emojiFont: "",
+	autoEmoji: false,
 	...overrides,
 });
 

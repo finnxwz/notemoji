@@ -51,6 +51,7 @@ describe("parseData", () => {
 			showInViewHeader: false,
 			emojiStyle: "system",
 			emojiFont: "",
+			autoEmoji: false,
 		});
 		expect(parseData({ settings: { noteTitle: "huge" } }).settings.noteTitle).toBe("off");
 	});
@@ -65,6 +66,12 @@ describe("parseData", () => {
 		expect([legacy.emojiStyle, legacy.emojiFont]).toEqual(["file", "Twemoji.ttf"]);
 		expect(parseData({ settings: { emojiFont: "../x.ttf" } }).settings.emojiFont).toBe("");
 		expect(parseData({ settings: { emojiFont: 3 } }).settings.emojiFont).toBe("");
+	});
+
+	it("reads automatic emoji for new notes, off unless turned on", () => {
+		expect(parseData({ settings: { autoEmoji: true } }).settings.autoEmoji).toBe(true);
+		expect(parseData({ settings: { autoEmoji: "yes" } }).settings.autoEmoji).toBe(false);
+		expect(parseData({ version: 1, icons: {} }).settings.autoEmoji).toBe(false);
 	});
 
 	it("cleans the recent list", () => {

@@ -10,6 +10,8 @@ export interface FakeAppOptions {
 	/** File paths; parent folders are created automatically. Folders may be listed too. */
 	files?: string[];
 	activeFile?: string;
+	/** False: Obsidian is still starting; `workspace.finishLayout()` ends it. */
+	layoutReady?: boolean;
 }
 
 /** In-memory stand-in for Obsidian's file adapter (used for custom icon files). */
@@ -126,6 +128,13 @@ export class FakeVault extends Events {
 		return item;
 	}
 
+	/** Creates a file or folder like Obsidian (or sync): adds it, then emits `create`. */
+	create(path: string): TAbstractFile {
+		const item = this.add(path);
+		this.trigger("create", item);
+		return item;
+	}
+
 	/**
 	 * Renames/moves like Obsidian: updates the item and its descendants, then
 	 * emits `rename` for the item and once more for every descendant.
@@ -169,12 +178,24 @@ export class FakeWorkspace extends Events {
 	readonly leaves: WorkspaceLeaf[] = [];
 	layoutReady = true;
 	activeFile: TFile | null = null;
+	private readonly layoutCallbacks: Array<() => unknown> = [];
 
 	getActiveFile(): TFile | null {
 		return this.activeFile;
 	}
 	onLayoutReady(callback: () => unknown): void {
-		callback();
+		if (this.layoutReady) callback();
+		else this.layoutCallbacks.push(callback);
+	}
+	/** Ends starting (see `FakeAppOptions.layoutReady`). */
+	finishLayout(): void {
+		this.layoutReady = true;
+		for (const callback of this.layoutCallbacks.splice(0)) callback();
+	}
+	/** Opens a file in the active tab like Obsidian: it becomes the active file, then `file-open`. */
+	openFile(file: TFile): void {
+		this.activeFile = file;
+		this.trigger("file-open", file);
 	}
 	getLeavesOfType(type: string): WorkspaceLeaf[] {
 		return this.leaves.filter((leaf) => leaf.view.getViewType() === type);
@@ -196,6 +217,7 @@ export function createFakeApp(options: FakeAppOptions = {}): FakeApp {
 	const vault = new FakeVault();
 	const metadataCache = new FakeMetadataCache();
 	const workspace = new FakeWorkspace();
+	workspace.layoutReady = options.layoutReady ?? true;
 
 	for (const path of options.files ?? []) vault.add(path);
 	if (options.activeFile) workspace.activeFile = vault.add(options.activeFile) as TFile;

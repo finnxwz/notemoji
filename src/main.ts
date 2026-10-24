@@ -19,6 +19,7 @@ import { CustomIconError, CustomIconLibrary, StoredIcon } from "./icons/custom-i
 import { IconService, isNote } from "./icons/icon-service";
 import { parseIcon } from "./icons/icon-value";
 import { LibraryIcons } from "./icons/library-icons";
+import { NewNoteEmoji } from "./icons/new-note-emoji";
 import { prepareIcon } from "./icons/prepare-icon";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings/settings-tab";
@@ -46,6 +47,7 @@ export default class NotemojiPlugin extends Plugin {
 	private file!: DataFile;
 	private explorer!: FileExplorerRenderer;
 	private titles!: TitleDecorations;
+	private newNotes!: NewNoteEmoji;
 	private titleTimer: number | null = null;
 
 	async onload(): Promise<void> {
@@ -69,6 +71,7 @@ export default class NotemojiPlugin extends Plugin {
 			() => Object.keys(this.data.unknown.libraryIcons),
 			{ getIcon, getIconIds },
 		);
+		this.newNotes = new NewNoteEmoji(this.app, this.icons, () => this.data.settings.autoEmoji);
 		this.customIcons = new CustomIconLibrary(
 			() => this.data.customIcons,
 			() => this.persist(),
@@ -175,10 +178,20 @@ export default class NotemojiPlugin extends Plugin {
 		this.registerEvent(
 			workspace.on("window-close", (_window, win) => this.style.fonts.detach(win.document)),
 		);
-		this.registerEvent(workspace.on("file-open", () => this.scheduleTitleSync()));
-
 		this.registerEvent(
-			vault.on("rename", (file, oldPath) => this.icons.handleRename(file, oldPath)),
+			workspace.on("file-open", (file) => {
+				this.newNotes.handleOpen(file);
+				this.scheduleTitleSync();
+			}),
+		);
+
+		this.registerEvent(vault.on("create", (file) => this.newNotes.handleCreate(file)));
+		this.registerEvent(
+			vault.on("rename", (file, oldPath) => {
+				this.icons.handleRename(file, oldPath);
+				// After the emoji moved along: an automatic one may follow the new name.
+				this.newNotes.handleRename(file, oldPath);
+			}),
 		);
 		// The reading view may re-render a note's title when the note changes.
 		this.registerEvent(metadataCache.on("changed", () => this.scheduleTitleSync()));

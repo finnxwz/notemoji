@@ -105,6 +105,7 @@ describe("commands", () => {
 				showInViewHeader: false,
 				emojiStyle: "system",
 				emojiFont: "",
+				autoEmoji: false,
 			},
 			icons: { "Notes/A.md": "🚀" },
 			recent: ["🚀"],
@@ -502,6 +503,7 @@ describe("settings tab", () => {
 			showInViewHeader: false,
 			emojiStyle: "system",
 			emojiFont: "",
+			autoEmoji: false,
 		});
 	});
 
