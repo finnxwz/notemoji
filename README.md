@@ -23,7 +23,7 @@
 
 - **[TidyTasks](obsidian://show-plugin?id=tidytasks)** - Automatically move completed tasks to the bottom of each Markdown task list, keeping subtasks attached and surrounding text in place.
 
-My plugins are designed to work across Windows, macOS, Android, and iOS. 
+Thank you for using my plugins and supporting my work! My plugins are designed to work across Windows, macOS, Android, and iOS.
 
 
 ## ⚠️ Feedback and support
