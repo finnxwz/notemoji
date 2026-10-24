@@ -1,17 +1,20 @@
 import { parseIcon } from "../icons/icon-value";
-import { IconSource, renderKey } from "./icon-source";
+import { IconSource, IconUrl, renderKey } from "./icon-source";
 
 /**
  * Display-only icons on Obsidian's own title elements.
  *
  * The icon is drawn by CSS (`::before`): an emoji from the `data-notemoji`
- * attribute, a custom image from the `--notemoji-image` variable. Either way
+ * attribute, a picture from the `--notemoji-image` variable (an Obsidian icon
+ * as a mask in the text colour, marked by `data-notemoji-mask`). Either way
  * it is never part of the element's text, so editable titles (inline title,
  * view header) keep renaming the file exactly as before, and Obsidian
  * updating the title text leaves the icon alone.
  */
 export const EMOJI_ATTRIBUTE = "data-notemoji";
+/** The stored value of the picture shown (`custom:<name>` or `lucide:<name>`). */
 export const IMAGE_ATTRIBUTE = "data-notemoji-image";
+export const MASK_ATTRIBUTE = "data-notemoji-mask";
 const IMAGE_VARIABLE = "--notemoji-image";
 
 /** Tracks every element we decorated, so cleanup is exact (also across windows). */
@@ -23,7 +26,7 @@ export class EmojiAttributes {
 		for (const el of [...this.elements.keys()]) {
 			if (!wanted.has(el)) this.undecorate(el);
 		}
-		const url = (id: string) => source.url(id);
+		const url: IconUrl = (icon) => source.url(icon);
 		for (const [el, value] of wanted) {
 			const key = renderKey(value, url);
 			if (this.elements.get(el) === key) continue;
@@ -38,16 +41,19 @@ export class EmojiAttributes {
 
 	private decorate(el: HTMLElement, value: string, source: IconSource): void {
 		const icon = parseIcon(value);
-		if (icon?.type === "custom") {
+		if (icon !== undefined && icon.type !== "emoji") {
 			// A missing icon keeps its space, empty, like in the file explorer.
-			const url = source.url(icon.id);
+			const url = source.url(icon);
 			el.removeAttribute(EMOJI_ATTRIBUTE);
-			el.setAttribute(IMAGE_ATTRIBUTE, icon.id);
+			el.setAttribute(IMAGE_ATTRIBUTE, value);
+			// Only with a picture: a mask without one would fill the space with colour.
+			el.toggleAttribute(MASK_ATTRIBUTE, icon.type === "lucide" && url !== undefined);
 			el.setCssProps({
 				[IMAGE_VARIABLE]: url === undefined ? "" : `url(${JSON.stringify(url)})`,
 			});
 		} else {
 			el.removeAttribute(IMAGE_ATTRIBUTE);
+			el.removeAttribute(MASK_ATTRIBUTE);
 			el.setCssProps({ [IMAGE_VARIABLE]: "" });
 			el.setAttribute(EMOJI_ATTRIBUTE, icon?.emoji ?? "");
 		}
@@ -56,6 +62,7 @@ export class EmojiAttributes {
 	private undecorate(el: HTMLElement): void {
 		el.removeAttribute(EMOJI_ATTRIBUTE);
 		el.removeAttribute(IMAGE_ATTRIBUTE);
+		el.removeAttribute(MASK_ATTRIBUTE);
 		el.setCssProps({ [IMAGE_VARIABLE]: "" });
 		this.elements.delete(el);
 	}

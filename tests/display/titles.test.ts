@@ -1,7 +1,7 @@
 import type { TFile as RealTFile } from "obsidian";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NotemojiSettings } from "../../src/data";
-import { EMOJI_ATTRIBUTE } from "../../src/display/emoji-attribute";
+import { EMOJI_ATTRIBUTE, MASK_ATTRIBUTE } from "../../src/display/emoji-attribute";
 import { TitleDecorations } from "../../src/display/titles";
 import { createFakeApp, FakeApp } from "../fake-app";
 import { FileView, MarkdownView, TFile, View, WorkspaceLeaf } from "../obsidian";
@@ -84,12 +84,14 @@ const iconAbove = (titleEl: HTMLElement) => {
 const decorated = () => document.querySelectorAll(`[${EMOJI_ATTRIBUTE}]`).length;
 const aboveIcons = () => document.querySelectorAll(".notemoji-title-icon").length;
 
-/** Image URL of each custom icon; tests change it to simulate sync. */
+/** Image URL of each custom icon and Obsidian icon; tests change them to simulate sync. */
 let urlOf: (id: string) => string | undefined;
+let lucideUrlOf: (name: string) => string | undefined;
 
 beforeEach(() => {
 	document.body.empty();
 	urlOf = (id) => `app://icons/${id}`;
+	lucideUrlOf = (name) => `blob:lucide-${name}`;
 	app = createFakeApp();
 	icons = new Map([
 		["Notes/Rocket.md", "🚀"],
@@ -98,7 +100,10 @@ beforeEach(() => {
 	picked = [];
 	titles = new TitleDecorations(
 		app.asApp,
-		{ get: (path) => icons.get(path), url: (id) => urlOf(id) },
+		{
+			get: (path) => icons.get(path),
+			url: (icon) => (icon.type === "custom" ? urlOf(icon.id) : lucideUrlOf(icon.name)),
+		},
 		(file: RealTFile) => picked.push(file.path),
 	);
 });
@@ -215,14 +220,14 @@ describe("custom icons", () => {
 		const img = iconAbove(note.inlineTitles[0])?.querySelector("img");
 		expect(img?.getAttribute("src")).toBe("app://icons/logo.svg");
 		for (const el of [note.tabTitleEl, note.headerTitleEl]) {
-			expect(el.getAttribute("data-notemoji-image")).toBe("logo.svg");
+			expect(el.getAttribute("data-notemoji-image")).toBe("custom:logo.svg");
 			expect(el.getAttribute(EMOJI_ATTRIBUTE)).toBeNull();
 			expect(el.style.getPropertyValue("--notemoji-image")).toContain("app://icons/logo.svg");
 			expect(el.textContent).toBe("Rocket");
 		}
 
 		titles.sync(settings({ noteTitle: "inline" }));
-		expect(note.inlineTitles[0].getAttribute("data-notemoji-image")).toBe("logo.svg");
+		expect(note.inlineTitles[0].getAttribute("data-notemoji-image")).toBe("custom:logo.svg");
 
 		icons.set("Notes/Rocket.md", "🚀");
 		titles.sync(settings());
@@ -236,7 +241,7 @@ describe("custom icons", () => {
 		urlOf = () => undefined;
 		const note = open("Notes/Rocket.md");
 		titles.sync(settings());
-		expect(note.tabTitleEl.getAttribute("data-notemoji-image")).toBe("logo");
+		expect(note.tabTitleEl.getAttribute("data-notemoji-image")).toBe("custom:logo");
 		expect(note.tabTitleEl.style.getPropertyValue("--notemoji-image")).toBe("");
 		expect(iconAbove(note.inlineTitles[0])?.querySelector("img")?.hasClass("is-missing")).toBe(
 			true,
@@ -254,6 +259,57 @@ describe("custom icons", () => {
 		expect(note.tabTitleEl.style.getPropertyValue("--notemoji-image")).toContain("blob:logo-2");
 		expect(iconAbove(note.inlineTitles[0])?.querySelector("img")?.getAttribute("src")).toBe(
 			"blob:logo-2",
+		);
+	});
+
+	it("draws Obsidian icons as a mask in the title's colour", () => {
+		icons.set("Notes/Rocket.md", "lucide:star");
+		const note = open("Notes/Rocket.md");
+		titles.sync(settings());
+		const mask = iconAbove(note.inlineTitles[0])?.querySelector<HTMLElement>(".notemoji-mask");
+		expect(mask?.style.getPropertyValue("--notemoji-image")).toBe('url("blob:lucide-star")');
+		for (const el of [note.tabTitleEl, note.headerTitleEl]) {
+			expect(el.getAttribute("data-notemoji-image")).toBe("lucide:star");
+			expect(el.hasAttribute(MASK_ATTRIBUTE)).toBe(true);
+			expect(el.style.getPropertyValue("--notemoji-image")).toBe('url("blob:lucide-star")');
+			expect(attr(el)).toBeNull();
+			expect(el.textContent).toBe("Rocket");
+		}
+
+		titles.sync(settings({ noteTitle: "inline" }));
+		expect(note.inlineTitles[0].hasAttribute(MASK_ATTRIBUTE)).toBe(true);
+
+		icons.set("Notes/Rocket.md", "custom:logo");
+		titles.sync(settings());
+		expect(note.tabTitleEl.hasAttribute(MASK_ATTRIBUTE)).toBe(false);
+		expect(note.tabTitleEl.getAttribute("data-notemoji-image")).toBe("custom:logo");
+
+		icons.set("Notes/Rocket.md", "lucide:star");
+		titles.sync(settings());
+		titles.dispose();
+		expect(note.tabTitleEl.hasAttribute(MASK_ATTRIBUTE)).toBe(false);
+		expect(note.tabTitleEl.hasAttribute("data-notemoji-image")).toBe(false);
+	});
+
+	it("keeps the space of an Obsidian icon it can't draw, without filling it", () => {
+		icons.set("Notes/Rocket.md", "lucide:rocket");
+		lucideUrlOf = () => undefined;
+		const note = open("Notes/Rocket.md");
+		titles.sync(settings());
+		expect(note.tabTitleEl.getAttribute("data-notemoji-image")).toBe("lucide:rocket");
+		// The mask is only set with a picture: without one it would fill the space with colour.
+		expect(note.tabTitleEl.hasAttribute(MASK_ATTRIBUTE)).toBe(false);
+		expect(
+			iconAbove(note.inlineTitles[0])
+				?.querySelector(".notemoji-mask")
+				?.hasClass("is-missing"),
+		).toBe(true);
+
+		lucideUrlOf = () => "blob:rocket-1";
+		titles.sync(settings());
+		expect(note.tabTitleEl.hasAttribute(MASK_ATTRIBUTE)).toBe(true);
+		expect(note.tabTitleEl.style.getPropertyValue("--notemoji-image")).toContain(
+			"blob:rocket-1",
 		);
 	});
 

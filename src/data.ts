@@ -1,6 +1,7 @@
 import { readCustomIcons, StoredIcon } from "./icons/custom-icons";
 import { IconStore } from "./icons/icon-store";
-import { isFutureIconValue, normalizeIcon, parseIcon } from "./icons/icon-value";
+import { isFutureIconValue, LUCIDE_PREFIX, normalizeIcon, parseIcon } from "./icons/icon-value";
+import { readLibraryIcons } from "./icons/library-icons";
 import { findEmojiSet, isFontFileName } from "./style/emoji-sets";
 
 /**
@@ -67,6 +68,8 @@ export interface UnknownData {
 	settings: Record<string, unknown>;
 	/** Custom icons in a form this version can't read. */
 	customIcons: Record<string, unknown>;
+	/** Copies of icons from another icon source, or in a form this version can't read. */
+	libraryIcons: Record<string, unknown>;
 }
 
 export interface PluginData {
@@ -77,6 +80,11 @@ export interface PluginData {
 	recent: string[];
 	/** The user's own icons by name; items refer to them as `custom:<name>`. */
 	customIcons: Map<string, StoredIcon>;
+	/**
+	 * A copy (SVG) of each of Obsidian's icons in use, by value (`lucide:star`),
+	 * so every device draws the same icon, whatever its Obsidian version has.
+	 */
+	libraryIcons: Map<string, string>;
 	unknown: UnknownData;
 	source: DataSource;
 }
@@ -87,12 +95,20 @@ export interface StoredData {
 	settings: Record<string, unknown>;
 	icons: Record<string, string>;
 	recent: string[];
+	libraryIcons: Record<string, unknown>;
 	/** Last, so the small, readable parts stay at the top of the file. */
 	customIcons: Record<string, unknown>;
 	[key: string]: unknown;
 }
 
-const KNOWN_TOP = new Set(["version", "settings", "icons", "recent", "customIcons"]);
+const KNOWN_TOP = new Set([
+	"version",
+	"settings",
+	"icons",
+	"recent",
+	"libraryIcons",
+	"customIcons",
+]);
 
 /**
  * An entry in `icons` that only versions from 2.0 on keep: 1.x drops keys
@@ -117,7 +133,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function emptyUnknown(): UnknownData {
-	return { top: {}, settings: {}, customIcons: {} };
+	return { top: {}, settings: {}, customIcons: {}, libraryIcons: {} };
 }
 
 function readSettings(raw: unknown, unknown: UnknownData): NotemojiSettings {
@@ -172,7 +188,9 @@ function sourceOf(raw: Record<string, unknown>): DataSource {
 		return isRecord(raw.icons) && !Object.hasOwn(raw.icons, ICONS_MARKER) ? "old" : "current";
 	}
 	// Without a version: hand-written, or the early plain `{ path: emoji }` map.
-	if (["settings", "recent", "customIcons"].some((key) => key in raw)) return "current";
+	if (["settings", "recent", "customIcons", "libraryIcons"].some((key) => key in raw)) {
+		return "current";
+	}
 	return Object.keys(raw).length === 0 ? "none" : "old";
 }
 
@@ -185,6 +203,7 @@ export function parseData(raw: unknown): PluginData {
 			icons: new IconStore(),
 			recent: [],
 			customIcons: new Map(),
+			libraryIcons: new Map(),
 			unknown,
 			source: "none",
 		};
@@ -201,6 +220,7 @@ export function parseData(raw: unknown): PluginData {
 		icons: IconStore.fromData(raw),
 		recent: readRecent(raw.recent),
 		customIcons: readCustomIcons(raw.customIcons, unknown.customIcons),
+		libraryIcons: readLibraryIcons(raw.libraryIcons, unknown.libraryIcons),
 		unknown,
 		source: sourceOf(raw),
 	};
@@ -214,6 +234,7 @@ export function serializeData(data: PluginData): StoredData {
 		settings: { ...unknown.settings, ...settingsToSave(data) },
 		icons: { [ICONS_MARKER]: "", ...data.icons.toRecord() },
 		recent: [...data.recent],
+		libraryIcons: { ...unknown.libraryIcons, ...Object.fromEntries(data.libraryIcons) },
 		customIcons: {
 			...unknown.customIcons,
 			...Object.fromEntries(
@@ -238,8 +259,9 @@ function settingsToSave(data: PluginData): Partial<NotemojiSettings> {
 /**
  * Repairs data.json after Notemoji 1.x saved over it (a device that was not
  * updated yet). 1.x keeps only the emoji: it drops the settings, the recent
- * list, custom icons and every `custom:` assignment, trims paths, and may
- * hold an outdated copy of the emoji. So:
+ * list, custom icons, copies of Obsidian icons and every `custom:` or
+ * `lucide:` assignment, trims paths, and may hold an outdated copy of the
+ * emoji. So:
  *
  * - sections in the file (`raw`) are used: besides the emoji of 1.x, Obsidian
  *   Sync may have merged in newer sections of a 2.x copy (see ICONS_MARKER);
@@ -269,15 +291,20 @@ export function repairAfterOldVersion(raw: unknown, known: PluginData): PluginDa
 
 	const settingsInFile = inFile("settings");
 	const customIconsInFile = inFile("customIcons");
+	const libraryIconsInFile = inFile("libraryIcons");
 	return {
 		settings: settingsInFile ? old.settings : known.settings,
 		icons,
 		recent: inFile("recent") ? old.recent : known.recent,
 		customIcons: customIconsInFile ? old.customIcons : known.customIcons,
+		libraryIcons: libraryIconsInFile ? old.libraryIcons : known.libraryIcons,
 		unknown: {
 			top: { ...known.unknown.top, ...old.unknown.top },
 			settings: settingsInFile ? old.unknown.settings : known.unknown.settings,
 			customIcons: customIconsInFile ? old.unknown.customIcons : known.unknown.customIcons,
+			libraryIcons: libraryIconsInFile
+				? old.unknown.libraryIcons
+				: known.unknown.libraryIcons,
 		},
 		source: "current",
 	};
@@ -290,7 +317,7 @@ export function repairAfterOldVersion(raw: unknown, known: PluginData): PluginDa
  */
 export function mergeChanges(base: StoredData, local: StoredData, remote: StoredData): StoredData {
 	const merged: StoredData = { ...remote };
-	for (const key of ["settings", "icons", "customIcons"] as const) {
+	for (const key of ["settings", "icons", "libraryIcons", "customIcons"] as const) {
 		merged[key] = mergeEntries(base[key], local[key], remote[key]) as never;
 	}
 	if (!same(base.recent, local.recent)) merged.recent = local.recent;
@@ -315,6 +342,27 @@ function mergeEntries(
 
 function same(a: unknown, b: unknown): boolean {
 	return a === b || JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * The Obsidian icons in use, whose copies are kept: those of items and of the
+ * recent list, and any found in data of a newer version, which may use them
+ * in places this version doesn't know.
+ */
+export function libraryIconsInUse(data: PluginData): Set<string> {
+	const used = new Set<string>();
+	const pending: unknown[] = [data.unknown.top, data.unknown.settings, ...data.recent];
+	for (const [, value] of data.icons.entries()) pending.push(value);
+	// Without recursion: data of a newer version may be nested deeply.
+	while (pending.length > 0) {
+		const value = pending.pop();
+		if (typeof value === "string") {
+			if (value.startsWith(LUCIDE_PREFIX) && parseIcon(value)) used.add(value);
+		} else if (value !== null && typeof value === "object") {
+			for (const child of Object.values(value)) pending.push(child);
+		}
+	}
+	return used;
 }
 
 /** A new recent list with `emoji` in front, without duplicates. */

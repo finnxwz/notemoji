@@ -57,12 +57,14 @@ let explorer: FakeExplorer;
 let store: IconStore;
 let renderer: FileExplorerRenderer;
 
-/** Image URL of each custom icon; tests change it to simulate sync. */
+/** Image URL of each custom icon and Obsidian icon; tests change them to simulate sync. */
 let urlOf: (id: string) => string | undefined;
+let lucideUrlOf: (name: string) => string | undefined;
 
 beforeEach(() => {
 	document.body.empty();
 	urlOf = (id) => `app://icons/${id}`;
+	lucideUrlOf = (name) => `blob:lucide-${name}`;
 	explorer = new FakeExplorer();
 	store = new IconStore();
 
@@ -77,7 +79,7 @@ beforeEach(() => {
 	renderer = new FileExplorerRenderer(app.asApp, {
 		get: (path) => store.get(path),
 		entries: () => store.entries(),
-		url: (id) => urlOf(id),
+		url: (icon) => (icon.type === "custom" ? urlOf(icon.id) : lucideUrlOf(icon.name)),
 	});
 });
 
@@ -220,6 +222,46 @@ describe("file explorer", () => {
 		renderer.scheduleSync();
 		await settle();
 		expect(iconOf(note)?.querySelector("img")?.getAttribute("src")).toBe("blob:logo-2");
+		expect(explorer.icons()).toHaveLength(1);
+	});
+
+	it("shows Obsidian icons as a mask in the text colour, and switches kinds in place", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "lucide:star");
+		renderer.attach();
+		await settle();
+		const mask = iconOf(note)?.querySelector<HTMLElement>(".notemoji-mask");
+		expect(mask?.style.getPropertyValue("--notemoji-image")).toBe('url("blob:lucide-star")');
+		expect(mask?.hasClass("is-missing")).toBe(false);
+		expect(iconOf(note)?.querySelector("img, svg")).toBeNull();
+		expect(iconOf(note)?.nextElementSibling).toBe(note.innerEl);
+
+		store.set("A.md", "custom:logo.svg");
+		renderer.scheduleSync();
+		await settle();
+		expect(iconOf(note)?.querySelector(".notemoji-mask")).toBeNull();
+		expect(iconOf(note)?.querySelector("img")?.getAttribute("src")).toBe(
+			"app://icons/logo.svg",
+		);
+	});
+
+	it("keeps the space of an Obsidian icon it can't draw, and follows its copy", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "lucide:rocket");
+		lucideUrlOf = () => undefined;
+		renderer.attach();
+		await settle();
+		const missing = iconOf(note)?.querySelector<HTMLElement>(".notemoji-mask");
+		expect(missing?.hasClass("is-missing")).toBe(true);
+		expect(missing?.style.getPropertyValue("--notemoji-image")).toBe("");
+
+		// Sync brought a copy.
+		lucideUrlOf = () => "blob:rocket-1";
+		renderer.scheduleSync();
+		await settle();
+		const mask = iconOf(note)?.querySelector<HTMLElement>(".notemoji-mask");
+		expect(mask?.hasClass("is-missing")).toBe(false);
+		expect(mask?.style.getPropertyValue("--notemoji-image")).toBe('url("blob:rocket-1")');
 		expect(explorer.icons()).toHaveLength(1);
 	});
 

@@ -19,9 +19,10 @@ export interface StoredIcon {
 }
 
 /**
- * Room for custom icons in data.json, counted as stored (base64). Obsidian
- * Sync (Standard plan) skips files over 5 MB, and data.json also holds every
- * emoji assignment, so the icons stay well below that.
+ * Room for custom icons and the copies of Obsidian icons in data.json,
+ * counted as stored. Obsidian Sync (Standard plan) skips files over 5 MB, and
+ * data.json also holds every emoji assignment, so the icons stay well below
+ * that.
  */
 export const ICON_STORAGE_LIMIT = 3 * 1024 * 1024;
 
@@ -83,11 +84,13 @@ export class CustomIconLibrary {
 	 * @param icons the library in the current data (data.json may be reloaded)
 	 * @param save persists data.json after a change
 	 * @param reserved names taken by icons this version can't read
+	 * @param shared room in data.json taken by other icons (the copies of Obsidian icons)
 	 */
 	constructor(
 		private readonly icons: () => Map<string, StoredIcon>,
 		private readonly save: () => void,
 		private readonly reserved: () => Iterable<string> = () => [],
+		private readonly shared: () => number = () => 0,
 	) {}
 
 	/** Names of all icons, sorted. */
@@ -143,7 +146,7 @@ export class CustomIconLibrary {
 			throw new CustomIconError(`"${fileName}" is too large to store.`);
 		}
 		const { bytes } = this.usage();
-		if (bytes + icon.data.length > ICON_STORAGE_LIMIT) {
+		if (bytes + this.shared() + icon.data.length > ICON_STORAGE_LIMIT) {
 			throw new CustomIconError(
 				`There is no room left for "${fileName}": custom icons can use up to 3 MB. ` +
 					"Delete icons you no longer need in Notemoji's settings.",

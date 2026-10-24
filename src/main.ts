@@ -1,12 +1,24 @@
-import { Menu, normalizePath, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
+import {
+	getIcon,
+	getIconIds,
+	Menu,
+	normalizePath,
+	Notice,
+	Plugin,
+	TAbstractFile,
+	TFile,
+	TFolder,
+} from "obsidian";
 import { confirm } from "./confirm-modal";
-import type { NotemojiSettings, PluginData } from "./data";
+import { libraryIconsInUse, NotemojiSettings, PluginData } from "./data";
 import { DataFile } from "./data-file";
 import { ExplorerSource, FileExplorerRenderer } from "./display/file-explorer";
 import { TitleDecorations } from "./display/titles";
 import { canvasCodec } from "./icons/canvas-codec";
 import { CustomIconError, CustomIconLibrary, StoredIcon } from "./icons/custom-icons";
 import { IconService, isNote } from "./icons/icon-service";
+import { parseIcon } from "./icons/icon-value";
+import { LibraryIcons } from "./icons/library-icons";
 import { prepareIcon } from "./icons/prepare-icon";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings/settings-tab";
@@ -24,6 +36,8 @@ function describeItem(file: TAbstractFile): "note" | "file" | "folder" {
 export default class NotemojiPlugin extends Plugin {
 	icons!: IconService;
 	customIcons!: CustomIconLibrary;
+	/** Copies of the Obsidian icons in use, kept in data.json. */
+	libraryIcons!: LibraryIcons;
 	/** The emoji font and the picker's pre-rendered emoji. */
 	style!: EmojiStyle;
 	/** The current settings; change them with `updateSettings`. Always those of the current data. */
@@ -49,11 +63,20 @@ export default class NotemojiPlugin extends Plugin {
 		// `Plugin` declares `settings` as a field, so it can't be overridden by a getter.
 		Object.defineProperty(this, "settings", { get: () => this.data.settings });
 		this.icons = new IconService(this.app, this.data, () => this.persist());
+		this.libraryIcons = new LibraryIcons(
+			() => this.data.libraryIcons,
+			() => this.persist(),
+			() => Object.keys(this.data.unknown.libraryIcons),
+			{ getIcon, getIconIds },
+		);
 		this.customIcons = new CustomIconLibrary(
 			() => this.data.customIcons,
 			() => this.persist(),
 			() => Object.keys(this.data.unknown.customIcons),
+			() => this.libraryIcons.usage().bytes,
 		);
+		// Not while the backup stands in for data.json: nothing is saved on startup then.
+		if (this.file.fromDisk) this.updateLibraryIcons();
 
 		this.style = new EmojiStyle(this.app.vault.adapter, pluginFolder, {
 			get: () => this.data.settings,
@@ -64,7 +87,10 @@ export default class NotemojiPlugin extends Plugin {
 		const source: ExplorerSource = {
 			get: (path) => this.icons.get(path),
 			entries: () => this.icons.entries(),
-			url: (id) => this.customIcons.url(id),
+			url: (icon) =>
+				icon.type === "custom"
+					? this.customIcons.url(icon.id)
+					: this.libraryIcons.url(icon.name),
 		};
 		this.explorer = new FileExplorerRenderer(this.app, source);
 		this.titles = new TitleDecorations(this.app, source, (file) => this.openPicker(file));
@@ -83,6 +109,7 @@ export default class NotemojiPlugin extends Plugin {
 		this.explorer?.dispose();
 		this.titles?.dispose();
 		this.customIcons?.dispose();
+		this.libraryIcons?.dispose();
 	}
 
 	/** The current data (data.json may be reloaded, so never keep a reference). */
@@ -102,6 +129,8 @@ export default class NotemojiPlugin extends Plugin {
 		this.icons.replaceData(data);
 		// Icons removed or replaced on another device.
 		this.customIcons.releaseStale();
+		this.libraryIcons.releaseStale();
+		this.updateLibraryIcons();
 		if (
 			data.settings.emojiStyle !== previous.settings.emojiStyle ||
 			data.settings.emojiFont !== previous.settings.emojiFont
@@ -222,9 +251,16 @@ export default class NotemojiPlugin extends Plugin {
 				upload: (fileName, data) => this.uploadCustomIcon(fileName, data),
 				remove: (id) => this.deleteCustomIcon(id),
 			},
-			onSubmit: (emoji) => {
-				if (emoji === "") this.icons.removeIcon(file);
-				else if (this.icons.setIcon(file, emoji)) this.icons.rememberRecent(emoji);
+			library: this.libraryIcons,
+			onSubmit: (value) => {
+				if (value === "") {
+					this.icons.removeIcon(file);
+					return;
+				}
+				const icon = parseIcon(value);
+				// Its copy in data.json, so every device draws it, whatever its Obsidian has.
+				if (icon?.type === "lucide") this.libraryIcons.keep(icon.name);
+				if (this.icons.setIcon(file, value)) this.icons.rememberRecent(value);
 			},
 		}).open();
 	}
@@ -282,6 +318,15 @@ export default class NotemojiPlugin extends Plugin {
 				console.error("[notemoji] Could not render title emoji.", error);
 			}
 		}, TITLE_SYNC_DELAY_MS);
+	}
+
+	/**
+	 * Keeps the copies of Obsidian icons in step with the icons in use, after
+	 * loading and after sync: icons may have been picked or removed on another
+	 * device (or with another version), and a copy may be missing.
+	 */
+	private updateLibraryIcons(): void {
+		this.libraryIcons.update(libraryIconsInUse(this.data));
 	}
 
 	private persist(): void {

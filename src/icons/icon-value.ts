@@ -5,12 +5,20 @@ import { sanitizeStoredEmoji } from "./emoji";
  *
  * - An emoji (or symbol), stored as-is: `"🚀"`.
  * - A custom icon from the library in data.json, by its name: `"custom:rocket"`.
+ * - One of Obsidian's own icons (Lucide), by its name: `"lucide:arrow-right"`.
  *
  * Kept free of Obsidian imports so it can be unit tested.
  */
-export type Icon = { type: "emoji"; emoji: string } | { type: "custom"; id: string };
+export type Icon =
+	| { type: "emoji"; emoji: string }
+	| { type: "custom"; id: string }
+	| { type: "lucide"; name: string };
+
+/** An icon shown as a picture rather than as text. */
+export type ImageIcon = Exclude<Icon, { type: "emoji" }>;
 
 export const CUSTOM_PREFIX = "custom:";
+export const LUCIDE_PREFIX = "lucide:";
 
 /** Longest name of a custom icon made from an upload's file name. */
 const MAX_ID_LENGTH = 60;
@@ -39,20 +47,36 @@ export function customValue(id: string): string {
 	return CUSTOM_PREFIX + id;
 }
 
+/**
+ * The name of one of Obsidian's icons, as Obsidian lists it without the
+ * `lucide-` prefix: lower case words joined by single hyphens (`arrow-right`).
+ */
+export function isLucideName(name: string): boolean {
+	return name.length <= 100 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name);
+}
+
+export function lucideValue(name: string): string {
+	return LUCIDE_PREFIX + name;
+}
+
 /** Reads a stored value; `undefined` for anything that is not a usable icon. */
 export function parseIcon(value: unknown): Icon | undefined {
 	if (typeof value === "string" && value.startsWith(CUSTOM_PREFIX)) {
 		const id = value.slice(CUSTOM_PREFIX.length);
 		return isCustomIconId(id) ? { type: "custom", id } : undefined;
 	}
+	if (typeof value === "string" && value.startsWith(LUCIDE_PREFIX)) {
+		const name = value.slice(LUCIDE_PREFIX.length);
+		return isLucideName(name) ? { type: "lucide", name } : undefined;
+	}
 	const emoji = sanitizeStoredEmoji(value);
 	return emoji === undefined ? undefined : { type: "emoji", emoji };
 }
 
 /**
- * A value written by a newer version: another icon source (`lucide:rocket`)
- * or a custom icon in a form this version doesn't know. Kept in data.json,
- * so saving with this version never loses it, but not shown.
+ * A value written by a newer version: another icon source (`phosphor:rocket`)
+ * or a custom or Obsidian icon in a form this version doesn't know. Kept in
+ * data.json, so saving with this version never loses it, but not shown.
  */
 export function isFutureIconValue(value: unknown): value is string {
 	return (
@@ -68,7 +92,8 @@ export function isFutureIconValue(value: unknown): value is string {
 export function normalizeIcon(value: unknown): string | undefined {
 	const icon = parseIcon(value);
 	if (!icon) return undefined;
-	return icon.type === "emoji" ? icon.emoji : customValue(icon.id);
+	if (icon.type === "emoji") return icon.emoji;
+	return icon.type === "custom" ? customValue(icon.id) : lucideValue(icon.name);
 }
 
 /**

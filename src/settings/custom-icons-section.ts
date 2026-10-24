@@ -12,6 +12,14 @@ const FORMAT_NAMES: Record<StoredIconType, string> = {
 	"image/svg+xml": "SVG",
 };
 
+/** "3 icons", "5 icons, including 2 Obsidian icons" or "2 Obsidian icons" */
+function describeIcons(custom: number, obsidian: number): string {
+	const copies = plural(obsidian, "Obsidian icon", "Obsidian icons");
+	if (custom === 0) return copies;
+	const icons = plural(custom + obsidian, "icon", "icons");
+	return obsidian === 0 ? icons : `${icons}, including ${copies}`;
+}
+
 /** "a, b, c" or "a, b, c and 7 more" */
 function listNames(names: readonly string[], max = 10): string {
 	const shown = names.slice(0, max).join(", ");
@@ -19,9 +27,10 @@ function listNames(names: readonly string[], max = 10): string {
 }
 
 /**
- * The custom icons in the settings: the storage used and its limit, every
- * icon with its preview, format, size and uses, and icons that are used but
- * missing. Re-renders only itself after a change.
+ * The custom icons in the settings: the storage used and its limit (shared
+ * with the copies of Obsidian icons), every icon with its preview, format,
+ * size and uses, and icons that are used but missing. Re-renders only itself
+ * after a change.
  */
 export class CustomIconsSection {
 	private readonly el: HTMLElement;
@@ -42,6 +51,9 @@ export class CustomIconsSection {
 		const ids = library.list();
 		const uses = plugin.icons.customUses();
 		const { count, bytes } = library.usage();
+		// Copies of Obsidian icons share the room; they are small and kept automatically.
+		const copies = plugin.libraryIcons.usage();
+		const used = bytes + copies.bytes;
 		const unused = ids.filter((id) => !uses.has(id));
 
 		const storage = new Setting(containerEl)
@@ -50,20 +62,21 @@ export class CustomIconsSection {
 		storage.descEl.empty();
 		storage.descEl.createDiv({
 			text:
-				count === 0
+				count === 0 && copies.count === 0
 					? "No custom icons yet. Upload your own images in the picker's custom icons section."
-					: `${formatBytes(bytes)} of 3 MB used by ${plural(count, "icon", "icons")}.`,
+					: `${formatBytes(used)} of 3 MB used by ${describeIcons(count, copies.count)}.`,
 		});
 		storage.descEl
 			.createDiv({ cls: "notemoji-storage-bar" })
 			.createDiv({ cls: "notemoji-storage-bar-fill" })
 			.setCssProps({
-				"--notemoji-storage-used": `${Math.min(100, (bytes / ICON_STORAGE_LIMIT) * 100)}%`,
+				"--notemoji-storage-used": `${Math.min(100, (used / ICON_STORAGE_LIMIT) * 100)}%`,
 			});
 		storage.descEl.createDiv({
 			text:
 				"Icons are saved in Notemoji's data.json, so they sync together with your emoji. " +
-				"They can use up to 3 MB because Obsidian Sync skips files larger than 5 MB (Standard plan), " +
+				"Obsidian icons you use are saved as a small copy, so they look the same on every device. " +
+				"Icons can use up to 3 MB because Obsidian Sync skips files larger than 5 MB (Standard plan), " +
 				"which would stop your emoji from syncing. That is room for at least 50 icons, usually many more. " +
 				"Images are scaled down to 512 pixels, which stays sharp even on very dense screens.",
 		});

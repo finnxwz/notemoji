@@ -74,6 +74,18 @@ describe("CustomIconLibrary", () => {
 		expect(library.add("tiny.png", icon(4, "zzzz")).existing).toBe(false);
 	});
 
+	it("shares the room with the copies of Obsidian icons", () => {
+		const icons = new Map<string, StoredIcon>();
+		const library = new CustomIconLibrary(
+			() => icons,
+			vi.fn(),
+			() => [],
+			() => ICON_STORAGE_LIMIT - 8,
+		);
+		expect(library.add("small.png", icon(8, "A")).existing).toBe(false);
+		expect(() => library.add("more.png", icon(4, "B"))).toThrow(/no room left/);
+	});
+
 	it("refuses icons over the per-icon limit (prepared icons never are)", () => {
 		const { library } = setup();
 		expect(() => library.add("x.png", icon(MAX_ICON_SIZE + 4))).toThrow(CustomIconError);

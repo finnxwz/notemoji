@@ -183,11 +183,11 @@ describe("IconStore.fromData", () => {
 describe("values of newer versions", () => {
 	it("are kept and moved like any icon, but can't be set here", () => {
 		const store = IconStore.fromData({
-			icons: { "A.md": "lucide:rocket", "B.md": "custom:../x" },
+			icons: { "A.md": "phosphor:rocket", "B.md": "custom:../x" },
 		});
-		assert.equal(store.get("A.md"), "lucide:rocket");
+		assert.equal(store.get("A.md"), "phosphor:rocket");
 		store.rename("A.md", "Moved.md");
-		assert.equal(store.get("Moved.md"), "lucide:rocket");
-		assert.equal(new IconStore().set("C.md", "lucide:rocket"), false);
+		assert.equal(store.get("Moved.md"), "phosphor:rocket");
+		assert.equal(new IconStore().set("C.md", "phosphor:rocket"), false);
 	});
 });

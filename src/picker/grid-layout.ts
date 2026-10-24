@@ -7,11 +7,11 @@
  * sections ("flat index").
  */
 
-export type GridItemKind = "emoji" | "custom" | "upload";
+export type GridItemKind = "emoji" | "custom" | "lucide" | "upload";
 
 export interface GridItem {
 	kind: GridItemKind;
-	/** What gets stored: an emoji or `custom:<file>`; "" for the upload tile. */
+	/** What gets stored: an emoji, `custom:<name>` or `lucide:<name>`; "" for the upload tile. */
 	value: string;
 	/** Shown in the footer, e.g. "rocket". */
 	name: string;

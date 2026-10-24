@@ -31,6 +31,8 @@ too: type, use the arrow keys, press Enter.
 
 Upload PNG, SVG, GIF, WebP, AVIF or JPG images, such as logos or project icons, right in the
 picker. They live in your own icon library, stay sharp on any screen and work just like emoji.
+The picker also has Obsidian's own icons, after the emoji: simple line icons in your theme's text
+colour, searchable by name (`arrow right`, `book`).
 
 ### Emoji styles and your own emoji font
 
@@ -54,6 +56,7 @@ right-click.
 | Change an emoji      | Right-click → _Change … emoji_, or click the large emoji above the note title (if shown)    |
 | Remove an emoji      | _Remove_ in the picker, right-click → _Remove … emoji_, or _Remove emoji from current note_ |
 | Use your own icon    | In the picker's _Custom icons_ section, click the upload tile and choose an image           |
+| Use an Obsidian icon | In the picker's _Obsidian icons_ section (after the emoji), or search for its name          |
 | Delete your own icon | Right-click (or long-press) it in the picker → _Delete custom icon_, or in the settings     |
 
 ## ⚙️ Settings
@@ -94,6 +97,8 @@ back; _Remove emoji of missing files_ cleans them up. Each device also keeps a c
 
 Yes, if your sync copies plugin settings (with Obsidian Sync: _Installed community plugins_).
 Custom icons are stored in the same `data.json`, so they always travel together with your emoji.
+Obsidian icons are saved there as a small copy, so they look the same on every device, also where
+Obsidian is older or newer and draws an icon differently or doesn't have it.
 Keep Notemoji up to date on all your devices. From version 2.0 on, an outdated version shows a
 notice and stops saving instead of overwriting newer data.
 
@@ -103,11 +108,12 @@ notice and stops saving instead of overwriting newer data.
 <summary><b>How many custom icons can I have? Why are some images refused?</b></summary>
 
 Custom icons can use up to 3 MB, room for at least 50 icons and usually many more; the settings
-show how much is used. The limit keeps `data.json` well below the 5 MB that Obsidian Sync
-(Standard plan) syncs per file. Images are scaled down to 512 pixels, sharp even on very dense
-screens, and SVGs stay vectors. Refused, with the reason shown: HEIC photos (convert them to JPG or
-PNG), files over 20 MB, SVGs over 45 KB, animated images over 512 pixels or 45 KB, and images with so
-much detail that they don't fit even at lower quality.
+show how much is used. The copies of Obsidian icons you use count too, at about 1 KB each. The
+limit keeps `data.json` well below the 5 MB that Obsidian Sync (Standard plan) syncs per file.
+Images are scaled down to 512 pixels, sharp even on very dense screens, and SVGs stay vectors.
+Refused, with the reason shown: HEIC photos (convert them to JPG or PNG), files over 20 MB, SVGs
+over 45 KB, animated images over 512 pixels or 45 KB, and images with so much detail that they
+don't fit even at lower quality.
 
 </details>
 
@@ -158,6 +164,7 @@ No, your emoji keep working as they are.
 <summary><b>Which emoji are in the picker?</b></summary>
 
 Everything up to Emoji 15.0, which every current system can display. Newer emoji can be pasted.
+After the emoji come Obsidian's own icons, as many as your version of Obsidian has.
 
 </details>
 
@@ -190,3 +197,4 @@ Emoji names and keywords come from [Emojibase](https://emojibase.dev) (MIT), bas
 [Mozilla](https://github.com/mozilla/twemoji-colr)),
 [Noto Color Emoji and Noto Emoji](https://github.com/googlefonts/noto-emoji) by Google (SIL Open
 Font License 1.1) and [OpenMoji](https://openmoji.org) by HfG Schwäbisch Gmünd (CC BY-SA 4.0).
+Obsidian icons are [Lucide](https://lucide.dev) icons (ISC), which come with Obsidian.

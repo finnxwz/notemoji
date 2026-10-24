@@ -1,6 +1,6 @@
 import { App, MarkdownView, TFile } from "obsidian";
 import type { NoteTitleMode } from "../data";
-import { IconSource, renderIcon, renderKey } from "./icon-source";
+import { IconSource, IconUrl, renderIcon, renderKey } from "./icon-source";
 
 const ICON_CLASS = "notemoji-title-icon";
 
@@ -77,7 +77,7 @@ export class NoteTitleIcons {
 		}
 		icon.dataset.path = file.path;
 		const button = icon.firstElementChild;
-		const url = (id: string) => this.source.url(id);
+		const url: IconUrl = (icon) => this.source.url(icon);
 		const key = renderKey(emoji, url);
 		if (button instanceof HTMLElement && icon.dataset.value !== key) {
 			renderIcon(button, emoji, url);

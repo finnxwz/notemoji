@@ -1,35 +1,46 @@
-import { parseIcon } from "../icons/icon-value";
+import { ImageIcon, parseIcon } from "../icons/icon-value";
 
-/** What every renderer needs: the icon of a path, and how to show custom icons. */
+/** What every renderer needs: the icon of a path, and how to show icons drawn as pictures. */
 export interface IconSource {
-	/** The stored icon of a vault path (emoji or `custom:<name>`), if any. */
+	/** The stored icon of a vault path (emoji, `custom:<name>` or `lucide:<name>`), if any. */
 	get(path: string): string | undefined;
-	/** URL of a custom icon's image; `undefined` when it is missing (deleted, or not synced yet). */
-	url(id: string): string | undefined;
+	/**
+	 * URL of the picture of a custom icon or an Obsidian icon; `undefined` when
+	 * it can't be shown (deleted, not synced yet, or unknown to this device).
+	 */
+	url(icon: ImageIcon): string | undefined;
 }
 
-/** Resolves a custom icon to its image URL. */
-export type IconUrl = (id: string) => string | undefined;
+/** Resolves a custom icon or an Obsidian icon to the URL of its picture. */
+export type IconUrl = (icon: ImageIcon) => string | undefined;
 
 /**
- * What a rendered icon depends on: its value, and for custom icons also the
- * image URL, which changes when sync replaces the icon or brings a missing
- * one. Renderers re-render only when this changes.
+ * What a rendered icon depends on: its value, and for pictures also their
+ * URL, which changes when sync replaces a custom icon, brings a missing one or
+ * a copy of an Obsidian icon. Renderers re-render only when this changes.
  */
 export function renderKey(value: string, url: IconUrl): string {
 	const icon = parseIcon(value);
-	return icon?.type === "custom" ? `${value}\n${url(icon.id) ?? ""}` : value;
+	return icon === undefined || icon.type === "emoji" ? value : `${value}\n${url(icon) ?? ""}`;
 }
 
-/** Shows an icon inside `el`: the emoji as text, or the custom image. */
+/** Shows an icon inside `el`: the emoji as text, a custom image, or an Obsidian icon. */
 export function renderIcon(el: HTMLElement, value: string, url: IconUrl): void {
 	const icon = parseIcon(value);
 	el.empty();
-	if (icon?.type !== "custom") {
+	if (icon === undefined || icon.type === "emoji") {
 		el.setText(icon?.emoji ?? "");
 		return;
 	}
-	const src = url(icon.id);
+	const src = url(icon);
+	if (icon.type === "lucide") {
+		// Its picture is a mask filled with the text colour, so it follows the
+		// theme (light or dark) like Obsidian's own icons do.
+		const maskEl = el.createSpan({ cls: "notemoji-mask" });
+		if (src === undefined) maskEl.addClass("is-missing");
+		else maskEl.setCssProps({ "--notemoji-image": `url(${JSON.stringify(src)})` });
+		return;
+	}
 	const img = el.createEl("img", {
 		cls: "notemoji-image",
 		attr: { alt: "", draggable: "false" },

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isCustomIconId, normalizeIcon, parseIcon, uniqueIconId } from "../../src/icons/icon-value";
+import {
+	isCustomIconId,
+	isFutureIconValue,
+	isLucideName,
+	normalizeIcon,
+	parseIcon,
+	uniqueIconId,
+} from "../../src/icons/icon-value";
 
 describe("parseIcon / normalizeIcon", () => {
 	it("reads emoji and custom icons", () => {
@@ -9,6 +16,16 @@ describe("parseIcon / normalizeIcon", () => {
 		expect(parseIcon("custom:rocket.svg")).toEqual({ type: "custom", id: "rocket.svg" });
 		expect(normalizeIcon(" 🚀 ")).toBe("🚀");
 		expect(normalizeIcon("custom:Logo 2")).toBe("custom:Logo 2");
+	});
+
+	it("reads Obsidian icons by their name", () => {
+		expect(parseIcon("lucide:star")).toEqual({ type: "lucide", name: "star" });
+		expect(parseIcon("lucide:arrow-up-right")).toEqual({
+			type: "lucide",
+			name: "arrow-up-right",
+		});
+		expect(parseIcon("lucide:dice-1")).toEqual({ type: "lucide", name: "dice-1" });
+		expect(normalizeIcon("lucide:a-arrow-down")).toBe("lucide:a-arrow-down");
 	});
 
 	it("rejects anything unusable", () => {
@@ -23,9 +40,50 @@ describe("parseIcon / normalizeIcon", () => {
 			"custom:.hidden",
 			"custom: padded ",
 			`custom:a${String.fromCodePoint(0x200b)}b`,
-			"lucide:rocket",
+			"lucide:",
+			"lucide:Star",
+			"lucide:arrow--right",
+			"lucide:-star",
+			"lucide:arrow_right",
+			"lucide: star",
+			`lucide:${"a".repeat(101)}`,
+			"phosphor:rocket",
 		]) {
 			expect(parseIcon(value), String(value)).toBeUndefined();
+		}
+	});
+});
+
+describe("isLucideName", () => {
+	it("accepts the names Obsidian lists", () => {
+		for (const name of ["star", "arrow-right", "a-arrow-down", "dice-1", "x".repeat(100)]) {
+			expect(isLucideName(name), name).toBe(true);
+		}
+		for (const name of [
+			"",
+			"Star",
+			"arrow_right",
+			"-star",
+			"star-",
+			"a--b",
+			"a b",
+			"x".repeat(101),
+		]) {
+			expect(isLucideName(name), name).toBe(false);
+		}
+	});
+});
+
+describe("isFutureIconValue", () => {
+	it("keeps values of another icon source or in a form this version doesn't know", () => {
+		for (const value of ["phosphor:rocket", "lucide:Rocket", "custom:a/b", "lucide2:star"]) {
+			expect(isFutureIconValue(value), value).toBe(true);
+		}
+	});
+
+	it("but not values this version can show, or garbage", () => {
+		for (const value of ["lucide:star", "custom:logo", "🚀", "hello", "Lucide:star", 4]) {
+			expect(isFutureIconValue(value), String(value)).toBe(false);
 		}
 	});
 });

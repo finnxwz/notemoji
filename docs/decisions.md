@@ -36,8 +36,8 @@ ideas are listed so they are not proposed again without a new reason.
     simple and predictable: renames inside Obsidian move the emoji, outside ones lose it.
 - **Deletes never touch `data.json`.** With sync, a delete can be half of a rename on another
   device. No pruning at startup; a manual _Remove emoji of missing files_ button instead.
-- **Stored values:** an emoji as-is (`"🚀"`) or `custom:<name>` (a custom icon in `data.json`).
-  Prefixes are reserved for future icon sources.
+- **Stored values:** an emoji as-is (`"🚀"`), `custom:<name>` (a custom icon in `data.json`) or
+  `lucide:<name>` (one of Obsidian's icons). Other prefixes are reserved for future icon sources.
 - **`data.json` is versioned (v2)** and always read leniently: older files (1.x) keep working.
   It remembers what is on disk; anything in memory that differs is a change not saved yet, and
   when sync changed the file meanwhile, those changes are combined with it entry by entry,
@@ -47,10 +47,10 @@ ideas are listed so they are not proposed again without a new reason.
   follows). See `src/data-file.ts`.
 - **Compatible in both directions.** Changes to `data.json` only add entries. Everything a
   version doesn't understand (top-level entries, settings or values, custom icon formats,
-  `prefix:` icon values) is kept and written back, so an older version never drops a newer
-  one's data. The version number goes up only for a change older versions can't handle; they
-  then show a notice and stop saving instead of damaging the file. Icons kept for a newer
-  version are never counted as missing or deleted with _Delete all_.
+  copies of other icon sources, `prefix:` icon values) is kept and written back, so an older
+  version never drops a newer one's data. The version number goes up only for a change older
+  versions can't handle; they then show a notice and stop saving instead of damaging the file.
+  Icons kept for a newer version are never counted as missing or deleted with _Delete all_.
 - **Repairing after 1.x.** Released 1.x keeps only the emoji when it saves (no settings, recent,
   custom icons or `custom:` values, trimmed paths) and never reloads. When a device that wasn't
   updated yet saves over the file, the others put back what it dropped: from memory when
@@ -74,7 +74,7 @@ ideas are listed so they are not proposed again without a new reason.
 ## Picker
 
 - Centred modal (also on mobile) with search, category tabs, recently used (24, stored in
-  `data.json`, so shared across devices), custom icons and a _Remove_ button.
+  `data.json`, so shared across devices), custom icons, Obsidian icons and a _Remove_ button.
 - Search: English names, keywords and shortcodes. Pasting any emoji or symbol works, also ones
   not in the list; pasted emoji are stored as the list writes them (`❤` → `❤️`). Typed keyboard
   text is a search: `+1` and `<3` find 👍 and ❤️; a lone keyboard symbol (`$`) is offered after
@@ -148,6 +148,36 @@ ideas are listed so they are not proposed again without a new reason.
 - Own font file: no size limit, a confirmation above 50 MB.
 - Settings tab icon: a colourful 😀 (`SettingTab.icon`, Obsidian 1.11+, ignored before).
 
+## Obsidian icons
+
+- **Obsidian's own icons (Lucide, ISC) are a third icon source,** stored as `lucide:<name>` (the
+  id from `getIconIds()` without `lucide-`). The picker lists the icons of the running Obsidian,
+  not a bundled list, so Notemoji stays small and always offers what Obsidian has.
+- **A copy of each icon in use lives in `data.json`** (`libraryIcons`, by value, the SVG as plain
+  text), and every device draws that copy. Devices run different Obsidian versions (1.7.2 ships
+  Lucide 0.446 or so; 1.13 ships Lucide 1.x with renamed icons and without brand icons), so the
+  same name can be missing or look different elsewhere.
+  - _Rejected:_ the name alone (icons would differ or vanish between devices); bundling Lucide
+    (size, and a second copy of what Obsidian already has).
+- **Copies follow the icons in use:** added when an icon is picked; after loading and after every
+  reload from sync, unused copies are dropped and missing ones added where this device can draw
+  the icon. A copy is never replaced, so two devices with different Obsidian versions don't keep
+  swapping their drawings. Saved only when something changed, never while the backup stands in
+  for `data.json`. Icons used anywhere in data of a newer version count as used, so an older
+  version never drops copies a newer one relies on.
+- **Shown as a CSS mask filled with the text colour,** so they follow light and dark themes like
+  Obsidian's own icons, through a `blob:` URL (the copy is synced data and never inserted as
+  markup). Without a copy, this device's own drawing is shown; without either, the space stays
+  empty, like a missing custom icon.
+- **They share the 3 MB of custom icons.** A copy takes about 1 KB, so a pick never fails for
+  lack of room; the storage in the settings counts them, without listing them one by one.
+- **In the picker:** a section _Obsidian icons_ after all emoji categories (people who use emoji
+  only never scroll past them), its tab showing a Lucide icon. Tiles are drawn by Obsidian
+  (`setIcon`) as they scroll into view, fast enough without sprite sheets. Search matches the
+  start of the words of a name (`arrow r` finds `arrow-right`), after emoji and custom icons; the
+  footer names the icon in plain words. Picked icons enter the recently used list like emoji.
+  - _Not offered:_ a colour of their own (they take the text colour) or a context menu.
+
 ## Compatibility and tooling
 
 - Version 2.0.0 for the rework (new data format; update every device).
@@ -161,5 +191,5 @@ ideas are listed so they are not proposed again without a new reason.
 
 ## Open
 
-- Possible later: icons in bookmarks, links, search results and the quick switcher; icon
-  libraries such as Lucide; search in more languages; a command to move emoji out of file names.
+- Possible later: icons in bookmarks, links, search results and the quick switcher; search in
+  more languages; a command to move emoji out of file names.

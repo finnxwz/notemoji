@@ -3,6 +3,8 @@ import { flush } from "./fake-app";
 import {
 	ButtonComponent,
 	DropdownComponent,
+	getIcon,
+	lineIcons,
 	MarkdownView,
 	network,
 	notices,
@@ -14,6 +16,7 @@ import {
 	WorkspaceLeaf,
 } from "./obsidian";
 import { canvasCodec } from "../src/icons/canvas-codec";
+import { svgMarkup } from "../src/icons/library-icons";
 import { encodeBase64 } from "../src/icons/image-format";
 import { ICONS_MARKER } from "../src/data";
 import { findEmojiSet } from "../src/style/emoji-sets";
@@ -105,6 +108,7 @@ describe("commands", () => {
 			},
 			icons: { "Notes/A.md": "🚀" },
 			recent: ["🚀"],
+			libraryIcons: {},
 			customIcons: {},
 		});
 	});
@@ -836,6 +840,201 @@ describe("custom icons", () => {
 			expect(button("Storage", "Delete all").disabled).toBe(true);
 			expect(setting("Missing icons")).toBeUndefined();
 		});
+	});
+});
+
+describe("Obsidian icons", () => {
+	/** This device's copy of an icon, as stored in data.json. */
+	const drawn = (name: string) => svgMarkup(getIcon(`lucide-${name}`)!);
+	/** A copy made with another Obsidian version: same name, other drawing. */
+	const other = (name: string) =>
+		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><title>${name}</title></svg>`;
+
+	let created: Blob[];
+	let revoked: MockInstance<(url: string) => void>;
+
+	beforeEach(() => {
+		created = [];
+		vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+			created.push(blob as Blob);
+			return `blob:icon-${created.length}`;
+		});
+		revoked = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+	});
+
+	afterEach(() => {
+		vi.restoreAllMocks();
+		lineIcons.delete("rocket");
+	});
+
+	it("stores a picked icon with a copy of it, and remembers it as recently used", async () => {
+		const harness = await loadPlugin();
+		harness.fileMenu("A.md").item("Set note emoji").click();
+		picker().options.onSubmit("lucide:star");
+		await flush();
+		const saved = harness.lastSaved()!;
+		expect(saved.icons).toEqual({ "A.md": "lucide:star" });
+		expect(saved.recent).toEqual(["lucide:star"]);
+		expect(saved.libraryIcons).toEqual({ "lucide:star": drawn("star") });
+		expect(harness.fake.saved).toHaveLength(1);
+	});
+
+	it("never replaces a copy, so devices with other Obsidian versions don't swap them", async () => {
+		const harness = await loadPlugin({
+			data: {
+				version: 2,
+				icons: { "A.md": "lucide:star" },
+				libraryIcons: { "lucide:star": other("star") },
+			},
+		});
+		expect(harness.fake.saved).toEqual([]);
+		harness.fileMenu("B.md").item("Set note emoji").click();
+		picker().options.onSubmit("lucide:star");
+		await flush();
+		expect(harness.lastSaved()?.libraryIcons).toEqual({ "lucide:star": other("star") });
+	});
+
+	it("drops unused copies and adds missing ones after loading", async () => {
+		const harness = await loadPlugin({
+			data: {
+				version: 2,
+				icons: { "A.md": "lucide:star" },
+				recent: ["lucide:arrow-right"],
+				libraryIcons: { "lucide:shapes": other("shapes") },
+			},
+		});
+		expect(harness.fake.saved).toHaveLength(1);
+		expect(harness.lastSaved()?.libraryIcons).toEqual({
+			"lucide:star": drawn("star"),
+			"lucide:arrow-right": drawn("arrow-right"),
+		});
+	});
+
+	it("keeps copies this device can't make, and those of a newer version", async () => {
+		const harness = await loadPlugin({
+			data: {
+				version: 2,
+				icons: { "A.md": "lucide:rocket", "B.md": "lucide:sparkles" },
+				// Used by a newer version in a place this one doesn't know.
+				bookmarks: { "C.md": "lucide:star" },
+				libraryIcons: {
+					"lucide:rocket": other("rocket"),
+					"lucide:star": other("star"),
+					"phosphor:star": "<svg/>",
+				},
+			},
+		});
+		// Nothing to add (this Obsidian has no sparkles) and nothing to drop.
+		expect(harness.fake.saved).toEqual([]);
+		expect(harness.plugin.libraryIcons.url("rocket")).toMatch(/^blob:/);
+		expect(await created.at(-1)!.text()).toBe(other("rocket"));
+		expect(harness.plugin.libraryIcons.url("sparkles")).toBeUndefined();
+	});
+
+	it("keeps the copies in step with changes synced from other devices", async () => {
+		const harness = await loadPlugin({
+			data: {
+				version: 2,
+				icons: { "A.md": "lucide:star" },
+				libraryIcons: { "lucide:star": other("star") },
+			},
+		});
+		const url = harness.plugin.libraryIcons.url("star");
+
+		// Another device replaced the icon, and (with an older build) brought no copy.
+		harness.fake.dataJson = { version: 2, icons: { "A.md": "lucide:arrow-right" } };
+		await harness.plugin.onExternalSettingsChange();
+		await flush();
+		expect(harness.lastSaved()?.libraryIcons).toEqual({
+			"lucide:arrow-right": drawn("arrow-right"),
+		});
+		expect(revoked).toHaveBeenCalledWith(url);
+
+		// A copy that sync brings is used as it is.
+		const saves = harness.fake.saved.length;
+		harness.fake.dataJson = {
+			version: 2,
+			icons: { "A.md": "lucide:rocket" },
+			libraryIcons: { "lucide:rocket": other("rocket") },
+		};
+		await harness.plugin.onExternalSettingsChange();
+		await flush();
+		expect(harness.fake.saved).toHaveLength(saves);
+		harness.plugin.libraryIcons.url("rocket");
+		expect(await created.at(-1)!.text()).toBe(other("rocket"));
+	});
+
+	it("changes nothing while the backup is shown in place of data.json, and catches up once it is there", async () => {
+		const backup = JSON.stringify({
+			version: 2,
+			icons: { [ICONS_MARKER]: "", "A.md": "lucide:star" },
+			libraryIcons: { "lucide:shapes": other("shapes") },
+		});
+		// data.json is not downloaded yet: the backup is shown, and nothing is saved.
+		const harness = await loadPluginWith(await loadPlugin(), null, backup);
+		expect(harness.plugin.icons.get("A.md")).toBe("lucide:star");
+		expect(harness.fake.saved).toEqual([]);
+
+		harness.fake.dataJson = { version: 2, icons: { "A.md": "lucide:star" } };
+		await harness.plugin.onExternalSettingsChange();
+		await flush();
+		expect(harness.lastSaved()?.libraryIcons).toEqual({ "lucide:star": drawn("star") });
+	});
+
+	it("shows the copy at the note title, in the text colour", async () => {
+		lineIcons.set("rocket", '<path d="M4 20 20 4"/>');
+		const harness = await loadPlugin({
+			data: {
+				version: 2,
+				settings: { noteTitle: "above" },
+				icons: { "A.md": "lucide:rocket" },
+				libraryIcons: { "lucide:rocket": other("rocket") },
+			},
+		});
+		const leaf = new WorkspaceLeaf(harness.app.asApp);
+		leaf.root = harness.app.workspace.rootSplit;
+		const view = new MarkdownView(leaf);
+		view.file = harness.app.vault.add("A.md") as TFile;
+		leaf.view = view;
+		document.body.appendChild(view.containerEl);
+		const titleEl = view.containerEl.createDiv({ cls: "inline-title", text: "A" });
+		harness.app.workspace.leaves.push(leaf);
+
+		harness.app.workspace.trigger("layout-change");
+		await flush(50);
+		const mask = titleEl.previousElementSibling?.querySelector<HTMLElement>(".notemoji-mask");
+		const url = /url\("(.*)"\)/.exec(
+			mask?.style.getPropertyValue("--notemoji-image") ?? "",
+		)?.[1];
+		const blob = created[Number(url?.slice("blob:icon-".length)) - 1];
+		// The copy, not this device's own drawing of the same name.
+		expect(await blob.text()).toBe(other("rocket"));
+
+		harness.unload();
+		expect(revoked).toHaveBeenCalledWith(url);
+	});
+
+	it("counts the copies in the custom icons' storage", async () => {
+		const harness = await loadPlugin({
+			data: {
+				version: 2,
+				icons: { "A.md": "lucide:star", "B.md": "custom:logo" },
+				libraryIcons: { "lucide:star": drawn("star") },
+				customIcons: { logo: { type: "image/svg+xml", data: "PHN2Zz4=" } },
+			},
+		});
+		settingsCreated.length = 0;
+		harness.fake.settingTabs[0].display();
+		const storage = settingsCreated.find((entry) => entry.nameEl.textContent === "Storage")!;
+		const bytes = drawn("star").length + 8;
+		expect(storage.descEl.textContent).toContain(
+			`${bytes} B of 3 MB used by 2 icons, including 1 Obsidian icon.`,
+		);
+		expect(storage.descEl.textContent).toContain("saved as a small copy");
+		// Only the custom icon is listed.
+		expect(
+			settingsCreated.filter((entry) => entry.settingEl.hasClass("notemoji-icon-row")),
+		).toHaveLength(1);
 	});
 });
 

@@ -100,6 +100,11 @@ body {
 	border-block-end-color: var(--interactive-accent);
 }
 
+/* The Obsidian icons tab shows one of Obsidian's icons, as large as the emoji next to it. */
+.notemoji-picker-tab .svg-icon {
+	--icon-size: 1em;
+}
+
 .notemoji-picker-grid-wrap {
 	position: relative;
 }
@@ -214,6 +219,11 @@ body {
 	border-color: var(--interactive-accent);
 }
 
+/* Obsidian's icons, drawn by Obsidian, as large as the emoji. */
+.notemoji-picker-emoji.is-lucide .svg-icon {
+	--icon-size: 1em;
+}
+
 .notemoji-picker-empty {
 	display: none;
 	padding: var(--size-4-8) var(--size-4-4);
@@ -238,6 +248,11 @@ body {
 	font-family: var(--notemoji-font);
 	font-size: 1.8em;
 	line-height: 1;
+}
+
+.notemoji-picker-footer-emoji .svg-icon {
+	display: block;
+	--icon-size: 1em;
 }
 
 .notemoji-picker-footer-name {
@@ -294,7 +309,11 @@ body:not(.show-inline-title) .notemoji-title-icon {
 }
 
 /* ---------------------------------------------------------------------------
-   Custom icons (images)
+   Pictures: custom icons (images) and Obsidian icons
+
+   An Obsidian icon (its copy in data.json, or Obsidian's own drawing) is a
+   mask filled with the text colour, so it follows the theme like Obsidian's
+   own icons. The -webkit- names are for Obsidian on iPhone and iPad.
    --------------------------------------------------------------------------- */
 
 .notemoji-image {
@@ -304,8 +323,24 @@ body:not(.show-inline-title) .notemoji-title-icon {
 	object-fit: contain;
 }
 
-/* A file missing on this device (e.g. not synced yet) shows nothing. */
-.notemoji-image.is-missing {
+.notemoji-mask {
+	display: block;
+	width: 1em;
+	height: 1em;
+	background-color: currentColor;
+	-webkit-mask-image: var(--notemoji-image);
+	mask-image: var(--notemoji-image);
+	-webkit-mask-position: center;
+	mask-position: center;
+	-webkit-mask-size: contain;
+	mask-size: contain;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+}
+
+/* An icon missing on this device (e.g. not synced yet) shows nothing. */
+.notemoji-image.is-missing,
+.notemoji-mask.is-missing {
 	visibility: hidden;
 }
 
@@ -319,6 +354,21 @@ body:not(.show-inline-title) .notemoji-title-icon {
 	margin-inline-end: 0.3em;
 	vertical-align: -0.125em;
 	background: var(--notemoji-image) center / contain no-repeat;
+}
+
+/* Only set with a picture: without one, the mask would fill the space with colour. */
+.inline-title[data-notemoji-mask]::before,
+.workspace-tab-header-inner-title[data-notemoji-mask]::before,
+.view-header-title[data-notemoji-mask]::before {
+	background: currentColor;
+	-webkit-mask-image: var(--notemoji-image);
+	mask-image: var(--notemoji-image);
+	-webkit-mask-position: center;
+	mask-position: center;
+	-webkit-mask-size: contain;
+	mask-size: contain;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
 }
 
 /* Emoji style: an emoji font chosen in the settings, with the system's emoji as fallback. */

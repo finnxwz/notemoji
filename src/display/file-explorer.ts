@@ -1,7 +1,7 @@
 import type { App } from "obsidian";
 import type { FileExplorerView } from "../internals";
 import { renderIcon, renderKey } from "./icon-source";
-import type { IconSource } from "./icon-source";
+import type { IconSource, IconUrl } from "./icon-source";
 
 /** What the explorer needs on top of `IconSource`: every path that has an icon. */
 export interface ExplorerSource extends IconSource {
@@ -170,7 +170,7 @@ export class FileExplorerRenderer {
 
 	/** Adds or updates the emoji node of a single file explorer item. */
 	private applyIcon(titleEl: HTMLElement, innerEl: HTMLElement | null, value: string): void {
-		const url = (id: string) => this.source.url(id);
+		const url: IconUrl = (icon) => this.source.url(icon);
 		const key = renderKey(value, url);
 		const existing = this.findIconNode(titleEl);
 		if (existing) {

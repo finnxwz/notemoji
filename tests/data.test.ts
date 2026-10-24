@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
+/** Copies of Obsidian icons as stored in data.json. */
+const STAR =
+	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2l3 7h7z"/></svg>';
+const ARROW =
+	'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>';
+
 import {
 	DATA_VERSION,
 	DEFAULT_SETTINGS,
 	ICONS_MARKER,
+	libraryIconsInUse,
 	MAX_RECENT,
 	mergeChanges,
 	parseData,
@@ -19,6 +26,7 @@ describe("parseData", () => {
 			expect(data.icons.size).toBe(0);
 			expect(data.recent).toEqual([]);
 			expect(data.customIcons.size).toBe(0);
+			expect(data.libraryIcons.size).toBe(0);
 		}
 	});
 
@@ -66,8 +74,9 @@ describe("parseData", () => {
 	it("round-trips", () => {
 		const original = parseData({
 			settings: { noteTitle: "off", showInTabs: true, showInViewHeader: false },
-			icons: { Folder: "📁", "A.md": "custom:logo" },
-			recent: ["🎉", "custom:logo"],
+			icons: { Folder: "📁", "A.md": "custom:logo", "B.md": "lucide:star" },
+			recent: ["🎉", "custom:logo", "lucide:star"],
+			libraryIcons: { "lucide:star": STAR },
 			customIcons: { logo: { type: "image/webp", data: "UklGRg==" } },
 		});
 		const saved = serializeData(original);
@@ -76,11 +85,34 @@ describe("parseData", () => {
 		expect(JSON.parse(JSON.stringify(saved))).toEqual(saved);
 	});
 
-	it("keeps the custom icons, the large part, at the end of the file", () => {
+	it("keeps the icons, the large part, at the end of the file", () => {
 		const saved = serializeData(
-			parseData({ customIcons: { a: { type: "image/png", data: "AAAA" } } }),
+			parseData({
+				customIcons: { a: { type: "image/png", data: "AAAA" } },
+				libraryIcons: { "lucide:star": STAR },
+			}),
 		);
-		expect(Object.keys(saved).at(-1)).toBe("customIcons");
+		expect(Object.keys(saved).slice(-2)).toEqual(["libraryIcons", "customIcons"]);
+	});
+
+	it("reads copies of Obsidian icons and keeps the ones it can't use", () => {
+		const raw = {
+			version: 2,
+			icons: { [ICONS_MARKER]: "", "A.md": "lucide:star" },
+			libraryIcons: {
+				"lucide:star": STAR,
+				"phosphor:star": "<svg/>",
+				"lucide:arrow-right": { type: "image/svg+xml", data: "PHN2Zz4=" },
+			},
+		};
+		const data = parseData(raw);
+		expect(data.source).toBe("current");
+		expect(Object.fromEntries(data.libraryIcons)).toEqual({ "lucide:star": STAR });
+		expect(Object.keys(data.unknown.libraryIcons)).toEqual([
+			"phosphor:star",
+			"lucide:arrow-right",
+		]);
+		expect(JSON.parse(JSON.stringify(serializeData(data)))).toMatchObject(raw);
 	});
 
 	it("keeps icons named like object properties", () => {
@@ -104,6 +136,7 @@ describe("compatibility with other versions", () => {
 		// Obsidian Sync merged a 2.x file with the emoji of a 1.x copy (no marker).
 		expect(parseData({ version: 2, icons: { A: "🚀" }, customIcons: {} }).source).toBe("old");
 		expect(parseData({ settings: {}, icons: {} }).source).toBe("current");
+		expect(parseData({ libraryIcons: {} }).source).toBe("current");
 		expect(parseData({ version: 3, icons: {} }).source).toBe("newer");
 	});
 
@@ -111,8 +144,8 @@ describe("compatibility with other versions", () => {
 		const raw = {
 			version: 2,
 			settings: { noteTitle: "inline", emojiStyle: "fluent", iconSize: "large" },
-			icons: { "A.md": "lucide:rocket", "B.md": "🚀" },
-			recent: ["lucide:rocket", "🚀"],
+			icons: { "A.md": "phosphor:rocket", "B.md": "🚀" },
+			recent: ["phosphor:rocket", "🚀"],
 			customIcons: {
 				logo: { type: "image/png", data: "AAAA" },
 				photo: { type: "image/avif", data: "AAAA", width: 512 },
@@ -173,6 +206,30 @@ describe("compatibility with other versions", () => {
 		expect(repaired.icons.toRecord()).toEqual({ X: "custom:logo", " Spaced.md": "🌵" });
 	});
 
+	it("puts back the Obsidian icons and their copies that 1.x dropped", () => {
+		const known = parseData({
+			version: 2,
+			icons: { [ICONS_MARKER]: "", "A.md": "lucide:star", "B.md": "🚀" },
+			recent: ["lucide:star"],
+			libraryIcons: { "lucide:star": STAR, "phosphor:star": "<svg/>" },
+		});
+		const old = { version: 1, icons: { "A.md": "🎉", "B.md": "🌱" } };
+		const repaired = repairAfterOldVersion(old, known);
+		// An outdated 1.x copy can't replace an Obsidian icon either.
+		expect(repaired.icons.toRecord()).toEqual({ "A.md": "lucide:star", "B.md": "🌱" });
+		expect(Object.fromEntries(repaired.libraryIcons)).toEqual({ "lucide:star": STAR });
+		expect(serializeData(repaired).libraryIcons).toEqual({
+			"phosphor:star": "<svg/>",
+			"lucide:star": STAR,
+		});
+
+		// Copies that Obsidian Sync merged in from a 2.x copy are used.
+		const merged = { ...old, libraryIcons: { "lucide:star": ARROW } };
+		const fromFile = repairAfterOldVersion(merged, known);
+		expect(Object.fromEntries(fromFile.libraryIcons)).toEqual({ "lucide:star": ARROW });
+		expect(fromFile.unknown.libraryIcons).toEqual({});
+	});
+
 	it("uses newer sections that Obsidian Sync merged into a 1.x file", () => {
 		const known = parseData({
 			version: 2,
@@ -200,7 +257,7 @@ describe("compatibility with other versions", () => {
 
 	it("keeps entries named like object properties in every kept section", () => {
 		const raw = JSON.parse(
-			'{"version":2,"icons":{},"__proto__":1,"settings":{"__proto__":2},"customIcons":{"__proto__":{"type":"x"}}}',
+			'{"version":2,"icons":{},"__proto__":1,"settings":{"__proto__":2},"customIcons":{"__proto__":{"type":"x"}},"libraryIcons":{"__proto__":"<svg/>"}}',
 		) as unknown;
 		const saved = JSON.parse(JSON.stringify(serializeData(parseData(raw)))) as Record<
 			string,
@@ -209,6 +266,7 @@ describe("compatibility with other versions", () => {
 		expect(Object.keys(saved)).toContain("__proto__");
 		expect(Object.keys(saved.settings)).toContain("__proto__");
 		expect(Object.keys(saved.customIcons)).toEqual(["__proto__"]);
+		expect(Object.keys(saved.libraryIcons)).toEqual(["__proto__"]);
 	});
 
 	it("combines changes made during a reload with the reloaded file", () => {
@@ -233,6 +291,32 @@ describe("compatibility with other versions", () => {
 		expect(merged.settings).toMatchObject({ showInTabs: false, noteTitle: "above" });
 	});
 
+	it("combines copies of Obsidian icons entry by entry", () => {
+		const base = serializeData(
+			parseData({ version: 2, libraryIcons: { "lucide:star": STAR, "lucide:x": STAR } }),
+		);
+		// Here: the copy of x dropped, one of arrow-right added.
+		const local = serializeData(
+			parseData({
+				version: 2,
+				libraryIcons: { "lucide:star": STAR, "lucide:arrow-right": ARROW },
+			}),
+		);
+		// The file: a copy of shapes added on another device.
+		const remote = serializeData(
+			parseData({
+				version: 2,
+				libraryIcons: { "lucide:star": STAR, "lucide:x": STAR, "lucide:shapes": ARROW },
+			}),
+		);
+		const merged = parseData(mergeChanges(base, local, remote));
+		expect(Object.fromEntries(merged.libraryIcons)).toEqual({
+			"lucide:star": STAR,
+			"lucide:shapes": ARROW,
+			"lucide:arrow-right": ARROW,
+		});
+	});
+
 	it("keeps paths exactly, also with spaces at the ends or named like object properties", () => {
 		const raw = JSON.parse(
 			'{"version":2,"icons":{" Leading.md":"🚀","Trailing ":"📁","__proto__":"🎉"}}',
@@ -247,6 +331,37 @@ describe("compatibility with other versions", () => {
 			" Leading.md",
 			"Trailing ",
 			"__proto__",
+		]);
+	});
+});
+
+describe("libraryIconsInUse", () => {
+	it("finds the Obsidian icons of items and of the recent list", () => {
+		const data = parseData({
+			icons: {
+				"A.md": "lucide:star",
+				"B.md": "🚀",
+				"C.md": "custom:logo",
+				"D.md": "lucide:star",
+			},
+			recent: ["lucide:arrow-right", "🎉", "phosphor:star"],
+			libraryIcons: { "lucide:shapes": STAR },
+		});
+		expect([...libraryIconsInUse(data)].sort()).toEqual(["lucide:arrow-right", "lucide:star"]);
+	});
+
+	it("also those a newer version uses in places this version doesn't know", () => {
+		const data = parseData({
+			version: 2,
+			settings: { folderIcon: "lucide:folder", iconSize: 2 },
+			icons: {},
+			bookmarks: { "C.md": ["lucide:bookmark", { nested: { deeper: "lucide:house" } }] },
+			links: "lucide:Bad Name",
+		});
+		expect([...libraryIconsInUse(data)].sort()).toEqual([
+			"lucide:bookmark",
+			"lucide:folder",
+			"lucide:house",
 		]);
 	});
 });

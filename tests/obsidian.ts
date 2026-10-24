@@ -123,19 +123,43 @@ export function addIcon(iconId: string, svgContent: string): void {
 	customIcons.set(iconId, svgContent);
 }
 
-/** Stand-in for Obsidian's Lucide icons: a span naming the icon (shown as "+" in the demo). */
-/** SVG contents of line icons by id; the showcase scene fills it so buttons look real. */
-export const lineIcons = new Map<string, string>();
+/**
+ * Obsidian's own (Lucide) icons by name: their SVG contents. Like a real
+ * Obsidian version, it has some icons and lacks others; tests add or remove
+ * names, and the showcase scene adds the ones Notemoji's buttons use.
+ */
+export const lineIcons = new Map<string, string>([
+	["star", '<path d="M12 2l3 7h7l-5.5 4.5 2 7.5-6.5-4.5-6.5 4.5 2-7.5L2 9h7z"/>'],
+	["arrow-right", '<path d="M5 12h14M12 5l7 7-7 7"/>'],
+	["arrow-left", '<path d="M19 12H5M12 19l-7-7 7-7"/>'],
+	["arrow-up-right", '<path d="M7 17 17 7M7 7h10v10"/>'],
+	["shapes", '<circle cx="7" cy="7" r="4"/><rect x="13" y="13" width="8" height="8"/>'],
+]);
 
+/** Ids of every registered icon: Obsidian's own (`lucide-…`) and those added with addIcon. */
+export function getIconIds(): string[] {
+	return [...[...lineIcons.keys()].map((name) => `lucide-${name}`), ...customIcons.keys()];
+}
+
+/** A new SVG element of an icon, as Obsidian draws it; null for an unknown id. */
+export function getIcon(iconId: string): SVGSVGElement | null {
+	const name = iconId.replace(/^lucide-/, "");
+	const drawing = lineIcons.get(name) ?? customIcons.get(iconId);
+	if (drawing === undefined) return null;
+	const svg =
+		'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" ' +
+		'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ' +
+		`class="svg-icon ${iconId}">${drawing}</svg>`;
+	const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+	return document.importNode(doc.documentElement, true) as unknown as SVGSVGElement;
+}
+
+/** Draws an icon into `parent`; an unknown one shows as "+" (a stand-in in the showcase). */
 export function setIcon(parent: HTMLElement, iconId: string): void {
 	parent.empty();
-	const drawing = lineIcons.get(iconId);
-	if (!drawing) {
-		parent.createSpan({ cls: "svg-icon", text: "+", attr: { "data-icon": iconId } });
-		return;
-	}
-	const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="svg-icon" data-icon="${iconId}">${drawing}</svg>`;
-	parent.append(new DOMParser().parseFromString(svg, "image/svg+xml").documentElement);
+	const svg = getIcon(iconId);
+	if (svg) parent.append(svg);
+	else parent.createSpan({ cls: "svg-icon", text: "+", attr: { "data-icon": iconId } });
 }
 
 export function normalizePath(path: string): string {

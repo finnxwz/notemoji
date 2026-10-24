@@ -23,6 +23,16 @@ function fakeCustom(initial: string[] = []) {
 	};
 }
 
+/** Obsidian's icons on this device, and the copies in data.json (by name → URL). */
+function fakeLibrary(names = ["arrow-left", "arrow-right", "arrow-up-right", "shapes", "star"]) {
+	const copies = new Map<string, string>();
+	return {
+		copies,
+		list: () => names,
+		storedUrl: (name: string) => copies.get(name),
+	};
+}
+
 async function open(options: Partial<PickerOptions> = {}) {
 	const onSubmit = vi.fn();
 	const custom = (options.custom as ReturnType<typeof fakeCustom> | undefined) ?? fakeCustom();
@@ -31,6 +41,7 @@ async function open(options: Partial<PickerOptions> = {}) {
 		description: "Website.md",
 		current: "",
 		recent: [],
+		library: fakeLibrary(),
 		onSubmit,
 		...options,
 		custom,
@@ -109,6 +120,7 @@ describe("browsing", () => {
 			"objects",
 			"symbols",
 			"flags",
+			"lucide",
 		]);
 		expect(picker.query(".notemoji-picker-remove")).toBeNull();
 	});
@@ -435,6 +447,101 @@ describe("custom icons", () => {
 	});
 });
 
+describe("Obsidian icons", () => {
+	/** A rendered tile showing Obsidian's own drawing of an icon. */
+	const drawnTile = (picker: Awaited<ReturnType<typeof open>>, name: string) =>
+		picker.tiles().find((el) => el.querySelector(`svg.lucide-${name}`));
+
+	it("come after every emoji, with a tab showing one of them", async () => {
+		const picker = await open();
+		const tab = picker.tabs().at(-1)!;
+		expect(tab.dataset.section).toBe("lucide");
+		expect(tab.getAttribute("aria-label")).toBe("Obsidian icons");
+		expect(tab.querySelector("svg.lucide-shapes")).not.toBeNull();
+		expect(drawnTile(picker, "star")).toBeUndefined();
+
+		tab.click();
+		expect(picker.body().scrollTop).toBeGreaterThan(1000);
+		const tile = drawnTile(picker, "arrow-right")!;
+		expect(tile.hasClass("is-lucide")).toBe(true);
+		tile.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+		expect(picker.footer()).toBe("Arrow right");
+		expect(picker.query(".notemoji-picker-footer-emoji svg.lucide-arrow-right")).not.toBeNull();
+		tile.click();
+		expect(picker.onSubmit).toHaveBeenCalledWith("lucide:arrow-right");
+	});
+
+	it("are left out where Obsidian has none", async () => {
+		const picker = await open({ library: fakeLibrary([]) });
+		expect(picker.tabs().map((tab) => tab.dataset.section)).not.toContain("lucide");
+		picker.type("shapes");
+		expect(picker.tiles()).toHaveLength(0);
+	});
+
+	it("are found by name after the emoji, and picked with Enter", async () => {
+		const picker = await open();
+		picker.type("arrow r");
+		const tiles = picker.tiles();
+		const first = tiles.findIndex((el) => el.hasClass("is-lucide"));
+		expect(first).toBeGreaterThan(0);
+		expect(tiles.slice(first).every((el) => el.hasClass("is-lucide"))).toBe(true);
+		expect(tiles[first].querySelector("svg.lucide-arrow-right")).not.toBeNull();
+
+		picker.type("shapes");
+		expect(picker.tiles()).toHaveLength(1);
+		expect(picker.footer()).toBe("Shapes");
+		picker.press("Enter");
+		expect(picker.onSubmit).toHaveBeenCalledWith("lucide:shapes");
+	});
+
+	it("are reached with the arrow keys like emoji", async () => {
+		const picker = await open();
+		picker.type("star");
+		// To the last row, then to its end: the Obsidian icon after the emoji.
+		for (let i = 0; i < 5; i++) picker.press("ArrowDown");
+		for (let i = 0; i < 20; i++) picker.press("ArrowRight");
+		expect(picker.footer()).toBe("Star");
+		picker.press("Enter");
+		expect(picker.onSubmit).toHaveBeenCalledWith("lucide:star");
+	});
+
+	it("show their copy when recently used, or else this device's drawing", async () => {
+		const library = fakeLibrary(["arrow-right", "star"]);
+		library.copies.set("shapes", "blob:shapes");
+		library.copies.set("star", "blob:star");
+		const picker = await open({
+			library,
+			recent: ["lucide:shapes", "lucide:arrow-right", "lucide:star", "lucide:rocket", "🎉"],
+		});
+		const recent = picker.tiles().slice(0, 4);
+		// Copied on another device: shown even though this Obsidian lacks it.
+		expect(recent[0].querySelector<HTMLElement>(".notemoji-mask")?.style.cssText).toContain(
+			"blob:shapes",
+		);
+		expect(recent[1].querySelector("svg.lucide-arrow-right")).not.toBeNull();
+		expect(recent[2].querySelector<HTMLElement>(".notemoji-mask")?.style.cssText).toContain(
+			"blob:star",
+		);
+		// Neither a copy nor a drawing: left out.
+		expect(recent[3].textContent).toBe("🎉");
+	});
+
+	it("show the current icon in the footer and highlight it", async () => {
+		const picker = await open({ current: "lucide:star" });
+		expect(picker.footer()).toBe("Star");
+		expect(picker.query(".notemoji-picker-footer-emoji svg.lucide-star")).not.toBeNull();
+		picker.tabs().at(-1)!.click();
+		expect(drawnTile(picker, "star")!.hasClass("is-current")).toBe(true);
+	});
+
+	it("have no context menu", async () => {
+		const picker = await open();
+		picker.type("shapes");
+		picker.tiles()[0].dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+		expect(shownMenus).toHaveLength(0);
+	});
+});
+
 describe("opening", () => {
 	it("shows emoji right away, before the custom icon list is read", () => {
 		const custom = { ...fakeCustom(), list: () => new Promise<string[]>(() => {}) };
@@ -443,6 +550,7 @@ describe("opening", () => {
 			current: "",
 			recent: [],
 			custom,
+			library: fakeLibrary(),
 			onSubmit: () => {},
 		});
 		modal.open();

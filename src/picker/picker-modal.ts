@@ -1,8 +1,9 @@
 import { App, Menu, Modal, Notice, Platform, setIcon } from "obsidian";
-import { renderIcon } from "../display/icon-source";
+import { IconUrl, renderIcon } from "../display/icon-source";
 import { parseEmojiInput } from "../icons/emoji";
-import { customValue, parseIcon } from "../icons/icon-value";
+import { customValue, lucideValue, parseIcon } from "../icons/icon-value";
 import { IMAGE_EXTENSIONS } from "../icons/image-format";
+import { lucideIconId, lucideLabel, searchLucide } from "../icons/library-icons";
 import { MAX_UPLOAD_BYTES } from "../icons/prepare-icon";
 import { findEntry, getCatalog, searchEmoji } from "./catalog";
 import { onContextMenu } from "./context-menu";
@@ -21,16 +22,25 @@ export interface CustomIcons {
 	remove(id: string): Promise<boolean>;
 }
 
+/** Obsidian's own icons (Lucide), as the picker needs them. */
+export interface ObsidianIcons {
+	/** Names of every icon this device's Obsidian has, e.g. `arrow-right`. */
+	list(): readonly string[];
+	/** URL of an icon's copy in data.json; `undefined` when there is none. */
+	storedUrl(name: string): string | undefined;
+}
+
 export interface PickerOptions {
 	/** Modal heading, e.g. "Set note emoji". */
 	title: string;
 	/** Line below the heading, usually the item's name. */
 	description?: string;
-	/** The item's current icon (emoji or `custom:<name>`), or "" when it has none. */
+	/** The item's current icon (emoji, `custom:<name>` or `lucide:<name>`), or "" when it has none. */
 	current: string;
 	/** Recently used icons, most recent first. */
 	recent: readonly string[];
 	custom: CustomIcons;
+	library: ObsidianIcons;
 	/** Pre-rendered emoji images; tiles fall back to text without them. */
 	sprites?: SpriteSource;
 	/** Called with the chosen icon, or "" when the icon should be removed. */
@@ -39,6 +49,8 @@ export interface PickerOptions {
 
 const RECENT = { id: "recent", label: "Recently used", icon: "🕘" };
 const CUSTOM = { id: "custom", label: "Custom icons", icon: "🖼️" };
+/** Its tab shows one of Obsidian's icons (by its name) instead of an emoji. */
+const LIBRARY = { id: "lucide", label: "Obsidian icons", icon: "shapes" };
 const HINT = "Type to search, or use the arrow keys.";
 const ACCEPT = IMAGE_EXTENSIONS.map((extension) => `.${extension}`).join(",");
 
@@ -61,12 +73,13 @@ const UPLOAD_ITEM: GridItem = {
 
 /**
  * The icon picker: search, category tabs, recently used, the user's custom
- * icons (with upload), and remove.
+ * icons (with upload), Obsidian's own icons, and remove.
  *
  * The grid is virtualized (see VirtualGrid): only the rows on screen exist in
- * the DOM, so opening and scrolling stay fast with ~1,900 emoji. Tiles carry
- * no `aria-label`, because Obsidian shows a tooltip for every labelled
- * element the mouse passes; the footer names the hovered emoji instead.
+ * the DOM, so opening and scrolling stay fast with ~1,900 emoji and as many
+ * Obsidian icons. Tiles carry no `aria-label`, because Obsidian shows a
+ * tooltip for every labelled element the mouse passes; the footer names the
+ * hovered emoji instead.
  *
  * Anything that parses as a single emoji or symbol (pasted, or from the
  * system's emoji picker) is offered first when searching, also when it is not
@@ -89,6 +102,9 @@ export class PickerModal extends Modal {
 
 	private sections: GridSection[] = [];
 	private customIds: string[] = [];
+	/** Names of Obsidian's icons on this device, and the same as a set for lookups. */
+	private libraryNames: readonly string[] = [];
+	private libraryNameSet = new Set<string>();
 	private activeIndex = -1;
 	/** Section whose tab is highlighted ("" for none, null before the first update). */
 	private shownSection: string | null = null;
@@ -102,6 +118,8 @@ export class PickerModal extends Modal {
 
 	async onOpen(): Promise<void> {
 		const { contentEl, options } = this;
+		this.libraryNames = options.library.list();
+		this.libraryNameSet = new Set(this.libraryNames);
 		this.modalEl.addClass("notemoji-picker-modal");
 		this.titleEl.setText(options.title);
 		contentEl.addClass("notemoji-picker");
@@ -209,18 +227,31 @@ export class PickerModal extends Modal {
 		this.rebuild(true);
 	}
 
-	/** Recent entries that can be shown (custom icons may have been deleted; newer versions add other kinds). */
+	/**
+	 * Recent entries that can be shown: custom icons may have been deleted, an
+	 * Obsidian icon may have neither a copy nor a drawing on this device, and
+	 * newer versions add other kinds.
+	 */
 	private recent(): string[] {
 		return this.options.recent.filter((value) => {
 			const icon = parseIcon(value);
-			return (
-				icon !== undefined && (icon.type !== "custom" || this.customIds.includes(icon.id))
-			);
+			if (icon?.type === "custom") return this.customIds.includes(icon.id);
+			if (icon?.type === "lucide") {
+				return (
+					this.libraryNameSet.has(icon.name) ||
+					this.options.library.storedUrl(icon.name) !== undefined
+				);
+			}
+			return icon !== undefined;
 		});
 	}
 
 	private item(value: string, name: string): GridItem {
-		return { kind: parseIcon(value)?.type === "custom" ? "custom" : "emoji", value, name };
+		return { kind: parseIcon(value)?.type ?? "emoji", value, name };
+	}
+
+	private libraryItem(name: string): GridItem {
+		return { kind: "lucide", value: lucideValue(name), name: lucideLabel(name) };
 	}
 
 	private browseSections(): GridSection[] {
@@ -249,6 +280,14 @@ export class PickerModal extends Modal {
 				})),
 			});
 		}
+		// After every emoji, so people who use emoji only never have to scroll past them.
+		if (this.libraryNames.length > 0) {
+			sections.push({
+				id: LIBRARY.id,
+				label: LIBRARY.label,
+				items: this.libraryNames.map((name) => this.libraryItem(name)),
+			});
+		}
 		return sections;
 	}
 
@@ -263,6 +302,9 @@ export class PickerModal extends Modal {
 		for (const entry of searchEmoji(getCatalog(), query)) {
 			if (entry.emoji === pasted?.item.value) continue;
 			items.push({ kind: "emoji", value: entry.emoji, name: entry.name });
+		}
+		for (const name of searchLucide(this.libraryNames, query)) {
+			items.push(this.libraryItem(name));
 		}
 		if (pasted && !pasted.first) items.push(pasted.item);
 		return items.length > 0 ? [{ id: "results", label: "", items }] : [];
@@ -287,6 +329,7 @@ export class PickerModal extends Modal {
 	private nameOf(value: string): string {
 		const icon = parseIcon(value);
 		if (icon?.type === "custom") return icon.id;
+		if (icon?.type === "lucide") return lucideLabel(icon.name);
 		return findEntry(value)?.name ?? "";
 	}
 
@@ -349,7 +392,10 @@ export class PickerModal extends Modal {
 				"--notemoji-sprite-size": slot.size,
 			});
 		} else if (item.kind === "custom") {
-			renderIcon(tileEl, item.value, this.customUrl);
+			renderIcon(tileEl, item.value, this.iconUrl);
+		} else if (item.kind === "lucide") {
+			tileEl.addClass("is-lucide");
+			this.drawIcon(tileEl, item.value);
 		} else {
 			// Explained in the footer on hover, like every tile (no tooltip).
 			tileEl.addClass("is-upload");
@@ -361,15 +407,17 @@ export class PickerModal extends Modal {
 		this.tabsEl.empty();
 		const sections = [CUSTOM, ...getCatalog()];
 		if (this.recent().length > 0) sections.unshift(RECENT);
-		for (const section of sections) {
-			this.tabsEl
-				.createEl("button", {
-					cls: "notemoji-picker-tab",
-					text: section.icon,
-					attr: { "aria-label": section.label, "data-section": section.id, role: "tab" },
-				})
-				.addEventListener("click", () => this.jumpTo(section.id));
-		}
+		for (const section of sections) this.addTab(section).setText(section.icon);
+		if (this.libraryNames.length > 0) setIcon(this.addTab(LIBRARY), lucideIconId(LIBRARY.icon));
+	}
+
+	private addTab(section: { id: string; label: string }): HTMLElement {
+		const tabEl = this.tabsEl.createEl("button", {
+			cls: "notemoji-picker-tab",
+			attr: { "aria-label": section.label, "data-section": section.id, role: "tab" },
+		});
+		tabEl.addEventListener("click", () => this.jumpTo(section.id));
+		return tabEl;
 	}
 
 	/** Keeps the tab highlight and the pinned section label in sync with the scroll position. */
@@ -395,7 +443,25 @@ export class PickerModal extends Modal {
 			this.stickyEl.toggleClass("is-visible", pinned);
 	}
 
-	private readonly customUrl = (id: string): string | undefined => this.options.custom.url(id);
+	private readonly iconUrl: IconUrl = (icon) =>
+		icon.type === "custom"
+			? this.options.custom.url(icon.id)
+			: this.options.library.storedUrl(icon.name);
+
+	/**
+	 * Shows an icon in a tile or the footer. An Obsidian icon shows its copy
+	 * (as everywhere else) or else this device's own drawing, which Obsidian
+	 * draws quickly enough for scrolling through all of them.
+	 */
+	private drawIcon(el: HTMLElement, value: string): void {
+		const icon = parseIcon(value);
+		if (icon?.type === "lucide" && this.options.library.storedUrl(icon.name) === undefined) {
+			el.empty();
+			setIcon(el, lucideIconId(icon.name));
+			return;
+		}
+		renderIcon(el, value, this.iconUrl);
+	}
 
 	// ------------------------------------------------------------------ interaction
 
@@ -449,13 +515,13 @@ export class PickerModal extends Modal {
 			this.footerNameEl.setText(item.name);
 			return;
 		}
-		renderIcon(this.footerIconEl, item.value, this.customUrl);
+		this.drawIcon(this.footerIconEl, item.value);
 		this.footerNameEl.setText(displayName(item.value, item.name || "Custom emoji"));
 	}
 
 	private showDefaultFooter(): void {
 		const { current } = this.options;
-		renderIcon(this.footerIconEl, current, this.customUrl);
+		this.drawIcon(this.footerIconEl, current);
 		this.footerNameEl.setText(
 			current === "" ? HINT : displayName(current, this.nameOf(current) || "Current emoji"),
 		);
@@ -525,7 +591,7 @@ export class PickerModal extends Modal {
 	}
 }
 
-/** Emoji names start with a capital ("Party popper"); custom icon names stay as they are. */
+/** Names of emoji and Obsidian icons start with a capital ("Party popper"); custom icon names stay as they are. */
 function displayName(value: string, name: string): string {
 	if (parseIcon(value)?.type === "custom") return name;
 	return name.charAt(0).toUpperCase() + name.slice(1);

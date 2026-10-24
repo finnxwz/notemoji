@@ -70,6 +70,15 @@ export class DataFile {
 
 	constructor(private readonly host: DataFileHost) {}
 
+	/**
+	 * Whether the data shown is based on data.json as read from disk. Not
+	 * while it is missing or unreadable: then the backup may be shown, and
+	 * nothing is saved until a change is made here (sync may still bring it).
+	 */
+	get fromDisk(): boolean {
+		return this.onDisk !== null;
+	}
+
 	/** Reads data.json at startup, repairing it from the backup when needed. */
 	async load(): Promise<void> {
 		const { raw, damaged } = await this.read();
