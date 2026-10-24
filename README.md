@@ -14,7 +14,7 @@
 - A minimal input that works with your operating system's emoji picker
   (Windows: `Win + .`, macOS: `Control + Command + Space`) and with pasting.
 - Multi code point emoji are supported: flags, skin tones, variation selectors,
-  keycaps and ZWJ families
+  keycaps and ZWJ families.
 - Icons stay with their note, also if renamed or moved, but deleting an item also removes its emoji (it can be re-assigned in just two clicks).
 - Emoji come from your operating system and the fonts you have installed.
 
