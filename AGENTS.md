@@ -34,7 +34,8 @@ npm run set-previews # regenerate the emoji style previews (downloads the pinned
 | Path                      | What                                                                       |
 | ------------------------- | -------------------------------------------------------------------------- |
 | `src/main.ts`             | Plugin wiring: events, menus, commands, saving                             |
-| `src/data.ts`             | `data.json` shape, defaults, lenient parsing of all versions               |
+| `src/data.ts`             | `data.json` shape, defaults, lenient parsing, repair and merge rules       |
+| `src/data-file.ts`        | Loading, saving, reloading after sync, read-only guard, `backup.json`      |
 | `src/internals.ts`        | The only place that touches undocumented Obsidian internals                |
 | `src/icons/`              | What an item's icon is: emoji parsing, values, path store, custom icons    |
 | `src/style/`              | Emoji styles: downloadable sets, font loading, `EmojiStyle` (font + cache) |
@@ -58,4 +59,6 @@ npm run set-previews # regenerate the emoji style previews (downloads the pinned
   `String.fromCodePoint`; some editing tools turn `\u` escapes into invisible literals.
 - Network access only on an explicit user click, pinned and checksum-verified.
 - Files only inside the plugin folder; `onunload` cleans up the DOM, never user files.
+- `data.json` changes only add entries; never rename, remove or change the meaning of existing
+  ones (see "Compatible in both directions" in docs/decisions.md and `DATA_VERSION`).
 - When the UI changes visibly, re-record the media (`npm run demo`) and check the README.

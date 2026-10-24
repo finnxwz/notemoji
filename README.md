@@ -29,8 +29,8 @@ too: type, use the arrow keys, press Enter.
 
 ### Your own icons
 
-Upload PNG, SVG, GIF, WebP or JPG images, such as logos or project icons, right in the picker.
-They live in your own icon library and work just like emoji.
+Upload PNG, SVG, GIF, WebP, AVIF or JPG images, such as logos or project icons, right in the
+picker. They live in your own icon library, stay sharp on any screen and work just like emoji.
 
 ### Emoji styles and your own emoji font
 
@@ -54,7 +54,7 @@ right-click.
 | Change an emoji      | Right-click → _Change … emoji_, or click the large emoji above the note title (if shown)    |
 | Remove an emoji      | _Remove_ in the picker, right-click → _Remove … emoji_, or _Remove emoji from current note_ |
 | Use your own icon    | In the picker's _Custom icons_ section, click the upload tile and choose an image           |
-| Delete your own icon | Right-click (or long-press) it in the picker → _Delete custom icon_                         |
+| Delete your own icon | Right-click (or long-press) it in the picker → _Delete custom icon_, or in the settings     |
 
 ## ⚙️ Settings
 
@@ -64,7 +64,7 @@ right-click.
 | Emoji in tab titles           | On           | The emoji in front of each tab's name                                                                   |
 | Emoji in view header title    | Off          | The emoji in front of the title in the bar at the top of a tab                                          |
 | Emoji style                   | System emoji | Pick a style by its preview: Twemoji, OpenMoji, Noto Color Emoji, Noto Emoji Mono or your own font file |
-| Custom icons                  | –            | Shows how many custom icons you have and their size; _Delete all_ removes them                          |
+| Custom icons                  | –            | Every icon with its size and how often it is used, the storage used (up to 3 MB), and _Delete_          |
 | Picker image cache            | –            | Shows the size of the picker's pre-rendered emoji; _Clear_ deletes them                                 |
 | Remove emoji of missing files | –            | Cleans up emoji of notes, folders and files that no longer exist                                        |
 
@@ -84,7 +84,8 @@ right-click.
 Your notes are never changed. Emoji are stored in `.obsidian/plugins/notemoji/data.json`, by the
 path of each note, folder or file. Renaming or moving items inside Obsidian keeps their emoji; doing it outside of Obsidian (file manager, Git,
 another editor) does not. Deleted items keep their entry, so a restore or a sync brings the emoji
-back; _Remove emoji of missing files_ cleans them up.
+back; _Remove emoji of missing files_ cleans them up. Each device also keeps a copy,
+`backup.json`, which repairs `data.json` if it gets damaged.
 
 </details>
 
@@ -92,7 +93,21 @@ back; _Remove emoji of missing files_ cleans them up.
 <summary><b>Do my emoji sync to my other devices?</b></summary>
 
 Yes, if your sync copies plugin settings (with Obsidian Sync: _Installed community plugins_).
-Custom icons live in `.obsidian/plugins/notemoji/icons/` and travel the same way.
+Custom icons are stored in the same `data.json`, so they always travel together with your emoji.
+Keep Notemoji up to date on all your devices. From version 2.0 on, an outdated version shows a
+notice and stops saving instead of overwriting newer data.
+
+</details>
+
+<details>
+<summary><b>How many custom icons can I have? Why are some images refused?</b></summary>
+
+Custom icons can use up to 3 MB, room for at least 50 icons and usually many more; the settings
+show how much is used. The limit keeps `data.json` well below the 5 MB that Obsidian Sync
+(Standard plan) syncs per file. Images are scaled down to 512 pixels, sharp even on very dense
+screens, and SVGs stay vectors. Refused, with the reason shown: HEIC photos (convert them to JPG or
+PNG), files over 20 MB, SVGs over 45 KB, animated images over 512 pixels or 45 KB, and images with so
+much detail that they don't fit even at lower quality.
 
 </details>
 
