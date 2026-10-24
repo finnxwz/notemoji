@@ -59,6 +59,31 @@ describe("SpriteCacheFolder", () => {
 		]);
 	});
 
+	it("keeps the images of other computers of the same kind, the two most recent", async () => {
+		const { adapter, cache } = setup();
+		const folders = () =>
+			[...new Set([...adapter.files.keys()].map((path) => path.split("/").at(-2)))].sort();
+		// Windows 10 and 11 draw the same style differently; the cache folder syncs.
+		await cache.write("twemoji/windows-1x-f1-win10-1870-abc", "smileys", bytes(1));
+		await cache.write("twemoji/windows-1x-f1-win11-1870-abc", "smileys", bytes(1));
+		expect(folders()).toEqual(["windows-1x-f1-win10-1870-abc", "windows-1x-f1-win11-1870-abc"]);
+
+		// A newer emoji list replaces both computers' outdated images.
+		await cache.write("twemoji/windows-1x-f1-win10-1900-def", "smileys", bytes(1));
+		expect(folders()).toEqual(["windows-1x-f1-win10-1900-def"]);
+
+		await cache.write("twemoji/windows-1x-f1-a-1900-def", "smileys", bytes(1));
+		await cache.write("twemoji/windows-1x-f1-b-1900-def", "smileys", bytes(1));
+		expect(folders()).toHaveLength(3);
+		// A fourth look: the oldest is dropped instead of piling up.
+		await cache.write("twemoji/windows-1x-f1-c-1900-def", "smileys", bytes(1));
+		expect(folders()).toEqual([
+			"windows-1x-f1-a-1900-def",
+			"windows-1x-f1-b-1900-def",
+			"windows-1x-f1-c-1900-def",
+		]);
+	});
+
 	it("removes a style, reports the size and clears everything", async () => {
 		const { adapter, cache } = setup();
 		await cache.write("twemoji/windows-1x-f1-x", "smileys", bytes(2048));
