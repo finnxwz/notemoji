@@ -1,10 +1,13 @@
 import { Menu, normalizePath, Notice, Plugin, TAbstractFile, TFile, TFolder } from "obsidian";
 import { confirm } from "./confirm-modal";
-import { NotemojiSettings, parseData, PluginData, serializeData } from "./data";
+import type { NotemojiSettings, PluginData } from "./data";
+import { DataFile } from "./data-file";
 import { ExplorerSource, FileExplorerRenderer } from "./display/file-explorer";
 import { TitleDecorations } from "./display/titles";
-import { CustomIconLibrary } from "./icons/custom-icons";
+import { canvasCodec } from "./icons/canvas-codec";
+import { CustomIconError, CustomIconLibrary, StoredIcon } from "./icons/custom-icons";
 import { IconService, isNote } from "./icons/icon-service";
+import { prepareIcon } from "./icons/prepare-icon";
 import { PickerModal } from "./picker/picker-modal";
 import { NotemojiSettingTab } from "./settings/settings-tab";
 import { EmojiStyle } from "./style/emoji-style";
@@ -23,26 +26,35 @@ export default class NotemojiPlugin extends Plugin {
 	customIcons!: CustomIconLibrary;
 	/** The emoji font and the picker's pre-rendered emoji. */
 	style!: EmojiStyle;
-	/** The current settings (part of `data`); change them with `updateSettings`. */
+	/** The current settings; change them with `updateSettings`. Always those of the current data. */
 	declare settings: Readonly<NotemojiSettings>;
-	private data!: PluginData;
+	/** data.json: loading, saving, reloading after sync, backup. */
+	private file!: DataFile;
 	private explorer!: FileExplorerRenderer;
 	private titles!: TitleDecorations;
 	private titleTimer: number | null = null;
 
-	/** Serialised save queue; a newer snapshot is never overwritten by an older one. */
-	private saveQueue: Promise<void> = Promise.resolve();
-
 	async onload(): Promise<void> {
-		this.setData(parseData(await this.readData()));
-		this.icons = new IconService(this.app, this.data, () => this.persist());
-
 		const pluginFolder =
 			this.manifest.dir ?? `${this.app.vault.configDir}/plugins/${this.manifest.id}`;
+		this.file = new DataFile({
+			adapter: this.app.vault.adapter,
+			dataPath: normalizePath(`${pluginFolder}/data.json`),
+			backupPath: normalizePath(`${pluginFolder}/backup.json`),
+			loadData: () => this.loadData() as Promise<unknown>,
+			saveData: (data) => this.saveData(data),
+			onReplaced: (data, previous) => this.showReplaced(data, previous),
+		});
+		await this.file.load();
+		// `Plugin` declares `settings` as a field, so it can't be overridden by a getter.
+		Object.defineProperty(this, "settings", { get: () => this.data.settings });
+		this.icons = new IconService(this.app, this.data, () => this.persist());
 		this.customIcons = new CustomIconLibrary(
-			this.app.vault.adapter,
-			normalizePath(`${pluginFolder}/icons`),
+			() => this.data.customIcons,
+			() => this.persist(),
+			() => Object.keys(this.data.unknown.customIcons),
 		);
+
 		this.style = new EmojiStyle(this.app.vault.adapter, pluginFolder, {
 			get: () => this.data.settings,
 			update: (patch) => this.updateSettings(patch),
@@ -52,7 +64,7 @@ export default class NotemojiPlugin extends Plugin {
 		const source: ExplorerSource = {
 			get: (path) => this.icons.get(path),
 			entries: () => this.icons.entries(),
-			url: (file) => this.customIcons.url(file),
+			url: (id) => this.customIcons.url(id),
 		};
 		this.explorer = new FileExplorerRenderer(this.app, source);
 		this.titles = new TitleDecorations(this.app, source, (file) => this.openPicker(file));
@@ -66,31 +78,43 @@ export default class NotemojiPlugin extends Plugin {
 
 	onunload(): void {
 		if (this.titleTimer !== null) window.clearTimeout(this.titleTimer);
+		this.file?.unload();
 		this.style?.unload();
 		this.explorer?.dispose();
 		this.titles?.dispose();
+		this.customIcons?.dispose();
+	}
+
+	/** The current data (data.json may be reloaded, so never keep a reference). */
+	private get data(): PluginData {
+		return this.file.data;
 	}
 
 	/** Reloads data.json after it was changed on disk, e.g. by sync. */
 	async onExternalSettingsChange(): Promise<void> {
-		// A save still in flight must not land after (and over) the reloaded data.
-		await this.saveQueue;
-		// Sync may also have brought new custom icon files.
-		this.customIcons.refresh();
-		const data = parseData(await this.readData());
-		if (JSON.stringify(serializeData(data)) === JSON.stringify(serializeData(this.data)))
-			return;
-		const fontChanged =
-			data.settings.emojiStyle !== this.data.settings.emojiStyle ||
-			data.settings.emojiFont !== this.data.settings.emojiFont;
-		this.setData(data);
+		await this.file.reload();
+	}
+
+	/** Shows data that replaced what was shown (read from disk after sync). */
+	private async showReplaced(data: PluginData, previous: PluginData): Promise<void> {
+		// Before onload finished (a repair at startup), nothing is shown yet.
+		if (!this.icons) return;
 		this.icons.replaceData(data);
-		if (fontChanged) await this.style.load();
+		// Icons removed or replaced on another device.
+		this.customIcons.releaseStale();
+		if (
+			data.settings.emojiStyle !== previous.settings.emojiStyle ||
+			data.settings.emojiFont !== previous.settings.emojiFont
+		) {
+			await this.style.load();
+		}
 	}
 
 	/** Changes settings, saves and re-renders. Always edits the current data, also after a reload. */
 	updateSettings(patch: Partial<NotemojiSettings>): void {
 		Object.assign(this.data.settings, patch);
+		// A value kept for a newer version is replaced by what was chosen here.
+		for (const key of Object.keys(patch)) delete this.data.unknown.settings[key];
 		this.persist();
 		this.refresh();
 	}
@@ -193,10 +217,10 @@ export default class NotemojiPlugin extends Plugin {
 			recent: this.icons.recent,
 			sprites: this.style.sprites,
 			custom: {
-				list: () => this.customIcons.list(),
-				url: (name) => this.customIcons.url(name),
-				upload: (name, data) => this.customIcons.add(name, data),
-				remove: (name) => this.deleteCustomIcon(name),
+				list: () => Promise.resolve(this.customIcons.list()),
+				url: (id) => this.customIcons.url(id),
+				upload: (fileName, data) => this.uploadCustomIcon(fileName, data),
+				remove: (id) => this.deleteCustomIcon(id),
 			},
 			onSubmit: (emoji) => {
 				if (emoji === "") this.icons.removeIcon(file);
@@ -205,27 +229,39 @@ export default class NotemojiPlugin extends Plugin {
 		}).open();
 	}
 
+	/**
+	 * Turns an uploaded file into a custom icon and returns its name. Throws
+	 * with a message for the user when the image can't be used.
+	 */
+	async uploadCustomIcon(fileName: string, data: ArrayBuffer): Promise<string> {
+		let icon: StoredIcon;
+		try {
+			icon = await prepareIcon(fileName, new Uint8Array(data), canvasCodec);
+		} catch (error) {
+			if (error instanceof CustomIconError) throw error;
+			console.error(`[notemoji] Could not convert "${fileName}".`, error);
+			throw new CustomIconError(`"${fileName}" could not be converted on this device.`);
+		}
+		const { id, existing } = this.customIcons.add(fileName, icon);
+		if (existing) new Notice(`"${fileName}" is already one of your icons, as "${id}".`);
+		return id;
+	}
+
 	/** Deletes a custom icon after confirmation; items using it lose their icon. */
-	async deleteCustomIcon(file: string): Promise<boolean> {
-		const uses = this.icons.countCustomUses(file);
+	async deleteCustomIcon(id: string): Promise<boolean> {
+		const uses = this.icons.countCustomUses(id);
 		const confirmed = await confirm(this.app, {
 			title: "Delete custom icon?",
 			message:
 				uses === 0
-					? `"${file}" will be deleted.`
-					: `"${file}" will be deleted. ${uses === 1 ? "1 item uses" : `${uses} items use`} it and will show no icon anymore.`,
+					? `"${id}" will be deleted.`
+					: `"${id}" will be deleted. ${uses === 1 ? "1 item uses" : `${uses} items use`} it and will show no icon anymore.`,
 			confirmText: "Delete",
 			warning: true,
 		});
 		if (!confirmed) return false;
-		try {
-			await this.customIcons.remove(file);
-		} catch (error) {
-			console.error(`[notemoji] Could not delete the custom icon "${file}".`, error);
-			new Notice(`Could not delete "${file}".`);
-			return false;
-		}
-		this.icons.forgetCustomIcons([file]);
+		this.customIcons.remove(id);
+		this.icons.forgetCustomIcons([id]);
 		return true;
 	}
 
@@ -248,27 +284,7 @@ export default class NotemojiPlugin extends Plugin {
 		}, TITLE_SYNC_DELAY_MS);
 	}
 
-	private setData(data: PluginData): void {
-		this.data = data;
-		this.settings = data.settings;
-	}
-
-	private async readData(): Promise<unknown> {
-		try {
-			return (await this.loadData()) as unknown;
-		} catch (error) {
-			console.error("[notemoji] Could not read data.json; starting without it.", error);
-			return null;
-		}
-	}
-
 	private persist(): void {
-		const snapshot = serializeData(this.data);
-		this.saveQueue = this.saveQueue
-			.then(() => this.saveData(snapshot))
-			.catch((error: unknown) => {
-				console.error("[notemoji] Could not save data.json.", error);
-				new Notice("Could not save the emoji. Please check the developer console.");
-			});
+		this.file.save();
 	}
 }

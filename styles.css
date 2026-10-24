@@ -472,3 +472,41 @@ body.notemoji-custom-font {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 }
+
+/* ------------------------------------------------------------------
+   Settings: custom icons
+   ------------------------------------------------------------------ */
+
+.notemoji-icon-storage .setting-item-description {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.notemoji-storage-bar {
+	height: 6px;
+	max-width: 24rem;
+	overflow: hidden;
+	border-radius: 3px;
+	background-color: var(--background-modifier-border);
+}
+
+.notemoji-storage-bar-fill {
+	width: var(--notemoji-storage-used, 0);
+	height: 100%;
+	background-color: var(--interactive-accent);
+}
+
+.notemoji-icon-row .setting-item-name {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	overflow-wrap: anywhere;
+}
+
+.notemoji-icon-row-image {
+	flex: none;
+	width: 28px;
+	height: 28px;
+	object-fit: contain;
+}

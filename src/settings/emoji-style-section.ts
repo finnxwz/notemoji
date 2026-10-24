@@ -4,7 +4,7 @@ import type NotemojiPlugin from "../main";
 import { LARGE_FONT_BYTES } from "../style/emoji-fonts";
 import { EMOJI_SET_PREVIEWS, PREVIEW_SAMPLE } from "../style/emoji-set-previews";
 import { EMOJI_SETS, EmojiSet, FONT_EXTENSIONS } from "../style/emoji-sets";
-import { formatBytes } from "./format";
+import { formatBytes } from "../format";
 
 /**
  * The emoji style picker in the settings: one card per style with a preview,

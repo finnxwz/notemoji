@@ -84,8 +84,12 @@ const iconAbove = (titleEl: HTMLElement) => {
 const decorated = () => document.querySelectorAll(`[${EMOJI_ATTRIBUTE}]`).length;
 const aboveIcons = () => document.querySelectorAll(".notemoji-title-icon").length;
 
+/** Image URL of each custom icon; tests change it to simulate sync. */
+let urlOf: (id: string) => string | undefined;
+
 beforeEach(() => {
 	document.body.empty();
+	urlOf = (id) => `app://icons/${id}`;
 	app = createFakeApp();
 	icons = new Map([
 		["Notes/Rocket.md", "🚀"],
@@ -94,7 +98,7 @@ beforeEach(() => {
 	picked = [];
 	titles = new TitleDecorations(
 		app.asApp,
-		{ get: (path) => icons.get(path), url: (file) => `app://icons/${file}` },
+		{ get: (path) => icons.get(path), url: (id) => urlOf(id) },
 		(file: RealTFile) => picked.push(file.path),
 	);
 });
@@ -225,6 +229,32 @@ describe("custom icons", () => {
 		expect(note.tabTitleEl.getAttribute("data-notemoji-image")).toBeNull();
 		expect(note.tabTitleEl.style.getPropertyValue("--notemoji-image")).toBe("");
 		expect(attr(note.tabTitleEl)).toBe("🚀");
+	});
+
+	it("keeps the space of a missing icon and updates when sync brings or replaces it", () => {
+		icons.set("Notes/Rocket.md", "custom:logo");
+		urlOf = () => undefined;
+		const note = open("Notes/Rocket.md");
+		titles.sync(settings());
+		expect(note.tabTitleEl.getAttribute("data-notemoji-image")).toBe("logo");
+		expect(note.tabTitleEl.style.getPropertyValue("--notemoji-image")).toBe("");
+		expect(iconAbove(note.inlineTitles[0])?.querySelector("img")?.hasClass("is-missing")).toBe(
+			true,
+		);
+
+		urlOf = () => "blob:logo-1";
+		titles.sync(settings());
+		expect(note.tabTitleEl.style.getPropertyValue("--notemoji-image")).toContain("blob:logo-1");
+		expect(iconAbove(note.inlineTitles[0])?.querySelector("img")?.getAttribute("src")).toBe(
+			"blob:logo-1",
+		);
+
+		urlOf = () => "blob:logo-2";
+		titles.sync(settings());
+		expect(note.tabTitleEl.style.getPropertyValue("--notemoji-image")).toContain("blob:logo-2");
+		expect(iconAbove(note.inlineTitles[0])?.querySelector("img")?.getAttribute("src")).toBe(
+			"blob:logo-2",
+		);
 	});
 
 	it("removes the image decoration on dispose", () => {

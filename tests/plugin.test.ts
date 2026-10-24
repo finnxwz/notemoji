@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from "vitest";
 import { flush } from "./fake-app";
 import {
 	ButtonComponent,
@@ -13,6 +13,9 @@ import {
 	ToggleComponent,
 	WorkspaceLeaf,
 } from "./obsidian";
+import { canvasCodec } from "../src/icons/canvas-codec";
+import { encodeBase64 } from "../src/icons/image-format";
+import { ICONS_MARKER } from "../src/data";
 import { findEmojiSet } from "../src/style/emoji-sets";
 import { loadPlugin } from "./plugin-harness";
 
@@ -102,6 +105,7 @@ describe("commands", () => {
 			},
 			icons: { "Notes/A.md": "🚀" },
 			recent: ["🚀"],
+			customIcons: {},
 		});
 	});
 
@@ -191,6 +195,279 @@ describe("sync", () => {
 	});
 });
 
+describe("data safety", () => {
+	const BACKUP = ".obsidian/plugins/notemoji/backup.json";
+	const v2 = {
+		version: 2,
+		settings: { noteTitle: "above" },
+		icons: { "A.md": "🚀", "B.md": "custom:logo" },
+		recent: ["custom:logo"],
+		customIcons: { logo: { type: "image/png", data: "AAAA" } },
+	};
+	const readBackup = async (harness: Awaited<ReturnType<typeof loadPlugin>>) =>
+		JSON.parse(await harness.app.vault.adapter.read(BACKUP)) as Record<string, unknown>;
+
+	it("keeps a backup on this device after saving", async () => {
+		const harness = await loadPlugin({ data: v2 });
+		harness.fileMenu("C.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌱");
+		await flush();
+		// Written shortly after the save, at the latest on unload.
+		harness.unload();
+		await flush();
+		expect((await readBackup(harness)).icons).toEqual({
+			[ICONS_MARKER]: "",
+			...v2.icons,
+			"C.md": "🌱",
+		});
+	});
+
+	it("repairs data.json when a device with Notemoji 1.x saved over it", async () => {
+		const harness = await loadPlugin({ data: v2 });
+		harness.fake.dataJson = { version: 1, icons: { "A.md": "🎉" } };
+		await harness.plugin.onExternalSettingsChange();
+		await flush();
+		const saved = harness.lastSaved()!;
+		expect(saved.version).toBe(2);
+		expect(saved.icons).toEqual({ "A.md": "🎉", "B.md": "custom:logo" });
+		expect(saved.customIcons).toEqual(v2.customIcons);
+		expect(saved.recent).toEqual(["custom:logo"]);
+		expect(harness.plugin.settings.noteTitle).toBe("above");
+		expect(harness.plugin.icons.get("A.md")).toBe("🎉");
+	});
+
+	it("repairs it at startup from the backup when this device was closed meanwhile", async () => {
+		const first = await loadPlugin({ data: v2 });
+		// Any save leaves a backup on this device.
+		first.plugin.updateSettings({ showInTabs: true });
+		await flush();
+		const harness = await loadPluginWith(first, { version: 1, icons: { "A.md": "🎉" } });
+		expect(harness.plugin.icons.get("B.md")).toBe("custom:logo");
+		expect(harness.plugin.icons.get("A.md")).toBe("🎉");
+		expect(harness.plugin.customIcons.list()).toEqual(["logo"]);
+		expect(harness.plugin.settings.noteTitle).toBe("above");
+		await flush();
+		expect(harness.lastSaved()?.version).toBe(2);
+	});
+
+	it("starts normally after updating from 1.x, when there is no backup yet", async () => {
+		const harness = await loadPlugin({ data: { version: 1, icons: { "A.md": "🎉" } } });
+		expect(harness.plugin.icons.get("A.md")).toBe("🎉");
+		expect(notices).toEqual([]);
+	});
+
+	it("restores an unreadable data.json from the backup", async () => {
+		const backup = JSON.stringify({ ...v2, icons: { [ICONS_MARKER]: "", ...v2.icons } });
+		const harness = await loadPluginWith(await loadPlugin(), "damaged", backup);
+		expect(harness.plugin.icons.get("B.md")).toBe("custom:logo");
+		expect(notices.at(-1)).toContain("the backup on this device is used");
+		// Not saved right away: sync may still bring an intact copy…
+		expect(harness.fake.saved).toEqual([]);
+		// …but the next change is saved, with everything from the backup.
+		harness.fileMenu("C.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌱");
+		await flush();
+		expect(harness.lastSaved()?.icons).toEqual({ ...v2.icons, "C.md": "🌱" });
+	});
+
+	it("never saves over an unreadable data.json without a backup", async () => {
+		const harness = await loadPluginWith(await loadPlugin(), "damaged");
+		expect(notices.at(-1)).toContain("could not be read");
+		harness.fileMenu("A.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌱");
+		await flush();
+		expect(harness.fake.saved).toEqual([]);
+	});
+
+	it("never saves over data of a newer version, and says why", async () => {
+		const newer = { ...v2, version: 3 };
+		const harness = await loadPlugin({ data: newer });
+		expect(notices.at(-1)).toContain("Update it on this device too");
+		harness.fileMenu("A.md").item("Change note emoji").click();
+		picker().options.onSubmit("🌱");
+		await flush();
+		expect(harness.fake.saved).toEqual([]);
+
+		// Once this device's data is current again (e.g. restored), saving resumes.
+		harness.fake.dataJson = v2;
+		await harness.plugin.onExternalSettingsChange();
+		harness.fileMenu("A.md").item("Change note emoji").click();
+		picker().options.onSubmit("🌵");
+		await flush();
+		expect(harness.lastSaved()?.icons).toMatchObject({ "A.md": "🌵" });
+	});
+
+	it("ignores data.json while it is deleted or half synced", async () => {
+		const harness = await loadPlugin({ data: v2 });
+		for (const value of [null, {}]) {
+			harness.fake.dataJson = value;
+			await harness.plugin.onExternalSettingsChange();
+		}
+		expect(harness.plugin.icons.get("A.md")).toBe("🚀");
+		expect(harness.fake.saved).toEqual([]);
+	});
+
+	it("keeps both a change made here during a reload and the reloaded file", async () => {
+		const harness = await loadPlugin({ data: v2 });
+		const fake = harness.fake as unknown as { loadData: () => Promise<unknown> };
+		const original = fake.loadData.bind(harness.fake);
+		let first = true;
+		fake.loadData = async () => {
+			const result = await original();
+			if (first) {
+				first = false;
+				// The user picks an emoji while the reload is reading.
+				harness.fileMenu("C.md").item("Set note emoji").click();
+				picker().options.onSubmit("🌱");
+			}
+			return result;
+		};
+		harness.fake.dataJson = { ...v2, icons: { ...v2.icons, "D.md": "🔄" } };
+		await harness.plugin.onExternalSettingsChange();
+		await flush();
+		expect(harness.plugin.icons.get("C.md")).toBe("🌱");
+		expect(harness.plugin.icons.get("D.md")).toBe("🔄");
+		expect(harness.lastSaved()?.icons).toEqual({ ...v2.icons, "C.md": "🌱", "D.md": "🔄" });
+	});
+
+	it("keeps a change made while a save is writing and a reload waits behind it", async () => {
+		const harness = await loadPlugin({ data: v2 });
+		const fake = harness.fake as unknown as { saveData: (data: unknown) => Promise<void> };
+		const original = fake.saveData.bind(harness.fake);
+		let release!: () => void;
+		let firstSave = true;
+		fake.saveData = async (data) => {
+			if (firstSave) {
+				firstSave = false;
+				// The first save takes a while (a slow disk).
+				await new Promise<void>((resolve) => (release = resolve));
+			}
+			return original(data);
+		};
+		harness.fileMenu("C.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌱");
+		await flush();
+		const reload = harness.plugin.onExternalSettingsChange();
+		harness.fileMenu("E.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌵");
+		release();
+		await reload;
+		await flush();
+		expect(harness.plugin.icons.get("E.md")).toBe("🌵");
+		expect(harness.lastSaved()?.icons).toMatchObject({ "C.md": "🌱", "E.md": "🌵" });
+	});
+
+	it("takes in a file sync replaced before saving, also before Obsidian reported it", async () => {
+		const harness = await loadPlugin({ data: v2 });
+		// Sync wrote the file; onExternalSettingsChange has not been called yet.
+		harness.fake.dataJson = { ...v2, icons: { ...v2.icons, "D.md": "🔄" } };
+		harness.fileMenu("C.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌱");
+		await flush();
+		expect(harness.lastSaved()?.icons).toMatchObject({ "C.md": "🌱", "D.md": "🔄" });
+		expect(harness.plugin.icons.get("D.md")).toBe("🔄");
+
+		// And never saves over a newer version written that way.
+		harness.fake.dataJson = { ...v2, version: 3 };
+		const saves = harness.fake.saved.length;
+		harness.fileMenu("F.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌵");
+		await flush();
+		expect(harness.fake.saved).toHaveLength(saves);
+	});
+
+	it("writes a burst of changes once", async () => {
+		const harness = await loadPlugin({ data: v2 });
+		for (const path of ["C.md", "D.md", "E.md"]) {
+			harness.fileMenu(path).item("Set note emoji").click();
+			picker().options.onSubmit("🌱");
+		}
+		await flush();
+		expect(harness.fake.saved).toHaveLength(1);
+		expect(harness.lastSaved()?.icons).toMatchObject({
+			"C.md": "🌱",
+			"D.md": "🌱",
+			"E.md": "🌱",
+		});
+	});
+
+	it("keeps the backup current with changes from other devices", async () => {
+		const harness = await loadPlugin({ data: v2 });
+		harness.fake.dataJson = { ...v2, icons: { ...v2.icons, "D.md": "🔄" } };
+		await harness.plugin.onExternalSettingsChange();
+		harness.unload();
+		await flush();
+		expect((await readBackup(harness)).icons).toMatchObject({ "D.md": "🔄" });
+	});
+
+	it("never repairs over data of a newer version", async () => {
+		const harness = await loadPlugin({ data: { ...v2, version: 3 } });
+		harness.fake.dataJson = { version: 1, icons: { "A.md": "🎉" } };
+		await harness.plugin.onExternalSettingsChange();
+		await flush();
+		expect(harness.fake.saved).toEqual([]);
+	});
+
+	it("starts over once an unreadable data.json was deleted", async () => {
+		const harness = await loadPluginWith(await loadPlugin(), "damaged");
+		harness.app.vault.adapter.files.delete(".obsidian/plugins/notemoji/data.json");
+		await harness.plugin.onExternalSettingsChange();
+		harness.fileMenu("A.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌱");
+		await flush();
+		expect(harness.lastSaved()?.icons).toEqual({ "A.md": "🌱" });
+	});
+
+	it("shows the backup while data.json is not downloaded yet, without saving", async () => {
+		const first = await loadPlugin({ data: v2 });
+		first.plugin.updateSettings({ showInTabs: true });
+		await flush();
+		const harness = await loadPluginWith(first, null);
+		expect(harness.plugin.icons.get("B.md")).toBe("custom:logo");
+		expect(harness.fake.saved).toEqual([]);
+	});
+
+	it("keeps settings of a newer version until they are changed here", async () => {
+		const harness = await loadPlugin({
+			data: { ...v2, settings: { emojiStyle: "fluent", iconSize: "large" } },
+		});
+		harness.plugin.updateSettings({ showInTabs: false });
+		await flush();
+		expect(harness.lastSaved()?.settings).toMatchObject({
+			emojiStyle: "fluent",
+			iconSize: "large",
+			showInTabs: false,
+		});
+		harness.plugin.updateSettings({ emojiStyle: "system" });
+		await flush();
+		expect(harness.lastSaved()?.settings).toMatchObject({
+			emojiStyle: "system",
+			iconSize: "large",
+		});
+	});
+});
+
+/**
+ * Loads the plugin again on the same device (same files, including the
+ * backup) with `data` as data.json, or with an unreadable one.
+ */
+async function loadPluginWith(
+	previous: Awaited<ReturnType<typeof loadPlugin>>,
+	data: unknown,
+	backup?: string,
+) {
+	previous.unload();
+	await flush();
+	const adapter = previous.app.vault.adapter;
+	if (backup !== undefined) await adapter.write(".obsidian/plugins/notemoji/backup.json", backup);
+	const harness = await loadPlugin({
+		data: data === "damaged" ? null : data,
+		adapterFiles: adapter.files,
+		damaged: data === "damaged",
+	});
+	return harness;
+}
+
 describe("settings tab", () => {
 	async function openSettings(options: Parameters<typeof loadPlugin>[0] = {}) {
 		const harness = await loadPlugin(options);
@@ -244,6 +521,8 @@ describe("settings tab", () => {
 		expect(button.buttonEl.textContent).toBe("Remove 1");
 		button.click();
 		await flush();
+		expect(openModals.at(-1)!.contentEl.textContent).toContain("won't come back");
+		await answer("Remove");
 		expect(harness.lastSaved()?.icons).toEqual({ Alive: "🌱" });
 	});
 });
@@ -278,7 +557,9 @@ describe("titles", () => {
 });
 
 /** Clicks a button of the confirmation dialog that is currently open. */
-async function answer(text: "Delete" | "Delete all" | "Cancel" | "Use it"): Promise<void> {
+async function answer(
+	text: "Delete" | "Delete all" | "Remove" | "Cancel" | "Use it",
+): Promise<void> {
 	const dialog = openModals.at(-1)!.contentEl;
 	const buttonEl = Array.from(dialog.querySelectorAll("button")).find(
 		(el) => el.textContent === text,
@@ -295,71 +576,266 @@ async function answer(text: "Delete" | "Delete all" | "Cancel" | "Use it"): Prom
 }
 
 describe("custom icons", () => {
-	const FOLDER = ".obsidian/plugins/notemoji/icons";
-
 	interface CustomPicker extends PickerLike {
 		options: PickerLike["options"] & {
-			custom: { upload(name: string, data: ArrayBuffer): Promise<string> };
+			custom: {
+				list(): Promise<string[]>;
+				upload(name: string, data: ArrayBuffer): Promise<string>;
+			};
 		};
 	}
 
-	it("uploads into the plugin folder and uses the icon", async () => {
+	/** A small PNG file (only the header matters to the fake decoder). */
+	const png = (fill = 1) => {
+		const file = new Uint8Array(64).fill(fill);
+		file.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+		return file.buffer;
+	};
+	const stored = (fill = 1) => ({
+		type: "image/png",
+		data: encodeBase64(new Uint8Array(png(fill))),
+	});
+
+	let revoked: MockInstance<(url: string) => void>;
+
+	beforeEach(() => {
+		// happy-dom can't decode images: every image is a 64 × 64 px picture.
+		vi.spyOn(canvasCodec, "load").mockResolvedValue({
+			width: 64,
+			height: 64,
+			resize: () => {
+				throw new Error("not needed for small images");
+			},
+			dispose: () => undefined,
+		});
+		let next = 0;
+		vi.spyOn(URL, "createObjectURL").mockImplementation(() => `blob:icon-${++next}`);
+		revoked = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+	});
+
+	afterEach(() => vi.restoreAllMocks());
+
+	async function upload(
+		harness: Awaited<ReturnType<typeof loadPlugin>>,
+		name: string,
+		data: ArrayBuffer,
+	) {
+		const file =
+			harness.app.vault.getAbstractFileByPath("A.md") ?? harness.app.vault.add("A.md");
+		harness.plugin.openPicker(file as never);
+		const options = (picker() as CustomPicker).options;
+		const id = await options.custom.upload(name, data);
+		options.onSubmit(`custom:${id}`);
+		await flush();
+		return id;
+	}
+
+	it("stores uploads in data.json and uses them", async () => {
+		const harness = await loadPlugin();
+		expect(await upload(harness, "Logo.PNG", png())).toBe("Logo");
+		const saved = harness.lastSaved()!;
+		expect(saved.customIcons).toEqual({ Logo: stored() });
+		expect(saved.icons).toEqual({ "A.md": "custom:Logo" });
+		expect(saved.recent).toEqual(["custom:Logo"]);
+		// Nothing is written outside data.json.
+		expect(harness.app.vault.adapter.files.size).toBe(0);
+	});
+
+	it("reuses an icon uploaded twice and says so", async () => {
+		const harness = await loadPlugin();
+		await upload(harness, "logo.png", png());
+		expect(await upload(harness, "logo (1).png", png())).toBe("logo");
+		expect(notices).toContain('"logo (1).png" is already one of your icons, as "logo".');
+		expect(Object.keys(harness.lastSaved()!.customIcons as object)).toEqual(["logo"]);
+	});
+
+	it("explains refused uploads", async () => {
 		const harness = await loadPlugin();
 		harness.fileMenu("A.md").item("Set note emoji").click();
 		const options = (picker() as CustomPicker).options;
-		const file = await options.custom.upload("Logo.PNG", new Uint8Array(8).buffer);
-		options.onSubmit(`custom:${file}`);
-		await flush();
+		await expect(options.custom.upload("notes.png", new ArrayBuffer(10))).rejects.toThrow(
+			"is not a PNG, JPG, GIF, WebP, AVIF or SVG image",
+		);
+		expect(await options.custom.list()).toEqual([]);
+	});
 
-		expect(harness.app.vault.adapter.files.has(`${FOLDER}/Logo.png`)).toBe(true);
-		expect(harness.lastSaved()?.icons).toEqual({ "A.md": "custom:Logo.png" });
-		expect(harness.lastSaved()?.recent).toEqual(["custom:Logo.png"]);
+	it("explains when converting fails on this device", async () => {
+		vi.spyOn(canvasCodec, "load").mockResolvedValue({
+			width: 2000,
+			height: 2000,
+			resize: () => {
+				throw new Error("No canvas available.");
+			},
+			dispose: () => undefined,
+		});
+		const harness = await loadPlugin();
+		await expect(harness.plugin.uploadCustomIcon("big.png", png())).rejects.toThrow(
+			'"big.png" could not be converted on this device.',
+		);
 	});
 
 	it("deletes an icon after confirmation and forgets where it was used", async () => {
 		const harness = await loadPlugin({
 			data: {
-				icons: { "A.md": "custom:logo.png", "B.md": "🚀" },
-				recent: ["custom:logo.png"],
+				icons: { "A.md": "custom:logo", "B.md": "🚀" },
+				recent: ["custom:logo"],
+				customIcons: { logo: stored() },
 			},
 		});
-		harness.app.vault.adapter.files.set(`${FOLDER}/logo.png`, new ArrayBuffer(4));
 
-		const cancelled = harness.plugin.deleteCustomIcon("logo.png");
+		const cancelled = harness.plugin.deleteCustomIcon("logo");
 		await flush();
 		expect(openModals.at(-1)!.contentEl.textContent).toContain("1 item uses it");
 		await answer("Cancel");
 		expect(await cancelled).toBe(false);
-		expect(harness.app.vault.adapter.files.size).toBe(1);
+		expect(harness.plugin.customIcons.list()).toEqual(["logo"]);
 
-		const deleted = harness.plugin.deleteCustomIcon("logo.png");
+		const deleted = harness.plugin.deleteCustomIcon("logo");
 		await flush();
 		await answer("Delete");
 		expect(await deleted).toBe(true);
-		expect(harness.app.vault.adapter.files.size).toBe(0);
+		await flush();
+		expect(harness.lastSaved()?.customIcons).toEqual({});
 		expect(harness.lastSaved()?.icons).toEqual({ "B.md": "🚀" });
 		expect(harness.lastSaved()?.recent).toEqual([]);
 	});
 
-	it("shows the library in the settings and deletes all after confirmation", async () => {
-		const harness = await loadPlugin({ data: { icons: { Folder: "custom:a.png" } } });
-		harness.app.vault.adapter.folders.add(FOLDER);
-		harness.app.vault.adapter.files.set(`${FOLDER}/a.png`, new ArrayBuffer(2048));
-		harness.app.vault.adapter.files.set(`${FOLDER}/b.svg`, new ArrayBuffer(1024));
+	it("brings icons added on another device with sync", async () => {
+		const harness = await loadPlugin({ data: { icons: { "A.md": "custom:logo" } } });
+		expect(harness.plugin.customIcons.url("logo")).toBeUndefined();
 
-		settingsCreated.length = 0;
-		harness.fake.settingTabs[0].display();
-		await flush();
-		const setting = settingsCreated.find((entry) => entry.nameEl.textContent === "Your icons")!;
-		expect(setting.descEl.textContent).toContain("2 icons, 3 KB");
-		const button = setting.components[0] as ButtonComponent;
-		expect(button.disabled).toBe(false);
+		harness.fake.dataJson = {
+			icons: { "A.md": "custom:logo" },
+			customIcons: { logo: stored() },
+		};
+		await harness.plugin.onExternalSettingsChange();
+		const first = harness.plugin.customIcons.url("logo");
+		expect(first).toMatch(/^blob:/);
 
-		void button.click();
-		await flush();
-		await answer("Delete all");
-		expect(harness.app.vault.adapter.files.size).toBe(0);
-		expect(harness.lastSaved()?.icons).toEqual({});
+		// Replaced on the other device: a new image, the old one is freed.
+		harness.fake.dataJson = {
+			icons: { "A.md": "custom:logo" },
+			customIcons: { logo: stored(2) },
+		};
+		await harness.plugin.onExternalSettingsChange();
+		expect(revoked).toHaveBeenCalledWith(first);
+		expect(harness.plugin.customIcons.url("logo")).not.toBe(first);
+		expect(harness.fake.saved).toEqual([]);
+	});
+
+	it("frees the images on unload", async () => {
+		const harness = await loadPlugin({ data: { customIcons: { logo: stored() } } });
+		const url = harness.plugin.customIcons.url("logo");
+		harness.unload();
+		expect(revoked).toHaveBeenCalledWith(url);
+	});
+
+	describe("in the settings", () => {
+		async function openSettings(data: unknown) {
+			const harness = await loadPlugin({ data });
+			settingsCreated.length = 0;
+			harness.fake.settingTabs[0].display();
+			await flush();
+			const setting = (name: string) =>
+				settingsCreated.find((entry) => entry.nameEl.textContent === name);
+			const button = (name: string, text: string) =>
+				setting(name)!.components.find(
+					(entry): entry is ButtonComponent =>
+						entry instanceof ButtonComponent && entry.buttonEl.textContent === text,
+				)!;
+			return { harness, setting, button };
+		}
+
+		const library = {
+			icons: { "A.md": "custom:logo", "B.md": "custom:logo", Folder: "custom:gone" },
+			customIcons: {
+				logo: stored(1),
+				spare: { type: "image/svg+xml", data: "PHN2Zz4=" },
+			},
+		};
+
+		it("shows the storage used, the limit and why", async () => {
+			const { setting } = await openSettings(library);
+			const storage = setting("Storage")!.descEl.textContent;
+			expect(storage).toContain("96 B of 3 MB used by 2 icons.");
+			expect(storage).toContain("Obsidian Sync skips files larger than 5 MB");
+			expect(storage).toContain("at least 50 icons");
+		});
+
+		it("lists every icon with a preview, format, size and uses", async () => {
+			const { setting } = await openSettings(library);
+			const logo = setting("logo")!;
+			expect(logo.descEl.textContent).toBe("PNG · 88 B · Used 2 times");
+			expect(logo.nameEl.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+			expect(setting("spare")!.descEl.textContent).toBe("SVG · 8 B · Not used");
+		});
+
+		it("deletes one icon after confirmation", async () => {
+			const { harness, button } = await openSettings(library);
+			void button("logo", "Delete").click();
+			await flush();
+			await answer("Delete");
+			await flush();
+			expect(harness.plugin.customIcons.list()).toEqual(["spare"]);
+			expect(harness.lastSaved()?.icons).toEqual({ Folder: "custom:gone" });
+		});
+
+		it("deletes unused icons after confirmation", async () => {
+			const { harness, button } = await openSettings(library);
+			void button("Storage", "Delete 1 unused").click();
+			await flush();
+			expect(openModals.at(-1)!.contentEl.textContent).toContain("spare");
+			await answer("Delete");
+			expect(harness.plugin.customIcons.list()).toEqual(["logo"]);
+		});
+
+		it("deletes all after confirmation", async () => {
+			const { harness, button } = await openSettings(library);
+			void button("Storage", "Delete all").click();
+			await flush();
+			await answer("Delete all");
+			await flush();
+			expect(harness.lastSaved()?.customIcons).toEqual({});
+			expect(harness.lastSaved()?.icons).toEqual({});
+		});
+
+		it("explains icons that are used but missing, and removes them on request", async () => {
+			const { harness, setting, button } = await openSettings(library);
+			expect(setting("Missing icons")!.descEl.textContent).toContain(
+				"1 item uses an icon that is no longer in your library (gone)",
+			);
+			void button("Missing icons", "Remove").click();
+			await flush();
+			await answer("Remove");
+			expect(harness.lastSaved()?.icons).toEqual({
+				"A.md": "custom:logo",
+				"B.md": "custom:logo",
+			});
+		});
+
+		it("doesn't count icons kept for a newer version as missing", async () => {
+			const { harness, setting, button } = await openSettings({
+				version: 2,
+				icons: { "A.md": "custom:future", "B.md": "custom:logo" },
+				customIcons: { logo: stored(1), future: { type: "image/jxl", data: "AAAA" } },
+			});
+			expect(setting("Missing icons")).toBeUndefined();
+			void button("Storage", "Delete all").click();
+			await flush();
+			await answer("Delete all");
+			await flush();
+			expect(harness.lastSaved()?.icons).toEqual({ "A.md": "custom:future" });
+			expect(harness.lastSaved()?.customIcons).toEqual({
+				future: { type: "image/jxl", data: "AAAA" },
+			});
+		});
+
+		it("invites to upload when there are none", async () => {
+			const { setting, button } = await openSettings({});
+			expect(setting("Storage")!.descEl.textContent).toContain("No custom icons yet.");
+			expect(button("Storage", "Delete all").disabled).toBe(true);
+			expect(setting("Missing icons")).toBeUndefined();
+		});
 	});
 });
 

@@ -56,7 +56,7 @@ export class IconService {
 	}
 
 	/**
-	 * Sets an item's emoji or custom icon (`custom:<file>`). Returns false when
+	 * Sets an item's emoji or custom icon (`custom:<name>`). Returns false when
 	 * nothing changed or the value is not usable.
 	 */
 	setIcon(file: TAbstractFile, value: string): boolean {
@@ -95,21 +95,28 @@ export class IconService {
 		this.notify();
 	}
 
-	/** How many items use the custom icon `file`. */
-	countCustomUses(file: string): number {
-		let count = 0;
+	/** How many items use the custom icon `id`. */
+	countCustomUses(id: string): number {
+		return this.customUses().get(id) ?? 0;
+	}
+
+	/** How many items use each custom icon, by name (also names missing from the library). */
+	customUses(): Map<string, number> {
+		const uses = new Map<string, number>();
 		for (const [, value] of this.data.icons.entries()) {
-			if (value === CUSTOM_PREFIX + file) count += 1;
+			if (!value.startsWith(CUSTOM_PREFIX)) continue;
+			const id = value.slice(CUSTOM_PREFIX.length);
+			uses.set(id, (uses.get(id) ?? 0) + 1);
 		}
-		return count;
+		return uses;
 	}
 
 	/**
-	 * Forgets custom icons whose file was deleted: removes them from items and
-	 * from the recent list. Without `files`, forgets every custom icon.
+	 * Forgets deleted custom icons: removes them from items and from the
+	 * recent list. Without `ids`, forgets every custom icon.
 	 */
-	forgetCustomIcons(files?: readonly string[]): void {
-		const values = files?.map((file) => CUSTOM_PREFIX + file);
+	forgetCustomIcons(ids?: readonly string[]): void {
+		const values = ids?.map((id) => CUSTOM_PREFIX + id);
 		const matches = (value: string) =>
 			values ? values.includes(value) : value.startsWith(CUSTOM_PREFIX);
 		const removed = this.data.icons.removeWhere(matches);

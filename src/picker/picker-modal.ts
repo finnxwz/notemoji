@@ -1,7 +1,9 @@
 import { App, Menu, Modal, Notice, Platform, setIcon } from "obsidian";
 import { renderIcon } from "../display/icon-source";
 import { parseEmojiInput } from "../icons/emoji";
-import { CUSTOM_EXTENSIONS, customValue, parseIcon } from "../icons/icon-value";
+import { customValue, parseIcon } from "../icons/icon-value";
+import { IMAGE_EXTENSIONS } from "../icons/image-format";
+import { MAX_UPLOAD_BYTES } from "../icons/prepare-icon";
 import { findEntry, getCatalog, searchEmoji } from "./catalog";
 import { onContextMenu } from "./context-menu";
 import { GridItem, GridLayout, GridSection } from "./grid-layout";
@@ -10,12 +12,13 @@ import { VirtualGrid } from "./virtual-grid";
 
 /** The user's own icon library, as the picker needs it. */
 export interface CustomIcons {
+	/** Names of all icons. */
 	list(): Promise<string[]>;
-	url(file: string): string;
-	/** Stores an uploaded image; returns its file name, or throws with a message for the user. */
-	upload(name: string, data: ArrayBuffer): Promise<string>;
+	url(id: string): string | undefined;
+	/** Stores an uploaded image; returns the icon's name, or throws with a message for the user. */
+	upload(fileName: string, data: ArrayBuffer): Promise<string>;
 	/** Deletes an icon (after asking). Resolves true when it was deleted. */
-	remove(file: string): Promise<boolean>;
+	remove(id: string): Promise<boolean>;
 }
 
 export interface PickerOptions {
@@ -23,7 +26,7 @@ export interface PickerOptions {
 	title: string;
 	/** Line below the heading, usually the item's name. */
 	description?: string;
-	/** The item's current icon (emoji or `custom:<file>`), or "" when it has none. */
+	/** The item's current icon (emoji or `custom:<name>`), or "" when it has none. */
 	current: string;
 	/** Recently used icons, most recent first. */
 	recent: readonly string[];
@@ -37,7 +40,10 @@ export interface PickerOptions {
 const RECENT = { id: "recent", label: "Recently used", icon: "🕘" };
 const CUSTOM = { id: "custom", label: "Custom icons", icon: "🖼️" };
 const HINT = "Type to search, or use the arrow keys.";
-const ACCEPT = CUSTOM_EXTENSIONS.map((extension) => `.${extension}`).join(",");
+const ACCEPT = IMAGE_EXTENSIONS.map((extension) => `.${extension}`).join(",");
+
+/** How long a notice explaining a refused upload stays (ms); it may take a moment to read. */
+const UPLOAD_NOTICE_MS = 10_000;
 
 /** Grid geometry; tiles stretch to fill the width, never smaller than this. */
 const MIN_TILE_PX = 40;
@@ -82,7 +88,7 @@ export class PickerModal extends Modal {
 	private stopSprites: (() => void) | null = null;
 
 	private sections: GridSection[] = [];
-	private customFiles: string[] = [];
+	private customIds: string[] = [];
 	private activeIndex = -1;
 	/** Section whose tab is highlighted ("" for none, null before the first update). */
 	private shownSection: string | null = null;
@@ -189,25 +195,27 @@ export class PickerModal extends Modal {
 	// ------------------------------------------------------------------ model
 
 	private async loadCustomIcons(): Promise<void> {
-		let files: string[];
+		let ids: string[];
 		try {
-			files = await this.options.custom.list();
+			ids = await this.options.custom.list();
 		} catch (error) {
 			console.error("[notemoji] Could not list custom icons.", error);
-			files = [];
+			ids = [];
 		}
-		if (files.join("\n") === this.customFiles.join("\n")) return;
+		if (ids.join("\n") === this.customIds.join("\n")) return;
 		const hadRecent = this.recent().length > 0;
-		this.customFiles = files;
+		this.customIds = ids;
 		if (this.recent().length > 0 !== hadRecent) this.renderTabs();
 		this.rebuild(true);
 	}
 
-	/** Recent entries that can still be shown (custom icons may have been deleted). */
+	/** Recent entries that can be shown (custom icons may have been deleted; newer versions add other kinds). */
 	private recent(): string[] {
 		return this.options.recent.filter((value) => {
 			const icon = parseIcon(value);
-			return icon?.type !== "custom" || this.customFiles.includes(icon.file);
+			return (
+				icon !== undefined && (icon.type !== "custom" || this.customIds.includes(icon.id))
+			);
 		});
 	}
 
@@ -228,10 +236,7 @@ export class PickerModal extends Modal {
 		sections.push({
 			id: CUSTOM.id,
 			label: CUSTOM.label,
-			items: [
-				...this.customFiles.map((file) => this.item(customValue(file), file)),
-				UPLOAD_ITEM,
-			],
+			items: [...this.customIds.map((id) => this.item(customValue(id), id)), UPLOAD_ITEM],
 		});
 		for (const category of getCatalog()) {
 			sections.push({
@@ -256,8 +261,8 @@ export class PickerModal extends Modal {
 			items.push(this.item(entry?.emoji ?? pasted.emoji, entry?.name ?? ""));
 		}
 		const lower = query.toLowerCase();
-		for (const file of this.customFiles) {
-			if (file.toLowerCase().includes(lower)) items.push(this.item(customValue(file), file));
+		for (const id of this.customIds) {
+			if (id.toLowerCase().includes(lower)) items.push(this.item(customValue(id), id));
 		}
 		for (const entry of searchEmoji(getCatalog(), query)) {
 			if (entry.emoji === items[0]?.value) continue;
@@ -268,7 +273,7 @@ export class PickerModal extends Modal {
 
 	private nameOf(value: string): string {
 		const icon = parseIcon(value);
-		if (icon?.type === "custom") return icon.file;
+		if (icon?.type === "custom") return icon.id;
 		return findEntry(value)?.name ?? "";
 	}
 
@@ -377,7 +382,7 @@ export class PickerModal extends Modal {
 			this.stickyEl.toggleClass("is-visible", pinned);
 	}
 
-	private readonly customUrl = (file: string): string => this.options.custom.url(file);
+	private readonly customUrl = (id: string): string | undefined => this.options.custom.url(id);
 
 	// ------------------------------------------------------------------ interaction
 
@@ -457,10 +462,17 @@ export class PickerModal extends Modal {
 		const added: string[] = [];
 		for (const file of files) {
 			try {
+				// Checked before reading: a huge file (a video) would fill a phone's memory.
+				if (file.size > MAX_UPLOAD_BYTES) {
+					throw new Error(
+						`"${file.name}" is larger than 20 MB. Please use a smaller image.`,
+					);
+				}
 				added.push(await this.options.custom.upload(file.name, await file.arrayBuffer()));
 			} catch (error) {
 				new Notice(
 					error instanceof Error ? error.message : `Could not add "${file.name}".`,
+					UPLOAD_NOTICE_MS,
 				);
 			}
 		}
@@ -487,8 +499,7 @@ export class PickerModal extends Modal {
 					.setTitle("Delete custom icon")
 					.setIcon("trash")
 					.onClick(async () => {
-						if (await this.options.custom.remove(icon.file))
-							await this.loadCustomIcons();
+						if (await this.options.custom.remove(icon.id)) await this.loadCustomIcons();
 					}),
 			)
 			.showAtPosition(position);
@@ -501,7 +512,7 @@ export class PickerModal extends Modal {
 	}
 }
 
-/** Emoji names start with a capital ("Party popper"); file names stay as they are. */
+/** Emoji names start with a capital ("Party popper"); custom icon names stay as they are. */
 function displayName(value: string, name: string): string {
 	if (parseIcon(value)?.type === "custom") return name;
 	return name.charAt(0).toUpperCase() + name.slice(1);

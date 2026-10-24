@@ -39,12 +39,22 @@ export class FakeAdapter {
 		this.folders.add(path);
 		return Promise.resolve();
 	}
+	read(path: string): Promise<string> {
+		return this.readBinary(path).then((data) => new TextDecoder().decode(data));
+	}
+	write(path: string, text: string): Promise<void> {
+		return this.writeBinary(path, new TextEncoder().encode(text).buffer);
+	}
 	readBinary(path: string): Promise<ArrayBuffer> {
 		const data = this.files.get(path);
 		return data ? Promise.resolve(data) : Promise.reject(new Error(`No file ${path}`));
 	}
 	writeBinary(path: string, data: ArrayBuffer): Promise<void> {
 		this.files.set(path, data);
+		this.clock += 1;
+		this.written.set(path, this.clock);
+		// Like a real folder, its time follows the files written into it.
+		this.written.set(path.slice(0, path.lastIndexOf("/")), this.clock);
 		return Promise.resolve();
 	}
 	remove(path: string): Promise<void> {
@@ -58,9 +68,18 @@ export class FakeAdapter {
 			if (folder === path || folder.startsWith(`${path}/`)) this.folders.delete(folder);
 		return Promise.resolve();
 	}
-	stat(path: string): Promise<{ size: number } | null> {
+	/** When each file or folder was last written, in order (a counter, not a clock). */
+	private readonly written = new Map<string, number>();
+	private clock = 0;
+
+	stat(path: string): Promise<{ size: number; mtime: number } | null> {
 		const data = this.files.get(path);
-		return Promise.resolve(data ? { size: data.byteLength } : null);
+		if (data)
+			return Promise.resolve({ size: data.byteLength, mtime: this.written.get(path) ?? 0 });
+		const isFolder =
+			this.folders.has(path) ||
+			[...this.files.keys()].some((file) => file.startsWith(`${path}/`));
+		return Promise.resolve(isFolder ? { size: 0, mtime: this.written.get(path) ?? 0 } : null);
 	}
 	getResourcePath(path: string): string {
 		return `app://local/${encodeURI(path)}`;
@@ -107,18 +126,24 @@ export class FakeVault extends Events {
 		return item;
 	}
 
-	/** Renames/moves like Obsidian: updates descendants, then emits one `rename`. */
+	/**
+	 * Renames/moves like Obsidian: updates the item and its descendants, then
+	 * emits `rename` for the item and once more for every descendant.
+	 */
 	rename(oldPath: string, newPath: string): TAbstractFile {
 		const item = this.items.get(oldPath);
 		if (!item) throw new Error(`No item at ${oldPath}`);
+		const moved: Array<[TAbstractFile, string]> = [];
 		for (const [path, entry] of [...this.items]) {
 			if (path !== oldPath && !path.startsWith(`${oldPath}/`)) continue;
 			this.items.delete(path);
 			entry.path = newPath + path.slice(oldPath.length);
 			entry.name = entry.path.slice(entry.path.lastIndexOf("/") + 1);
 			this.items.set(entry.path, entry);
+			if (entry !== item) moved.push([entry, path]);
 		}
 		this.trigger("rename", item, oldPath);
+		for (const [entry, path] of moved) this.trigger("rename", entry, path);
 		return item;
 	}
 

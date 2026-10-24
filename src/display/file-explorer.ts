@@ -1,6 +1,6 @@
 import type { App } from "obsidian";
 import type { FileExplorerView } from "../internals";
-import { renderIcon } from "./icon-source";
+import { renderIcon, renderKey } from "./icon-source";
 import type { IconSource } from "./icon-source";
 
 /** What the explorer needs on top of `IconSource`: every path that has an icon. */
@@ -11,7 +11,7 @@ export interface ExplorerSource extends IconSource {
 /** Marker class of the emoji nodes owned by this plugin. */
 const ICON_CLASS = "notemoji-icon";
 
-/** Attribute storing the rendered emoji, used to skip needless DOM writes. */
+/** Attribute storing what the icon was rendered from, used to skip needless DOM writes. */
 const EMOJI_ATTRIBUTE = "data-notemoji-emoji";
 
 /** Coalescing window for DOM mutations (ms). */
@@ -170,11 +170,13 @@ export class FileExplorerRenderer {
 
 	/** Adds or updates the emoji node of a single file explorer item. */
 	private applyIcon(titleEl: HTMLElement, innerEl: HTMLElement | null, value: string): void {
+		const url = (id: string) => this.source.url(id);
+		const key = renderKey(value, url);
 		const existing = this.findIconNode(titleEl);
 		if (existing) {
-			if (existing.getAttribute(EMOJI_ATTRIBUTE) === value) return;
-			renderIcon(existing, value, (file) => this.source.url(file));
-			existing.setAttribute(EMOJI_ATTRIBUTE, value);
+			if (existing.getAttribute(EMOJI_ATTRIBUTE) === key) return;
+			renderIcon(existing, value, url);
+			existing.setAttribute(EMOJI_ATTRIBUTE, key);
 			return;
 		}
 
@@ -182,9 +184,9 @@ export class FileExplorerRenderer {
 		// so it is moved to its final position right below.
 		const iconEl = titleEl.createSpan({
 			cls: ICON_CLASS,
-			attr: { [EMOJI_ATTRIBUTE]: value, "aria-hidden": "true" },
+			attr: { [EMOJI_ATTRIBUTE]: key, "aria-hidden": "true" },
 		});
-		renderIcon(iconEl, value, (file) => this.source.url(file));
+		renderIcon(iconEl, value, url);
 
 		// Keep the emoji immediately before the name, after the folder chevron.
 		const anchor =

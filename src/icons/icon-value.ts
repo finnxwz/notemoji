@@ -4,20 +4,20 @@ import { sanitizeStoredEmoji } from "./emoji";
  * What an item's stored value means.
  *
  * - An emoji (or symbol), stored as-is: `"🚀"`.
- * - A custom icon from the plugin's icon folder: `"custom:rocket.svg"`.
+ * - A custom icon from the library in data.json, by its name: `"custom:rocket"`.
  *
  * Kept free of Obsidian imports so it can be unit tested.
  */
-export type Icon = { type: "emoji"; emoji: string } | { type: "custom"; file: string };
+export type Icon = { type: "emoji"; emoji: string } | { type: "custom"; id: string };
 
 export const CUSTOM_PREFIX = "custom:";
 
-/** Image types accepted as custom icons (always shown through `<img>`, so SVG scripts never run). */
-export const CUSTOM_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg"] as const;
+/** Longest name of a custom icon made from an upload's file name. */
+const MAX_ID_LENGTH = 60;
 
 /**
  * A plain file name with one of the given extensions: no folders, not hidden,
- * not too long. Used for every file name Notemoji stores (icons, fonts).
+ * not too long. Used for the emoji font files Notemoji stores.
  */
 export function isPlainFileName(name: string, extensions: readonly string[]): boolean {
 	if (name.length === 0 || name.length > 100) return false;
@@ -25,51 +25,70 @@ export function isPlainFileName(name: string, extensions: readonly string[]): bo
 	return extensions.includes(name.slice(name.lastIndexOf(".") + 1).toLowerCase());
 }
 
-/** A custom icon's file name in the icon folder. */
-export function isCustomFileName(name: string): boolean {
-	return isPlainFileName(name, CUSTOM_EXTENSIONS);
+/**
+ * The name of a custom icon, which is also its key in the library. Read
+ * leniently (names from older builds kept their extension, like `logo.png`),
+ * but never anything that could pass as a path or hide characters.
+ */
+export function isCustomIconId(id: string): boolean {
+	if (id.length === 0 || id.length > 100 || id !== id.trim() || id.startsWith(".")) return false;
+	return !/[/\\:*?"<>|\p{C}]/u.test(id);
 }
 
-export function customValue(file: string): string {
-	return CUSTOM_PREFIX + file;
+export function customValue(id: string): string {
+	return CUSTOM_PREFIX + id;
 }
 
 /** Reads a stored value; `undefined` for anything that is not a usable icon. */
 export function parseIcon(value: unknown): Icon | undefined {
 	if (typeof value === "string" && value.startsWith(CUSTOM_PREFIX)) {
-		const file = value.slice(CUSTOM_PREFIX.length);
-		return isCustomFileName(file) ? { type: "custom", file } : undefined;
+		const id = value.slice(CUSTOM_PREFIX.length);
+		return isCustomIconId(id) ? { type: "custom", id } : undefined;
 	}
 	const emoji = sanitizeStoredEmoji(value);
 	return emoji === undefined ? undefined : { type: "emoji", emoji };
+}
+
+/**
+ * A value written by a newer version: another icon source (`lucide:rocket`)
+ * or a custom icon in a form this version doesn't know. Kept in data.json,
+ * so saving with this version never loses it, but not shown.
+ */
+export function isFutureIconValue(value: unknown): value is string {
+	return (
+		typeof value === "string" &&
+		value.length <= 200 &&
+		/^[a-z][a-z0-9-]*:\S/.test(value) &&
+		parseIcon(value) === undefined &&
+		!/\p{C}/u.test(value)
+	);
 }
 
 /** The canonical string to store for a value, or `undefined` when it is not usable. */
 export function normalizeIcon(value: unknown): string | undefined {
 	const icon = parseIcon(value);
 	if (!icon) return undefined;
-	return icon.type === "emoji" ? icon.emoji : customValue(icon.file);
+	return icon.type === "emoji" ? icon.emoji : customValue(icon.id);
 }
 
 /**
- * A safe, unique file name for an uploaded image: keeps the name readable,
- * replaces anything unusual, and appends `-2`, `-3`, … when it is taken.
+ * A readable, unique name for an uploaded image: the file name without its
+ * extension (the stored format may differ), anything unusual replaced, and
+ * `-2`, `-3`, … appended when it is taken (ignoring case).
  */
-export function uniqueFileName(original: string, taken: ReadonlySet<string>): string | undefined {
-	const dot = original.lastIndexOf(".");
-	const extension = dot > 0 ? original.slice(dot + 1).toLowerCase() : "";
-	if (!(CUSTOM_EXTENSIONS as readonly string[]).includes(extension)) return undefined;
-
+export function uniqueIconId(fileName: string, taken: Iterable<string>): string {
+	const dot = fileName.lastIndexOf(".");
 	const base =
-		original
-			.slice(0, dot)
-			.replace(/[^\p{L}\p{N} _-]+/gu, "-")
+		(dot > 0 ? fileName.slice(0, dot) : fileName)
+			.normalize("NFC")
+			.replace(/[^\p{L}\p{M}\p{N} _-]+/gu, "-")
 			.replace(/\s+/g, " ")
-			.replace(/^[\s.-]+|[\s.-]+$/g, "")
-			.slice(0, 60) || "icon";
-	const lowerTaken = new Set([...taken].map((name) => name.toLowerCase()));
+			.replace(/^[\s-]+|[\s-]+$/g, "")
+			.slice(0, MAX_ID_LENGTH)
+			.trim() || "icon";
+	const lowerTaken = new Set([...taken].map((id) => id.toLowerCase()));
 	for (let index = 1; ; index += 1) {
-		const name = `${base}${index === 1 ? "" : `-${index}`}.${extension}`;
-		if (!lowerTaken.has(name.toLowerCase())) return name;
+		const id = index === 1 ? base : `${base}-${index}`;
+		if (!lowerTaken.has(id.toLowerCase())) return id;
 	}
 }

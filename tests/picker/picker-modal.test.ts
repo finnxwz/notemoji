@@ -68,7 +68,13 @@ async function open(options: Partial<PickerOptions> = {}) {
 		},
 		async upload(...names: string[]) {
 			const input = query<HTMLInputElement>(".notemoji-hidden-input")!;
-			const files = names.map((name) => new File([new Uint8Array(4)], name));
+			const files = names.map((name) => {
+				const file = new File([new Uint8Array(4)], name);
+				// A "video" that claims to be huge, to check it is refused before reading.
+				if (name.endsWith(".mov"))
+					Object.defineProperty(file, "size", { value: 500 * 1024 * 1024 });
+				return file;
+			});
 			Object.defineProperty(input, "files", { value: files, configurable: true });
 			input.dispatchEvent(new Event("change"));
 			await flush(10);
@@ -311,6 +317,13 @@ describe("custom icons", () => {
 		expect(notices).toEqual(['"notes.txt" is not an image.']);
 		expect(picker.tile("a.png")).toBeDefined();
 		expect(picker.tile("b.png")).toBeDefined();
+	});
+
+	it("refuses huge files before reading them", async () => {
+		const picker = await open();
+		await picker.upload("clip.mov");
+		expect(picker.custom.upload).not.toHaveBeenCalled();
+		expect(notices).toEqual(['"clip.mov" is larger than 20 MB. Please use a smaller image.']);
 	});
 
 	it("deletes a custom icon from its context menu", async () => {

@@ -1,9 +1,9 @@
-import { normalizeIcon } from "./icon-value";
+import { isFutureIconValue, normalizeIcon } from "./icon-value";
 
+/** A stored path as-is: names may start or end with spaces, so nothing is trimmed. */
 function normalizeStoredPath(key: string): string | undefined {
-	const path = key.trim();
-	if (path === "" || path.includes("\u0000")) return undefined;
-	return path;
+	if (key.trim() === "" || key.includes("\u0000")) return undefined;
+	return key;
 }
 
 /**
@@ -99,9 +99,8 @@ export class IconStore {
 	}
 
 	toRecord(): Record<string, string> {
-		const icons: Record<string, string> = {};
-		for (const [path, emoji] of this.icons) icons[path] = emoji;
-		return icons;
+		// Not by assignment: a folder named `__proto__` would change the object's prototype.
+		return Object.fromEntries(this.icons);
 	}
 
 	/**
@@ -127,7 +126,8 @@ export class IconStore {
 		for (const [key, value] of Object.entries(candidate)) {
 			const path = normalizeStoredPath(key);
 			if (path === undefined) continue;
-			const icon = normalizeIcon(value);
+			// Values of newer versions are kept, so saving here never loses them.
+			const icon = normalizeIcon(value) ?? (isFutureIconValue(value) ? value : undefined);
 			if (icon === undefined) continue;
 			store.icons.set(path, icon);
 		}

@@ -1,5 +1,5 @@
 import { parseIcon } from "../icons/icon-value";
-import type { IconSource } from "./icon-source";
+import { IconSource, renderKey } from "./icon-source";
 
 /**
  * Display-only icons on Obsidian's own title elements.
@@ -23,9 +23,12 @@ export class EmojiAttributes {
 		for (const el of [...this.elements.keys()]) {
 			if (!wanted.has(el)) this.undecorate(el);
 		}
+		const url = (id: string) => source.url(id);
 		for (const [el, value] of wanted) {
-			if (this.elements.get(el) === value) continue;
+			const key = renderKey(value, url);
+			if (this.elements.get(el) === key) continue;
 			this.decorate(el, value, source);
+			this.elements.set(el, key);
 		}
 	}
 
@@ -36,15 +39,18 @@ export class EmojiAttributes {
 	private decorate(el: HTMLElement, value: string, source: IconSource): void {
 		const icon = parseIcon(value);
 		if (icon?.type === "custom") {
+			// A missing icon keeps its space, empty, like in the file explorer.
+			const url = source.url(icon.id);
 			el.removeAttribute(EMOJI_ATTRIBUTE);
-			el.setAttribute(IMAGE_ATTRIBUTE, icon.file);
-			el.setCssProps({ [IMAGE_VARIABLE]: `url(${JSON.stringify(source.url(icon.file))})` });
+			el.setAttribute(IMAGE_ATTRIBUTE, icon.id);
+			el.setCssProps({
+				[IMAGE_VARIABLE]: url === undefined ? "" : `url(${JSON.stringify(url)})`,
+			});
 		} else {
 			el.removeAttribute(IMAGE_ATTRIBUTE);
 			el.setCssProps({ [IMAGE_VARIABLE]: "" });
 			el.setAttribute(EMOJI_ATTRIBUTE, icon?.emoji ?? "");
 		}
-		this.elements.set(el, value);
 	}
 
 	private undecorate(el: HTMLElement): void {

@@ -1,17 +1,14 @@
 import { describe, expect, it } from "vitest";
-import {
-	isCustomFileName,
-	normalizeIcon,
-	parseIcon,
-	uniqueFileName,
-} from "../../src/icons/icon-value";
+import { isCustomIconId, normalizeIcon, parseIcon, uniqueIconId } from "../../src/icons/icon-value";
 
 describe("parseIcon / normalizeIcon", () => {
 	it("reads emoji and custom icons", () => {
 		expect(parseIcon("🚀")).toEqual({ type: "emoji", emoji: "🚀" });
-		expect(parseIcon("custom:rocket.svg")).toEqual({ type: "custom", file: "rocket.svg" });
+		expect(parseIcon("custom:rocket")).toEqual({ type: "custom", id: "rocket" });
+		// Names from earlier builds kept their extension.
+		expect(parseIcon("custom:rocket.svg")).toEqual({ type: "custom", id: "rocket.svg" });
 		expect(normalizeIcon(" 🚀 ")).toBe("🚀");
-		expect(normalizeIcon("custom:Logo 2.PNG")).toBe("custom:Logo 2.PNG");
+		expect(normalizeIcon("custom:Logo 2")).toBe("custom:Logo 2");
 	});
 
 	it("rejects anything unusable", () => {
@@ -21,10 +18,11 @@ describe("parseIcon / normalizeIcon", () => {
 			42,
 			null,
 			"custom:",
-			"custom:../evil.png",
-			"custom:sub/dir.png",
-			"custom:script.js",
-			"custom:.hidden.png",
+			"custom:../evil",
+			"custom:sub/dir",
+			"custom:.hidden",
+			"custom: padded ",
+			`custom:a${String.fromCodePoint(0x200b)}b`,
 			"lucide:rocket",
 		]) {
 			expect(parseIcon(value), String(value)).toBeUndefined();
@@ -32,39 +30,40 @@ describe("parseIcon / normalizeIcon", () => {
 	});
 });
 
-describe("isCustomFileName", () => {
-	it("accepts plain image file names only", () => {
-		for (const name of ["a.png", "Logo.SVG", "my icon.webp", "x.jpeg", "y.gif"]) {
-			expect(isCustomFileName(name), name).toBe(true);
+describe("isCustomIconId", () => {
+	it("accepts plain names only", () => {
+		for (const id of ["a", "Logo", "my icon", "x-2", "logo.png", "Café", "日本"]) {
+			expect(isCustomIconId(id), id).toBe(true);
 		}
-		for (const name of [
-			"a",
-			"a.txt",
-			"a/b.png",
-			"a\\b.png",
-			".png",
-			`${"x".repeat(100)}.png`,
-		]) {
-			expect(isCustomFileName(name), name).toBe(false);
+		for (const id of ["", "a/b", "a\\b", ".x", " a", "a ", "a:b", "x".repeat(101), "a\nb"]) {
+			expect(isCustomIconId(id), id).toBe(false);
 		}
 	});
 });
 
-describe("uniqueFileName", () => {
-	it("keeps readable names and lower-cases the extension", () => {
-		expect(uniqueFileName("Rocket.PNG", new Set())).toBe("Rocket.png");
-		expect(uniqueFileName("my icon (final).svg", new Set())).toBe("my icon -final.svg");
+describe("uniqueIconId", () => {
+	it("uses the file name without its extension, readable", () => {
+		expect(uniqueIconId("Rocket.PNG", [])).toBe("Rocket");
+		expect(uniqueIconId("my icon (final).svg", [])).toBe("my icon -final");
+		expect(uniqueIconId("IMG_2034.jpeg", [])).toBe("IMG_2034");
+		expect(uniqueIconId("noextension", [])).toBe("noextension");
+		expect(uniqueIconId("archive.tar.gz", [])).toBe("archive-tar");
+	});
+
+	it("keeps letters of every script, also when decomposed", () => {
+		expect(uniqueIconId(`Cafe${String.fromCodePoint(0x301)}.png`, [])).toBe("Café");
+		expect(uniqueIconId("ロゴ.png", [])).toBe("ロゴ");
 	});
 
 	it("avoids taken names, ignoring case", () => {
-		expect(uniqueFileName("rocket.png", new Set(["Rocket.png", "rocket-2.png"]))).toBe(
-			"rocket-3.png",
-		);
+		expect(uniqueIconId("rocket.png", ["Rocket", "rocket-2"])).toBe("rocket-3");
 	});
 
-	it("rejects unsupported types and falls back for empty names", () => {
-		expect(uniqueFileName("notes.txt", new Set())).toBeUndefined();
-		expect(uniqueFileName("noextension", new Set())).toBeUndefined();
-		expect(uniqueFileName("....png", new Set())).toBe("icon.png");
+	it("falls back for empty names and stays short", () => {
+		expect(uniqueIconId("....png", [])).toBe("icon");
+		expect(uniqueIconId(".png", [])).toBe("png");
+		expect(uniqueIconId("🚀.png", [])).toBe("icon");
+		expect(uniqueIconId(`${"x".repeat(200)}.png`, [])).toHaveLength(60);
+		expect(isCustomIconId(uniqueIconId(`${"a ".repeat(40)}.png`, []))).toBe(true);
 	});
 });

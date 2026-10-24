@@ -57,8 +57,12 @@ let explorer: FakeExplorer;
 let store: IconStore;
 let renderer: FileExplorerRenderer;
 
+/** Image URL of each custom icon; tests change it to simulate sync. */
+let urlOf: (id: string) => string | undefined;
+
 beforeEach(() => {
 	document.body.empty();
+	urlOf = (id) => `app://icons/${id}`;
 	explorer = new FakeExplorer();
 	store = new IconStore();
 
@@ -73,7 +77,7 @@ beforeEach(() => {
 	renderer = new FileExplorerRenderer(app.asApp, {
 		get: (path) => store.get(path),
 		entries: () => store.entries(),
-		url: (file) => `app://icons/${file}`,
+		url: (id) => urlOf(id),
 	});
 });
 
@@ -192,6 +196,31 @@ describe("file explorer", () => {
 		await settle();
 		expect(iconOf(note)?.querySelector("img")).toBeNull();
 		expect(iconOf(note)?.textContent).toBe("🚀");
+	});
+
+	it("keeps the space of a missing icon and shows it once sync brings it", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "custom:logo");
+		urlOf = () => undefined;
+		renderer.attach();
+		await settle();
+		const missing = iconOf(note)?.querySelector("img");
+		expect(missing?.hasClass("is-missing")).toBe(true);
+		expect(missing?.hasAttribute("src")).toBe(false);
+
+		urlOf = () => "blob:logo-1";
+		renderer.scheduleSync();
+		await settle();
+		const img = iconOf(note)?.querySelector("img");
+		expect(img?.getAttribute("src")).toBe("blob:logo-1");
+		expect(img?.hasClass("is-missing")).toBe(false);
+
+		// Replaced on another device: same value, new image.
+		urlOf = () => "blob:logo-2";
+		renderer.scheduleSync();
+		await settle();
+		expect(iconOf(note)?.querySelector("img")?.getAttribute("src")).toBe("blob:logo-2");
+		expect(explorer.icons()).toHaveLength(1);
 	});
 
 	it("removes every icon on dispose", async () => {

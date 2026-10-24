@@ -66,7 +66,7 @@ const ICONS: Record<string, string> = {
 	Travel: "✈️",
 	"Home.md": "🏠",
 	"Reading list.md": "📚",
-	"Ideas.md": "custom:acme.svg",
+	"Ideas.md": "custom:acme",
 };
 
 const paths = TREE.map((entry) => entry.replace(/\/$/, ""));
@@ -137,24 +137,13 @@ addLeaf(homeView, tabTitle("Home.md"));
 
 // ---------------------------------------------------------------- the plugin
 
-// Custom icon files live in memory; the page shows them through blob URLs.
-const ICON_FOLDER = ".obsidian/plugins/notemoji/icons";
-const blobUrls = new Map<string, string>();
-app.vault.adapter.getResourcePath = (path: string) => {
-	const data = app.vault.adapter.files.get(path);
-	if (!data) return "";
-	if (!blobUrls.has(path)) {
-		const type = path.endsWith(".svg") ? "image/svg+xml" : "image/png";
-		blobUrls.set(path, URL.createObjectURL(new Blob([data], { type })));
-	}
-	return blobUrls.get(path)!;
-};
-const svg = (fill: string, glyph: string) =>
-	new TextEncoder().encode(
+// Custom icons are stored in data.json, like in the real plugin.
+const svg = (fill: string, glyph: string) => ({
+	type: "image/svg+xml",
+	data: btoa(
 		`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="${fill}"/><path d="${glyph}" fill="#fff"/></svg>`,
-	).buffer;
-app.vault.adapter.folders.add(ICON_FOLDER);
-app.vault.adapter.files.set(`${ICON_FOLDER}/acme.svg`, svg("#2f80ed", "M32 12 52 50H12z"));
+	),
+});
 
 const plugin = new NotemojiPlugin(app.asApp, {
 	id: "notemoji",
@@ -167,6 +156,7 @@ fake.dataJson = {
 	settings: { noteTitle: "inline", showInViewHeader: params.get("layout") === "phone" },
 	icons: ICONS,
 	recent: ["📁", "🎨", "🏠", "📚", "✅", "💡", "🔥", "🌱", "🗺️", "🍝"],
+	customIcons: { acme: svg("#2f80ed", "M32 12 52 50H12z") },
 };
 fake.load();
 

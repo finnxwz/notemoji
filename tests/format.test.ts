@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { formatBytes, plural } from "../../src/settings/format";
+import { formatBytes, plural } from "../src/format";
 
 it("formats sizes", () => {
 	expect(formatBytes(512)).toBe("512 B");

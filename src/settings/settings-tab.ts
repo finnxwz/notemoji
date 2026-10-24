@@ -2,8 +2,9 @@ import { addIcon, Notice, PluginSettingTab, Setting } from "obsidian";
 import { confirm } from "../confirm-modal";
 import type { NoteTitleMode } from "../data";
 import type NotemojiPlugin from "../main";
+import { CustomIconsSection } from "./custom-icons-section";
 import { EmojiStyleSection } from "./emoji-style-section";
-import { formatBytes, plural } from "./format";
+import { formatBytes, plural } from "../format";
 
 /** Icon of the settings tab: a real, colourful emoji instead of a line icon. */
 const SETTINGS_ICON = "notemoji-emoji";
@@ -72,50 +73,8 @@ export class NotemojiSettingTab extends PluginSettingTab {
 	}
 
 	private displayCustomIcons(containerEl: HTMLElement): void {
-		const { plugin } = this;
 		new Setting(containerEl).setName("Custom icons").setHeading();
-
-		const setting = new Setting(containerEl)
-			.setName("Your icons")
-			.setDesc("Upload your own images (PNG, SVG and more) in the picker's custom section.");
-		setting.addButton((button) => {
-			button
-				.setButtonText("Delete all")
-				.setWarning()
-				.setDisabled(true)
-				.onClick(async () => {
-					const { count } = await plugin.customIcons.usage();
-					const confirmed = await confirm(plugin.app, {
-						title: "Delete all custom icons?",
-						message: `All ${plural(count, "custom icon", "custom icons")} will be deleted. Notes, folders and files using them will show no icon anymore.`,
-						confirmText: "Delete all",
-						warning: true,
-					});
-					if (!confirmed) return;
-					try {
-						await plugin.customIcons.removeAll();
-						plugin.icons.forgetCustomIcons();
-						new Notice("Deleted all custom icons.");
-					} catch (error) {
-						console.error("[notemoji] Could not delete the custom icons.", error);
-						new Notice("Could not delete the custom icons.");
-					}
-					this.display();
-				});
-
-			void plugin.customIcons.usage().then(
-				({ count, bytes }) => {
-					if (count === 0) return;
-					setting.setDesc(
-						`${plural(count, "icon", "icons")}, ${formatBytes(bytes)}, stored in "${plugin.customIcons.folder}". ` +
-							"They are removed together with the plugin. Upload more in the picker.",
-					);
-					button.setDisabled(false);
-				},
-				(error: unknown) =>
-					console.error("[notemoji] Could not read the custom icons.", error),
-			);
-		});
+		new CustomIconsSection(this.plugin, containerEl);
 	}
 
 	private displayStoredData(containerEl: HTMLElement): void {
@@ -167,7 +126,14 @@ export class NotemojiSettingTab extends PluginSettingTab {
 					.setButtonText(missing === 0 ? "Remove" : `Remove ${missing}`)
 					.setWarning()
 					.setDisabled(missing === 0)
-					.onClick(() => {
+					.onClick(async () => {
+						const confirmed = await confirm(this.plugin.app, {
+							title: "Remove emoji of missing files?",
+							message: `${plural(missing, "emoji", "emoji")} of notes, folders or files that no longer exist will be removed. They won't come back if the items are restored or synced later.`,
+							confirmText: "Remove",
+							warning: true,
+						});
+						if (!confirmed) return;
 						const removed = icons.removeMissing();
 						new Notice(`Removed ${plural(removed, "emoji", "emoji")}.`);
 						this.display();
