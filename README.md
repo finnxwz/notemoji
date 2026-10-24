@@ -6,6 +6,7 @@
 
 - Simply right-click the item in the file explorer → **Set / Change / Remove … emoji**   
 
+
 ## 💡 Additional info
 
 - Icons are shown in the **file explorer** only. Tabs, the note title, search
