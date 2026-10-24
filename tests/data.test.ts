@@ -43,12 +43,18 @@ describe("parseData", () => {
 	it("reads settings and ignores invalid values", () => {
 		const data = parseData({
 			version: 2,
-			settings: { noteTitle: "inline", showInTabs: false, showInViewHeader: "no" },
+			settings: {
+				noteTitle: "inline",
+				showInTabs: false,
+				showInViewHeader: "no",
+				showInLinks: true,
+			},
 		});
 		expect(data.settings).toEqual({
 			noteTitle: "inline",
 			showInTabs: false,
 			showInViewHeader: false,
+			showInLinks: true,
 			emojiStyle: "system",
 			emojiFont: "",
 			autoEmoji: false,

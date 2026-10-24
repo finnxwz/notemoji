@@ -30,7 +30,7 @@ export class EmojiAttributes {
 		for (const [el, value] of wanted) {
 			const key = renderKey(value, url);
 			if (this.elements.get(el) === key) continue;
-			this.decorate(el, value, source);
+			setIconAttributes(el, value, url);
 			this.elements.set(el, key);
 		}
 	}
@@ -39,31 +39,32 @@ export class EmojiAttributes {
 		for (const el of [...this.elements.keys()]) this.undecorate(el);
 	}
 
-	private decorate(el: HTMLElement, value: string, source: IconSource): void {
-		const icon = parseIcon(value);
-		if (icon !== undefined && icon.type !== "emoji") {
-			// A missing icon keeps its space, empty, like in the file explorer.
-			const url = source.url(icon);
-			el.removeAttribute(EMOJI_ATTRIBUTE);
-			el.setAttribute(IMAGE_ATTRIBUTE, value);
-			// Only with a picture: a mask without one would fill the space with colour.
-			el.toggleAttribute(MASK_ATTRIBUTE, icon.type === "lucide" && url !== undefined);
-			el.setCssProps({
-				[IMAGE_VARIABLE]: url === undefined ? "" : `url(${JSON.stringify(url)})`,
-			});
-		} else {
-			el.removeAttribute(IMAGE_ATTRIBUTE);
-			el.removeAttribute(MASK_ATTRIBUTE);
-			el.setCssProps({ [IMAGE_VARIABLE]: "" });
-			el.setAttribute(EMOJI_ATTRIBUTE, icon?.emoji ?? "");
-		}
-	}
-
 	private undecorate(el: HTMLElement): void {
 		el.removeAttribute(EMOJI_ATTRIBUTE);
 		el.removeAttribute(IMAGE_ATTRIBUTE);
 		el.removeAttribute(MASK_ATTRIBUTE);
 		el.setCssProps({ [IMAGE_VARIABLE]: "" });
 		this.elements.delete(el);
+	}
+}
+
+/** Sets the attributes CSS draws an icon from (see above); also used for the emoji at links. */
+export function setIconAttributes(el: HTMLElement, value: string, url: IconUrl): void {
+	const icon = parseIcon(value);
+	if (icon !== undefined && icon.type !== "emoji") {
+		// A missing icon keeps its space, empty, like in the file explorer.
+		const src = url(icon);
+		el.removeAttribute(EMOJI_ATTRIBUTE);
+		el.setAttribute(IMAGE_ATTRIBUTE, value);
+		// Only with a picture: a mask without one would fill the space with colour.
+		el.toggleAttribute(MASK_ATTRIBUTE, icon.type === "lucide" && src !== undefined);
+		el.setCssProps({
+			[IMAGE_VARIABLE]: src === undefined ? "" : `url(${JSON.stringify(src)})`,
+		});
+	} else {
+		el.removeAttribute(IMAGE_ATTRIBUTE);
+		el.removeAttribute(MASK_ATTRIBUTE);
+		el.setCssProps({ [IMAGE_VARIABLE]: "" });
+		el.setAttribute(EMOJI_ATTRIBUTE, icon?.emoji ?? "");
 	}
 }

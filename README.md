@@ -16,7 +16,8 @@
 
 Right-click any note, folder or file → _Set … emoji_. The emoji shows up in the file explorer, in
 tabs and in the note title. Folders, PDFs, images and canvases can have one too.
-Turn on _Automatic emoji for new notes_, and each note you create gets a fitting emoji by itself.
+Turn on _Emoji next to links_, and links in your notes show the linked note's emoji as well. Turn
+on _Automatic emoji for new notes_, and each note you create gets a fitting emoji by itself.
 
 ![Setting an emoji for a note](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/set-emoji.gif)
 
@@ -67,6 +68,7 @@ right-click.
 | Emoji at note title           | Off          | _Inline, before the title_, or _Large, above the title_ (click it to change the emoji)                  |
 | Emoji in tab titles           | On           | The emoji in front of each tab's name                                                                   |
 | Emoji in view header title    | Off          | The emoji in front of the title in the bar at the top of a tab                                          |
+| Emoji next to links           | Off          | The linked note's emoji in front of links in your notes, in reading view and Live Preview               |
 | Automatic emoji for new notes | Off          | Gives each note you create an emoji that fits its name or folder; your own emoji always win             |
 | Emoji style                   | System emoji | Pick a style by its preview: Twemoji, OpenMoji, Noto Color Emoji, Noto Emoji Mono or your own font file |
 | Custom icons                  | –            | Every icon with its size and how often it is used, the storage used (up to 3 MB), and _Delete_          |
@@ -156,15 +158,25 @@ setting (Appearance).
 </details>
 
 <details>
+<summary><b>Where do emoji next to links show?</b></summary>
+
+With _Emoji next to links_ on, links to notes and files in your notes show their emoji: in reading
+view and Live Preview, also in hover previews, embedded notes, tables and callouts; not in source
+mode, and not for embeds (`![[…]]`). The emoji is only displayed, not added to your text, so
+copying a paragraph copies the links as they are. In reading view, clicking it opens the link. If another plugin also shows icons in links, turn those off, or links show two icons.
+
+</details>
+
+<details>
 <summary><b>How does the automatic emoji for new notes choose?</b></summary>
 
 With _Automatic emoji for new notes_ on, each note you create on this device gets an emoji that
 fits an English word in its name (`Pizza night` → 🍕, `Trip to Rome` → ✈️ or 🧳), the season of a
 daily note's date, or its folder; otherwise a pleasant one by chance. Notes next to each other get
-different emoji. An _Untitled_ note that you name right away gets an emoji for its name. Your own emoji always
-win: notes that have one are never changed, and you can change or remove the automatic one like
-any other (it is not added to your recently used emoji). Notes that arrive by sync or import are
-left alone, so your devices never pick different emoji for the same note.
+different emoji. An _Untitled_ note that you name right away gets an emoji for its name. Your own
+emoji always win: notes that have one are never changed, and you can change or remove the automatic
+one like any other (it is not added to your recently used emoji). Notes that arrive by sync or
+import are left alone, so your devices never pick different emoji for the same note.
 
 </details>
 

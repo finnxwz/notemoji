@@ -13,6 +13,7 @@ import { confirm } from "./confirm-modal";
 import { libraryIconsInUse, NotemojiSettings, PluginData } from "./data";
 import { DataFile } from "./data-file";
 import { ExplorerSource, FileExplorerRenderer } from "./display/file-explorer";
+import { LinkIcons } from "./display/link-icons";
 import { TitleDecorations } from "./display/titles";
 import { canvasCodec } from "./icons/canvas-codec";
 import { CustomIconError, CustomIconLibrary, StoredIcon } from "./icons/custom-icons";
@@ -47,6 +48,7 @@ export default class NotemojiPlugin extends Plugin {
 	private file!: DataFile;
 	private explorer!: FileExplorerRenderer;
 	private titles!: TitleDecorations;
+	private links!: LinkIcons;
 	private newNotes!: NewNoteEmoji;
 	private titleTimer: number | null = null;
 
@@ -97,6 +99,9 @@ export default class NotemojiPlugin extends Plugin {
 		};
 		this.explorer = new FileExplorerRenderer(this.app, source);
 		this.titles = new TitleDecorations(this.app, source, (file) => this.openPicker(file));
+		this.links = new LinkIcons(this.app, source, () => this.data.settings.showInLinks);
+		this.registerMarkdownPostProcessor(this.links.postProcessor);
+		this.registerEditorExtension(this.links.editorExtension);
 		this.register(this.icons.onChange(() => this.refresh()));
 
 		this.addSettingTab(new NotemojiSettingTab(this));
@@ -111,6 +116,7 @@ export default class NotemojiPlugin extends Plugin {
 		this.style?.unload();
 		this.explorer?.dispose();
 		this.titles?.dispose();
+		this.links?.dispose();
 		this.customIcons?.dispose();
 		this.libraryIcons?.dispose();
 	}
@@ -185,14 +191,22 @@ export default class NotemojiPlugin extends Plugin {
 			}),
 		);
 
-		this.registerEvent(vault.on("create", (file) => this.newNotes.handleCreate(file)));
+		this.registerEvent(
+			vault.on("create", (file) => {
+				this.newNotes.handleCreate(file);
+				// Links may point somewhere else now.
+				this.links.scheduleRefresh();
+			}),
+		);
 		this.registerEvent(
 			vault.on("rename", (file, oldPath) => {
 				this.icons.handleRename(file, oldPath);
 				// After the emoji moved along: an automatic one may follow the new name.
 				this.newNotes.handleRename(file, oldPath);
+				this.links.scheduleRefresh();
 			}),
 		);
+		this.registerEvent(vault.on("delete", () => this.links.scheduleRefresh()));
 		// The reading view may re-render a note's title when the note changes.
 		this.registerEvent(metadataCache.on("changed", () => this.scheduleTitleSync()));
 
@@ -319,6 +333,7 @@ export default class NotemojiPlugin extends Plugin {
 	private refresh(): void {
 		this.explorer.scheduleSync();
 		this.scheduleTitleSync();
+		this.links.scheduleRefresh();
 	}
 
 	private scheduleTitleSync(): void {

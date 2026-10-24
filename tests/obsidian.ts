@@ -6,6 +6,8 @@
  * with the same names and DOM structure as the real app.
  */
 
+import { StateField } from "@codemirror/state";
+
 // ------------------------------------------------------------------ DOM helpers
 
 interface DomElementInfo {
@@ -162,6 +164,24 @@ export function setIcon(parent: HTMLElement, iconId: string): void {
 	else parent.createSpan({ cls: "svg-icon", text: "+", attr: { "data-icon": iconId } });
 }
 
+/** The path part of a link: `note#heading` → `note`. */
+export function getLinkpath(linktext: string): string {
+	const hash = linktext.indexOf("#");
+	return hash === -1 ? linktext : linktext.slice(0, hash);
+}
+
+/** The note an editor shows; tests set it with `editorInfoField.init(…)`. */
+export const editorInfoField = StateField.define<{ file: TFile | null }>({
+	create: () => ({ file: null }),
+	update: (value) => value,
+});
+
+/** Whether an editor is in Live Preview (true) or source mode. */
+export const editorLivePreviewField = StateField.define<boolean>({
+	create: () => true,
+	update: (value) => value,
+});
+
 export function normalizePath(path: string): string {
 	return path
 		.replace(/\\/g, "/")
@@ -306,6 +326,20 @@ export class Component {
 	}
 }
 
+/** A rendered part of a note, unloaded with it. */
+export class MarkdownRenderChild extends Component {
+	constructor(public containerEl: HTMLElement) {
+		super();
+	}
+}
+
+export interface MarkdownPostProcessorContext {
+	sourcePath: string;
+	addChild(child: MarkdownRenderChild): void;
+}
+
+export type MarkdownPostProcessor = (el: HTMLElement, ctx: MarkdownPostProcessorContext) => void;
+
 export interface Command {
 	id: string;
 	name: string;
@@ -318,6 +352,8 @@ export class Plugin extends Component {
 	manifest: { id: string; version: string };
 	commands: Command[] = [];
 	settingTabs: PluginSettingTab[] = [];
+	postProcessors: MarkdownPostProcessor[] = [];
+	editorExtensions: unknown[] = [];
 	/** Contents of the fake data.json; `saved` records every write. */
 	dataJson: unknown = null;
 	saved: unknown[] = [];
@@ -334,6 +370,16 @@ export class Plugin extends Component {
 	}
 	addSettingTab(tab: PluginSettingTab): void {
 		this.settingTabs.push(tab);
+	}
+	registerMarkdownPostProcessor(postProcessor: MarkdownPostProcessor): MarkdownPostProcessor {
+		this.postProcessors.push(postProcessor);
+		this.register(() => {
+			this.postProcessors = this.postProcessors.filter((entry) => entry !== postProcessor);
+		});
+		return postProcessor;
+	}
+	registerEditorExtension(extension: unknown): void {
+		this.editorExtensions.push(extension);
 	}
 	loadData(): Promise<unknown> {
 		return Promise.resolve(structuredClone(this.dataJson));

@@ -270,7 +270,8 @@ body {
 
 .inline-title[data-notemoji]::before,
 .workspace-tab-header-inner-title[data-notemoji]::before,
-.view-header-title[data-notemoji]::before {
+.view-header-title[data-notemoji]::before,
+.notemoji-link-icon[data-notemoji]::before {
 	content: attr(data-notemoji);
 	margin-inline-end: 0.3em;
 	font-family: var(--notemoji-font);
@@ -346,7 +347,8 @@ body:not(.show-inline-title) .notemoji-title-icon {
 
 .inline-title[data-notemoji-image]::before,
 .workspace-tab-header-inner-title[data-notemoji-image]::before,
-.view-header-title[data-notemoji-image]::before {
+.view-header-title[data-notemoji-image]::before,
+.notemoji-link-icon[data-notemoji-image]::before {
 	content: "";
 	display: inline-block;
 	width: 1em;
@@ -359,7 +361,8 @@ body:not(.show-inline-title) .notemoji-title-icon {
 /* Only set with a picture: without one, the mask would fill the space with colour. */
 .inline-title[data-notemoji-mask]::before,
 .workspace-tab-header-inner-title[data-notemoji-mask]::before,
-.view-header-title[data-notemoji-mask]::before {
+.view-header-title[data-notemoji-mask]::before,
+.notemoji-link-icon[data-notemoji-mask]::before {
 	background: currentColor;
 	-webkit-mask-image: var(--notemoji-image);
 	mask-image: var(--notemoji-image);
@@ -369,6 +372,13 @@ body:not(.show-inline-title) .notemoji-title-icon {
 	mask-size: contain;
 	-webkit-mask-repeat: no-repeat;
 	mask-repeat: no-repeat;
+}
+
+/* Emoji next to links: an empty element inside the link, drawn like the title emoji, so it is
+   never copied with the text. As an inline block, the link's underline leaves it out. */
+.notemoji-link-icon {
+	display: inline-block;
+	user-select: none;
 }
 
 /* Emoji style: an emoji font chosen in the settings, with the system's emoji as fallback. */

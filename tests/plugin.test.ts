@@ -103,6 +103,7 @@ describe("commands", () => {
 				noteTitle: "off",
 				showInTabs: true,
 				showInViewHeader: false,
+				showInLinks: false,
 				emojiStyle: "system",
 				emojiFont: "",
 				autoEmoji: false,
@@ -496,11 +497,13 @@ describe("settings tab", () => {
 		(harness.setting("Emoji in view header title").components[0] as ToggleComponent).change(
 			false,
 		);
+		(harness.setting("Emoji next to links").components[0] as ToggleComponent).change(true);
 		await flush();
 		expect(harness.lastSaved()?.settings).toEqual({
 			noteTitle: "above",
 			showInTabs: false,
 			showInViewHeader: false,
+			showInLinks: true,
 			emojiStyle: "system",
 			emojiFont: "",
 			autoEmoji: false,
@@ -559,6 +562,52 @@ describe("titles", () => {
 
 		harness.unload();
 		expect(document.querySelector(".notemoji-title-icon")).toBeNull();
+	});
+});
+
+describe("emoji next to links", () => {
+	/** A rendered part of Index.md with a link, passed through the plugin's post-processor. */
+	function renderLink(harness: Awaited<ReturnType<typeof loadPlugin>>, href: string) {
+		const el = document.body.createEl("p");
+		const anchor = el.createEl("a", { cls: "internal-link", attr: { "data-href": href } });
+		for (const postProcessor of harness.fake.postProcessors) {
+			postProcessor(el, { sourcePath: "Index.md", addChild: (child) => child.load() });
+		}
+		return () => anchor.querySelector(".notemoji-link-icon")?.getAttribute("data-notemoji");
+	}
+
+	it("is off by default and follows the setting, icons and files without re-rendering", async () => {
+		const harness = await loadPlugin({
+			files: ["Index.md", "Rome.md"],
+			// Synced before the note itself arrives.
+			data: { version: 2, icons: { "Rome.md": "🏛️", "Later.md": "⏰" } },
+		});
+		expect(harness.fake.editorExtensions).toHaveLength(1);
+		const rome = renderLink(harness, "Rome");
+		const later = renderLink(harness, "Later");
+		expect(rome()).toBeUndefined();
+
+		harness.plugin.updateSettings({ showInLinks: true });
+		await flush(50);
+		expect(rome()).toBe("🏛️");
+		expect(later()).toBeUndefined();
+
+		harness
+			.fileMenu("Rome.md")
+			.items.find((item) => item.title === "Change note emoji")!
+			.click();
+		picker().options.onSubmit("🍝");
+		harness.app.vault.create("Later.md");
+		await flush(50);
+		expect(rome()).toBe("🍝");
+		expect(later()).toBe("⏰");
+		harness.app.vault.rename("Rome.md", "Roma.md");
+		await flush(50);
+		expect(rome()).toBeUndefined();
+
+		harness.unload();
+		expect(document.querySelector(".notemoji-link-icon")).toBeNull();
+		expect(harness.fake.postProcessors).toHaveLength(0);
 	});
 });
 

@@ -63,6 +63,15 @@ export class NotemojiSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Emoji next to links")
+			.setDesc("The linked note's emoji in front of links in your notes.")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(settings.showInLinks)
+					.onChange((value) => plugin.updateSettings({ showInLinks: value })),
+			);
+
+		new Setting(containerEl)
 			.setName("Automatic emoji for new notes")
 			.setDesc(
 				"Give each new note an emoji that fits its name or folder, with a bit of chance so notes next to each other differ. Your own emoji always win.",

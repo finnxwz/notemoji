@@ -41,7 +41,7 @@ npm run set-previews # regenerate the emoji style previews (downloads the pinned
 | `src/icons/auto-emoji.ts` | Automatic emoji for new notes (pure); `new-note-emoji.ts` decides when     |
 | `src/style/`              | Emoji styles: downloadable sets, font loading, `EmojiStyle` (font + cache) |
 | `src/picker/`             | Picker modal, catalog/search, grid geometry, virtual grid, sprite sheets   |
-| `src/display/`            | Rendering in the explorer and on titles (note, tab, view header)           |
+| `src/display/`            | Rendering: file explorer, titles (note, tab, view header), links in notes  |
 | `src/settings/`           | Settings tab and the emoji style cards                                     |
 | `styles.css`              | All styles (no inline styles; CSS variables via `setCssProps`)             |
 | `tests/obsidian.ts`       | Fake `obsidian` module (the npm package is types only)                     |

@@ -33,6 +33,8 @@ export interface NotemojiSettings {
 	showInTabs: boolean;
 	/** Emoji in front of the title in the view header (top bar). */
 	showInViewHeader: boolean;
+	/** The linked note's emoji in front of internal links in notes. */
+	showInLinks: boolean;
 	/** `system`, `file` (own font file) or the id of a downloadable emoji set. */
 	emojiStyle: string;
 	/** File name of your own emoji font (used with `emojiStyle: "file"`), or "". */
@@ -45,6 +47,7 @@ export const DEFAULT_SETTINGS: Readonly<NotemojiSettings> = {
 	noteTitle: "off",
 	showInTabs: true,
 	showInViewHeader: false,
+	showInLinks: false,
 	emojiStyle: "system",
 	emojiFont: "",
 	autoEmoji: false,
@@ -148,6 +151,7 @@ function readSettings(raw: unknown, unknown: UnknownData): NotemojiSettings {
 	}
 	if (typeof raw.showInTabs === "boolean") settings.showInTabs = raw.showInTabs;
 	if (typeof raw.showInViewHeader === "boolean") settings.showInViewHeader = raw.showInViewHeader;
+	if (typeof raw.showInLinks === "boolean") settings.showInLinks = raw.showInLinks;
 	if (typeof raw.autoEmoji === "boolean") settings.autoEmoji = raw.autoEmoji;
 	if (typeof raw.emojiFont === "string" && isFontFileName(raw.emojiFont)) {
 		settings.emojiFont = raw.emojiFont;

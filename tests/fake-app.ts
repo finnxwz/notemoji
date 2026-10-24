@@ -168,8 +168,29 @@ export class FakeVault extends Events {
 	}
 }
 
-/** Only its events matter to Notemoji (`changed` re-renders note titles). */
-export class FakeMetadataCache extends Events {}
+/** Its events (`changed` re-renders note titles) and resolving links. */
+export class FakeMetadataCache extends Events {
+	constructor(private readonly vault: FakeVault) {
+		super();
+	}
+
+	/**
+	 * Like Obsidian: relative to the note's folder, then from the vault root,
+	 * then by file name (the one nearest to the note first).
+	 */
+	getFirstLinkpathDest(linkpath: string, sourcePath: string): TFile | null {
+		const files = this.vault.getFiles();
+		const at = (path: string) =>
+			files.find((file) => file.path === path || file.path === `${path}.md`);
+		const folder = sourcePath.slice(0, sourcePath.lastIndexOf("/") + 1);
+		const byPath = at(folder + linkpath) ?? at(linkpath);
+		if (byPath) return byPath;
+		const named = files.filter(
+			(file) => file.path.endsWith(`/${linkpath}`) || file.path.endsWith(`/${linkpath}.md`),
+		);
+		return named.find((file) => file.path.startsWith(folder)) ?? named[0] ?? null;
+	}
+}
 
 export class FakeWorkspace extends Events {
 	readonly leftSplit = {};
@@ -215,7 +236,7 @@ export interface FakeApp {
 
 export function createFakeApp(options: FakeAppOptions = {}): FakeApp {
 	const vault = new FakeVault();
-	const metadataCache = new FakeMetadataCache();
+	const metadataCache = new FakeMetadataCache(vault);
 	const workspace = new FakeWorkspace();
 	workspace.layoutReady = options.layoutReady ?? true;
 

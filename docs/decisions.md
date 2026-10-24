@@ -108,6 +108,36 @@ ideas are listed so they are not proposed again without a new reason.
 - Title decorations are display-only (CSS `::before` from an attribute), never part of the
   editable title text, so renaming by editing the title keeps working.
 - Clicking emoji in the explorer or tabs keeps Obsidian's normal behaviour.
+- Links in notes: _Emoji next to links_, off by default (some find emoji in running text noisy;
+  others use icon plugins for exactly this). See below.
+
+## Emoji next to links
+
+- **The linked note's emoji right before the link,** in reading view (also hover previews,
+  embedded notes, and Live Preview's tables and callouts, which are rendered like reading view)
+  and in Live Preview's text. Not in source mode (the brackets are shown there), not for embeds,
+  unresolved links, or links to a heading of the same note.
+  - _Not now:_ Backlinks, search, link suggestions, Bases, Properties, Canvas (each needs its own
+    undocumented DOM).
+- **Resolved exactly as Obsidian opens the link:** the target only, never the alias (an alias may be another note's name, which would show that note's icon), without `#heading`, from the full path of the
+  note the link is in (with two notes of the same name, the right one).
+- **Display-only, like the title emoji:** an empty `span.notemoji-link-icon` (`aria-hidden`)
+  drawn by CSS from the same attributes, so it is never copied, searched or read out. In reading
+  view it sits inside the `<a>`, so clicking it opens the link and hovering previews it; as an
+  inline block, the underline leaves it out. A custom icon missing on this device shows nothing
+  at all here (an empty space in running text would look like a typo).
+- **Live without re-rendering:** turning it on or off, changing an icon, and creating, renaming
+  or deleting files update every link shown. Reading view: a post-processor marks each rendered
+  part with links (also while off), and updates it until Obsidian unloads it. Live Preview: one
+  editor extension, always registered, with widgets that compare equal while the icon is the
+  same, so typing never redraws them; rebuilt for the visible text on edits, scrolling, further
+  parsing and mode switches.
+- **Links in the editor are found from the syntax tokens' classes** (`hmd-internal-link`, `url`,
+  …), checked against the text (`[[` before the target, `](` before the URL), so a token split
+  differently in another Obsidian version gives no icon rather than a wrong one. Markdown links
+  count when their URL is a path in the vault.
+  - `@codemirror/language`, `state` and `view` are development dependencies only; Obsidian
+    provides them at runtime.
 
 ## Actions
 
@@ -226,5 +256,5 @@ ideas are listed so they are not proposed again without a new reason.
 
 ## Open
 
-- Possible later: icons in bookmarks, links, search results and the quick switcher; search in
+- Possible later: icons in bookmarks, search results, backlinks and the quick switcher; search in
   more languages; a command to move emoji out of file names.
