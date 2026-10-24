@@ -33,5 +33,5 @@ Found a bug or have a suggestion? Open an issue in this repository's **GitHub I
 
 Thanks for using my plugins and supporting my work! - Finn
 
-![Notemoji Demo](https://raw.githubusercontent.com/finnxwz/notemoji/main/notemoji-meme.png)
+![Notemoji Demo](https://raw.githubusercontent.com/finnxwz/notemoji/main/notemoji-meme-v2.png)
 
