@@ -254,21 +254,34 @@ export class PickerModal extends Modal {
 
 	private searchSections(query: string): GridSection[] {
 		const items: GridItem[] = [];
-		const pasted = parseEmojiInput(query);
-		if (pasted.status === "ok") {
-			// Stored as the list has it, e.g. with the emoji variation selector (❤ → ❤️).
-			const entry = findEntry(pasted.emoji);
-			items.push(this.item(entry?.emoji ?? pasted.emoji, entry?.name ?? ""));
-		}
+		const pasted = this.pastedItem(query);
+		if (pasted?.first) items.push(pasted.item);
 		const lower = query.toLowerCase();
 		for (const id of this.customIds) {
 			if (id.toLowerCase().includes(lower)) items.push(this.item(customValue(id), id));
 		}
 		for (const entry of searchEmoji(getCatalog(), query)) {
-			if (entry.emoji === items[0]?.value) continue;
+			if (entry.emoji === pasted?.item.value) continue;
 			items.push({ kind: "emoji", value: entry.emoji, name: entry.name });
 		}
+		if (pasted && !pasted.first) items.push(pasted.item);
 		return items.length > 0 ? [{ id: "results", label: "", items }] : [];
+	}
+
+	/**
+	 * A pasted or typed emoji or symbol as a tile. A real emoji (pasted, or from
+	 * the system's emoji picker) comes first. Text typed on a keyboard is a
+	 * search: `+1` and `<3` look for 👍 and ❤️, not for the `+` and `<` they
+	 * start with, so a lone keyboard symbol (`$`) only comes after the results.
+	 */
+	private pastedItem(query: string): { item: GridItem; first: boolean } | undefined {
+		const pasted = parseEmojiInput(query);
+		if (pasted.status !== "ok") return undefined;
+		const typed = /^[\x20-\x7e]$/.test(pasted.emoji);
+		if (typed && pasted.extra) return undefined;
+		// Stored as the list has it, e.g. with the emoji variation selector (❤ → ❤️).
+		const entry = findEntry(pasted.emoji);
+		return { item: this.item(entry?.emoji ?? pasted.emoji, entry?.name ?? ""), first: !typed };
 	}
 
 	private nameOf(value: string): string {

@@ -45,9 +45,13 @@ export function firstGrapheme(text: string): string {
 	return "";
 }
 
+/** A single regional indicator: half of a flag, shown as a boxed letter. */
+const LONE_REGIONAL_INDICATOR = /^\p{Regional_Indicator}$/u;
+
 /** True when `cluster` can be used as an icon (emoji or symbol). */
 export function isEmojiLike(cluster: string): boolean {
 	if (cluster === "" || cluster.length > MAX_EMOJI_LENGTH) return false;
+	if (LONE_REGIONAL_INDICATOR.test(cluster)) return false;
 	if (EMOJI_CORE.test(cluster)) return true;
 	if ([...cluster].every(isEmojiPart)) return false;
 	return !FORBIDDEN_ICON_CHARS.test(cluster);

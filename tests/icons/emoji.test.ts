@@ -58,6 +58,14 @@ describe("isEmojiLike", () => {
 	});
 });
 
+describe("regional indicators", () => {
+	it("accepts flags but not half a flag", () => {
+		const letter = (char: string) => String.fromCodePoint(0x1f1e6 + char.charCodeAt(0) - 65);
+		assert.equal(isEmojiLike(letter("D") + letter("E")), true);
+		assert.equal(isEmojiLike(letter("D")), false);
+	});
+});
+
 describe("parseEmojiInput", () => {
 	it("treats empty and whitespace-only input as a removal", () => {
 		for (const value of ["", "   ", "\n\t", "\u200B\uFEFF"]) {

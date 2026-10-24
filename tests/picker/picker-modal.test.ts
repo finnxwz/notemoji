@@ -217,6 +217,27 @@ describe("searching", () => {
 		expect(picker.body().scrollTop).toBeGreaterThan(1000);
 	});
 
+	it("searches for typed shortcuts like +1 and <3 instead of using their first character", async () => {
+		const picker = await open();
+		picker.type("+1");
+		expect(picker.tiles()[0].textContent).toBe("👍");
+		expect(picker.tiles().some((el) => el.textContent === "+")).toBe(false);
+		picker.press("Enter");
+		expect(picker.onSubmit).toHaveBeenCalledWith("👍");
+
+		const again = await open();
+		again.type("<3");
+		expect(again.tiles()[0].textContent).toBe("❤️");
+	});
+
+	it("offers a lone keyboard symbol only after the results", async () => {
+		const picker = await open();
+		picker.type("$");
+		const tiles = picker.tiles().map((el) => el.textContent);
+		expect(tiles.at(-1)).toBe("$");
+		expect(tiles[0]).not.toBe("$");
+	});
+
 	it("offers a pasted emoji first, also when it is not in the list", async () => {
 		const picker = await open();
 		picker.type("🫠");
