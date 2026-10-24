@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only: CI only checks out and runs the checks.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest

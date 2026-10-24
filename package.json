@@ -1,6 +1,6 @@
 {
 	"name": "notemoji",
-	"version": "1.0.1",
+	"version": "2.0.0",
 	"description": "Give your vault personality with emoji and custom icons for notes, folders and files.",
 	"main": "main.js",
 	"scripts": {
