@@ -2,7 +2,9 @@
 
 **Assign emoji icons to notes and folders in the file explorer to make your vault feel a little cozier.**
 
-Simply right-click the item in the file explorer → **Set / Change / Remove … emoji**   
+## 🖱️ How to use
+
+- Simply right-click the item in the file explorer → **Set / Change / Remove … emoji**   
 
 ## 💡 Additional info
 
