@@ -5,7 +5,7 @@
 ## 🖱️ How to use
 
 - Simply right-click the item in the file explorer → **Set / Change / Remove … emoji**   
-
+![Notemoji Demo](https://raw.githubusercontent.com/finnxwz/notemoji/main/notemoji-demo.gif)
 
 ## 💡 Additional info
 
