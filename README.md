@@ -164,7 +164,8 @@ Under _Emoji at note title_ you can make it large, above the title, or turn it o
 With _Emoji next to links_ on, links to notes and files in your notes show their emoji: in reading
 view and Live Preview, also in hover previews, embedded notes, tables and callouts; not in source
 mode, and not for embeds (`![[…]]`). The emoji is only displayed, not added to your text, so
-copying a paragraph copies the links as they are. In reading view, clicking it opens the link. If another plugin also shows icons in links, turn those off, or links show two icons.
+copying a paragraph copies the links as they are. In reading view, clicking it opens the link. If
+another plugin also shows icons in links, turn those off, or links show two icons.
 
 </details>
 

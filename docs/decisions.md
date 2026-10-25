@@ -19,9 +19,9 @@ ideas are listed so they are not proposed again without a new reason.
 - **Selling points, in this order:** emoji everywhere (explorer, tabs, title; folders and all
   files), a full and fast picker (recent, paste anything, keyboard), your own image icons, emoji
   styles and your own emoji font, synced and working on phones.
-- **Not used for selling:** comparisons with other tools or with emoji in file names,
-  "without renaming", clean links. Most people looking for the plugin do not think about that;
-  facts like "notes are never changed" go into the FAQ.
+- **Not used for selling:** comparisons with other tools or with emoji in file names, "without
+  renaming", clean links. Most people looking for the plugin do not think about that; facts like
+  "notes are never changed" go into the FAQ.
 - **Media** shows the inline title emoji, the dark theme and the logo (a smiling page). Every GIF
   changes the open note, so the title visibly changes. Only two GIFs (setting an emoji, switching
   styles), to keep the page light. No third-party characters or brand logos in any media.
@@ -121,8 +121,9 @@ ideas are listed so they are not proposed again without a new reason.
   unresolved links, or links to a heading of the same note.
   - _Not now:_ Backlinks, search, link suggestions, Bases, Properties, Canvas (each needs its own
     undocumented DOM).
-- **Resolved exactly as Obsidian opens the link:** the target only, never the alias (an alias may be another note's name, which would show that note's icon), without `#heading`, from the full path of the
-  note the link is in (with two notes of the same name, the right one).
+- **Resolved exactly as Obsidian opens the link:** the target only, never the alias (an alias may
+  be another note's name, which would show that note's icon), without `#heading`, from the full
+  path of the note the link is in (with two notes of the same name, the right one).
 - **Display-only, like the title emoji:** an empty `span.notemoji-link-icon` (`aria-hidden`)
   drawn by CSS from the same attributes, so it is never copied, searched or read out. In reading
   view it sits inside the `<a>`, so clicking it opens the link and hovering previews it; as an
@@ -300,7 +301,8 @@ ideas are listed so they are not proposed again without a new reason.
 - **No downloadable icon packs for now** (Font Awesome, Tabler, Simple Icons, …): most look like
   Obsidian's icons, and custom icons cover the rest. If ever, one pack at a time (brand logos
   first, which Lucide 1.x dropped), downloaded on a click and drawn from copies in `data.json`
-  like Obsidian icons, so sync never depends on the pack (thousands of icon files clog Obsidian Sync).
+  like Obsidian icons, so sync never depends on the pack (thousands of icon files clog Obsidian
+  Sync).
 
 ## Compatibility and tooling
 
