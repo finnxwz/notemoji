@@ -3,7 +3,14 @@ import { ICONS_MARKER } from "../src/data";
 import { splitEmoji } from "../src/icons/auto-emoji";
 import { FRIENDLY_EMOJI, THEMES } from "../src/icons/auto-emoji-themes";
 import { flush } from "./fake-app";
-import { openModals, settingsCreated, TFile, ToggleComponent } from "./obsidian";
+import {
+	openModals,
+	setApiVersion,
+	setLanguage,
+	settingsCreated,
+	TFile,
+	ToggleComponent,
+} from "./obsidian";
 import { HarnessOptions, loadPlugin } from "./plugin-harness";
 
 type Harness = Awaited<ReturnType<typeof loadPlugin>>;
@@ -53,6 +60,8 @@ beforeEach(() => {
 afterEach(() => {
 	vi.useRealTimers();
 	vi.restoreAllMocks();
+	setLanguage("en");
+	setApiVersion("1.7.2");
 });
 
 describe("automatic emoji for new notes", () => {
@@ -181,6 +190,25 @@ describe("automatic emoji for new notes", () => {
 		const harness = await load();
 		await newNote(harness, "Trip to Rome.md");
 		expect(harness.plugin.icons.get("Trip to Rome.md")).toBe(theme("travel")[0]);
+	});
+});
+
+describe("the language Obsidian runs in", () => {
+	it("adds its words to the English ones", async () => {
+		setApiVersion("1.8.7");
+		setLanguage("de");
+		const harness = await load();
+		await newNote(harness, "Zahnarzttermin.md");
+		await newNote(harness, "Pizza night.md");
+		expect(harness.plugin.icons.get("Zahnarzttermin.md")).toBe("🦷");
+		expect(harness.plugin.icons.get("Pizza night.md")).toBe("🍕");
+	});
+
+	it("is unknown before Obsidian 1.8.7: English only", async () => {
+		setLanguage("de");
+		const harness = await load();
+		await newNote(harness, "Zahnarzttermin.md");
+		expect(harness.plugin.icons.get("Zahnarzttermin.md")).toBe(firstFriendly);
 	});
 });
 

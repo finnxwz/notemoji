@@ -175,7 +175,8 @@ its name: the obvious one for a word like `pizza` (🍕) or `dentist` (🦷), on
 emoji for a word like `trip` (✈️, 🧳, 🗺️ …), otherwise one that suits any note (📝, 💡, 🌱 …). A
 new _Untitled_ note gets its emoji once you've named it. Your own emoji always win: notes that have one are never changed, and you can
 change or remove the automatic one like any other (it is not added to your recently used emoji).
-Notes that arrive by sync or import are left alone. Only English words are recognised for now.
+Notes that arrive by sync or import are left alone. Words are recognised in English, and in
+German when Obsidian is set to German.
 
 </details>
 

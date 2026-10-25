@@ -35,6 +35,13 @@ npm run demo           # re-records everything; --only=styles,banner for some of
 It needs Chromium for Playwright (`npx playwright-core install chromium`), ffmpeg, and a colour
 emoji font. gifsicle and pngquant, when installed, make the files smaller.
 
+## Words for automatic emoji in another language
+
+Add a file like `src/icons/auto-emoji-words/de.ts` for the language's code (as Obsidian reports
+it) and list it in `LANGUAGES` in `src/icons/auto-emoji-themes.ts`. It names theme words and
+obvious hits for the existing emoji groups, and English words that mean something else in that
+language. The tests check that every emoji works on all systems and that no word is listed twice.
+
 ## Releases
 
 Releases are built by the _Release_ workflow (`.github/workflows/release.yml`). For now it only

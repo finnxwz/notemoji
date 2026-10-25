@@ -10,6 +10,8 @@
  * nothing is stemmed.
  */
 
+import { de } from "./auto-emoji-words/de";
+
 export interface Theme {
 	/** Names the theme in tests. */
 	id: string;
@@ -20,6 +22,23 @@ export interface Theme {
 	/** Key words with one obvious emoji ("pizza" → 🍕), by emoji. They count as key words. */
 	hits?: Readonly<Record<string, string>>;
 }
+
+/**
+ * The words of another language than English, for the same themes. Only the
+ * language Obsidian runs in counts, next to English: with every language at
+ * once, nearly every short word would mean something somewhere.
+ */
+export interface LanguageWords {
+	/** Key words by theme id (see `THEMES`), separated by commas. */
+	themes: Readonly<Record<string, string>>;
+	/** Key words with one obvious emoji, by emoji, as in `Theme.hits`. */
+	hits: Readonly<Record<string, string>>;
+	/** English key words that mean something else in this language; they don't count then. */
+	notEnglish?: string;
+}
+
+/** Other languages than English, by the code Obsidian reports (`getLanguage()`). */
+export const LANGUAGES: Readonly<Record<string, LanguageWords>> = { de };
 
 /**
  * A key word of a theme gives one of its emoji by chance, so keep each group

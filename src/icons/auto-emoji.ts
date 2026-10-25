@@ -1,8 +1,9 @@
 import { findEntry } from "../picker/catalog";
-import { FRIENDLY_EMOJI, THEMES, UNTITLED_NAMES } from "./auto-emoji-themes";
+import { FRIENDLY_EMOJI, LANGUAGES, THEMES, UNTITLED_NAMES } from "./auto-emoji-themes";
 
 /**
- * Picks the emoji for a new note, from its name:
+ * Picks the emoji for a new note, from its name (English words, and those of
+ * the language Obsidian runs in):
  *
  * 1. a word with one obvious emoji ("pizza" → 🍕), or the name of an emoji of
  *    the lists ("guitar" → 🎸): that emoji;
@@ -16,6 +17,8 @@ import { FRIENDLY_EMOJI, THEMES, UNTITLED_NAMES } from "./auto-emoji-themes";
 export interface NewNote {
 	/** The note's name without `.md`. */
 	name: string;
+	/** The language Obsidian runs in (`getLanguage()`), e.g. "de"; English words always count. */
+	language?: string;
 }
 
 /** What the pick is based on; `fallback` when nothing in the name fits. */
@@ -84,36 +87,66 @@ interface Index {
 	friendly: readonly string[];
 }
 
-let index: Index | null = null;
+const indexes = new Map<string, Index>();
 
-function getIndex(): Index {
-	if (index) return index;
+/** The words of `language` (only English when there are none) with their emoji. */
+function getIndex(language: string | undefined): Index {
+	const words = language === undefined ? undefined : LANGUAGES[language];
+	const key = words ? (language as string) : "en";
+	const cached = indexes.get(key);
+	if (cached) return cached;
+
 	const exact = new Map<string, string>();
 	const themes = new Map<string, readonly string[]>();
 	let longest = 1;
-	const add = <T>(map: Map<string, T>, word: string, value: T) => {
-		if (map.has(word)) return;
-		map.set(word, value);
-		longest = Math.max(longest, word.split(" ").length);
+	/** English words the other language gives another meaning, or none. */
+	let skipped = new Set<string>();
+	// Written like names, so lists may use capitals and accents ("Zahnärztin").
+	const add = <T>(map: Map<string, T>, list: string, value: T) => {
+		for (const word of splitKeyWords(list).map((entry) => nameWords(entry).join(" "))) {
+			if (word === "" || map.has(word) || skipped.has(word)) continue;
+			map.set(word, value);
+			longest = Math.max(longest, word.split(" ").length);
+		}
 	};
+	const themeEmoji = new Map(THEMES.map((theme) => [theme.id, splitEmoji(theme.emoji)]));
 	const friendly = splitEmoji(FRIENDLY_EMOJI);
 	const listed = new Set<string>(friendly);
-	for (const theme of THEMES) {
-		const themeEmoji = splitEmoji(theme.emoji);
-		for (const word of splitKeyWords(theme.words)) add(themes, word, themeEmoji);
-		for (const [hit, words] of Object.entries(theme.hits ?? {})) {
-			for (const word of splitKeyWords(words)) add(exact, word, hit);
+
+	// The other language first: its meaning wins where a word is in both.
+	if (words) {
+		for (const [id, list] of Object.entries(words.themes)) {
+			const emoji = themeEmoji.get(id);
+			if (emoji) add(themes, list, emoji);
+		}
+		for (const [hit, list] of Object.entries(words.hits)) {
+			add(exact, list, hit);
 			listed.add(hit);
 		}
-		for (const emoji of themeEmoji) listed.add(emoji);
+		// English words don't count where this language has a meaning of its own.
+		skipped = new Set([
+			...exact.keys(),
+			...themes.keys(),
+			...splitKeyWords(words.notEnglish ?? "").map((word) => nameWords(word).join(" ")),
+		]);
+	}
+	for (const theme of THEMES) {
+		const emoji = themeEmoji.get(theme.id) ?? [];
+		add(themes, theme.words, emoji);
+		for (const [hit, list] of Object.entries(theme.hits ?? {})) {
+			add(exact, list, hit);
+			listed.add(hit);
+		}
+		for (const entry of emoji) listed.add(entry);
 	}
 	// The names of the listed emoji only: a name in the title is as obvious as
 	// a hit, but the full list has emoji no note should get ("bomb" → 💣).
 	for (const emoji of listed) {
 		const name = findEntry(emoji)?.name;
-		if (name !== undefined) add(exact, nameWords(name).join(" "), emoji);
+		if (name !== undefined) add(exact, name, emoji);
 	}
-	index = { exact, themes, longest, friendly };
+	const index = { exact, themes, longest, friendly };
+	indexes.set(key, index);
 	return index;
 }
 
@@ -138,7 +171,7 @@ function pickFrom(pool: readonly string[], random: () => number): string {
  * a kind, the first in the name wins.
  */
 export function pickAutoEmoji(note: NewNote, random: () => number = Math.random): AutoPick {
-	const { exact, themes, longest, friendly } = getIndex();
+	const { exact, themes, longest, friendly } = getIndex(note.language);
 	const words = nameWords(note.name);
 	let theme: readonly string[] | undefined;
 	for (let start = 0; start < words.length; start++) {

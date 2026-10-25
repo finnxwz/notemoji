@@ -1,4 +1,4 @@
-import type { App, TAbstractFile, TFile } from "obsidian";
+import { getLanguage, requireApiVersion, type App, type TAbstractFile, type TFile } from "obsidian";
 import { AutoPick, isUntitled, pickAutoEmoji } from "./auto-emoji";
 import { IconService, isNote } from "./icon-service";
 
@@ -162,6 +162,8 @@ export class NewNoteEmoji {
 	}
 
 	private pick(file: TFile): AutoPick {
-		return pickAutoEmoji({ name: file.basename });
+		// Before Obsidian 1.8.7 plugins can't tell its language: English only then.
+		const language = requireApiVersion("1.8.7") ? getLanguage() : undefined;
+		return pickAutoEmoji({ name: file.basename, language });
 	}
 }

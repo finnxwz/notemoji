@@ -117,6 +117,17 @@ export function setApiVersion(version: string): void {
 	apiVersion = version;
 }
 
+/** The language Obsidian runs in; tests may change it. */
+export let language = "en";
+
+export function setLanguage(code: string): void {
+	language = code;
+}
+
+export function getLanguage(): string {
+	return language;
+}
+
 export function requireApiVersion(version: string): boolean {
 	const have = apiVersion.split(".").map(Number);
 	const want = version.split(".").map(Number);

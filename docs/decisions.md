@@ -193,7 +193,17 @@ ideas are listed so they are not proposed again without a new reason.
   like a hospital on Windows; hotels get 🛎️).
   - _Rejected (too complex for what it adds):_ the folder's theme or emoji, seasons for daily
     notes by hemisphere, neighbours getting different emoji, official emoji keywords as an extra
-    layer, other languages. A daily note gets an emoji that suits any note.
+    layer. A daily note gets an emoji that suits any note.
+
+- **English, plus the language Obsidian runs in** (`getLanguage()`, Obsidian 1.8.7 and later;
+  before that, English only). Each other language is one file in `src/icons/auto-emoji-words/`
+  with theme words and obvious hits for the same emoji groups (German first). Its words win where
+  both languages have one, and it names English words that mean something else in it (German
+  _Gift_ is poison, _Art_ a kind), which then don't count. Words are written as usual (umlauts,
+  capitals, hyphens) and compared like names; compound words are listed as they are
+  (_Einkaufsliste_). _Rejected:_ every language at once (nearly every short word means something
+  somewhere); splitting compounds (guesswork). Japanese, Chinese and Korean write without spaces,
+  so whole words don't work there.
 
 - **Every note is treated the same, also personal or serious ones.** _Rejected:_ a list of sad
   words (funeral, cancer, depressed …) that get no emoji. It can't be complete (acronyms, other

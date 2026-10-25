@@ -8,7 +8,12 @@ import {
 	splitEmoji,
 	splitKeyWords,
 } from "../../src/icons/auto-emoji";
-import { FRIENDLY_EMOJI, THEMES, UNTITLED_NAMES } from "../../src/icons/auto-emoji-themes";
+import {
+	FRIENDLY_EMOJI,
+	LANGUAGES,
+	THEMES,
+	UNTITLED_NAMES,
+} from "../../src/icons/auto-emoji-themes";
 import { findEntry, getCatalog } from "../../src/picker/catalog";
 
 const ZWJ = String.fromCodePoint(0x200d);
@@ -22,9 +27,9 @@ function theme(id: string): string[] {
 
 const friendly = splitEmoji(FRIENDLY_EMOJI);
 
-/** Picks for a note named `name`. */
-function pick(name: string, random = () => 0): AutoPick {
-	return pickAutoEmoji({ name }, random);
+/** Picks for a note named `name`, with Obsidian in English unless `language` says otherwise. */
+function pick(name: string, random = () => 0, language?: string): AutoPick {
+	return pickAutoEmoji({ name, language }, random);
 }
 
 describe("lists", () => {
@@ -33,6 +38,9 @@ describe("lists", () => {
 			[`theme ${entry.id}`, splitEmoji(entry.emoji)] as const,
 			[`hits of ${entry.id}`, Object.keys(entry.hits ?? {})] as const,
 		]),
+		...Object.entries(LANGUAGES).map(
+			([code, words]) => [`hits of ${code}`, Object.keys(words.hits)] as const,
+		),
 		["friendly", friendly] as const,
 	];
 
@@ -236,5 +244,69 @@ describe("notes nothing fits", () => {
 		}
 		expect(pick("Q3 summary", () => 0).emoji).toBe(friendly[0]);
 		expect(pick("Q3 summary", () => 0.999).emoji).toBe(friendly.at(-1));
+	});
+});
+
+describe("other languages", () => {
+	const de = (name: string) => pick(name, () => 0, "de");
+
+	it("count when Obsidian runs in them, next to English", () => {
+		expect(de("Zahnarzttermin").emoji).toBe("🦷");
+		expect(de("Einkaufsliste").emoji).toBe("🛒");
+		expect(de("Kaffee mit Anna").emoji).toBe("☕");
+		expect(theme("travel")).toContain(de("Urlaub in Italien").emoji);
+		expect(de("Pizza night").emoji).toBe("🍕");
+		expect(theme("travel")).toContain(de("Trip to Paris").emoji);
+	});
+
+	it("are written as usual and read like names: capitals, umlauts, hyphens", () => {
+		expect(de("Zahnärztin").emoji).toBe("🦷");
+		expect(de("Fußball").emoji).toBe("⚽");
+		expect(de("U-Bahn Linien").emoji).toBe("🚇");
+	});
+
+	it("don't count when Obsidian runs in English, or in a language without words", () => {
+		for (const name of ["Zahnarzttermin", "Einkaufsliste", "Urlaub"]) {
+			expect(pick(name).source, name).toBe("fallback");
+			expect(pick(name, () => 0, "fr").source, name).toBe("fallback");
+		}
+	});
+
+	it("win over English where a word means something else in them", () => {
+		// German Gift is poison and Art a kind.
+		expect(pick("Gift").emoji).toBe("🎁");
+		expect(de("Gift").source).toBe("fallback");
+		expect(de("Art der Dinge").source).toBe("fallback");
+		// German Chef is the boss: work, not cooking.
+		expect(theme("work")).toContain(de("Chef").emoji);
+	});
+
+	it("list known themes, each word once, and false friends that are English words", () => {
+		const themeIds = new Set(THEMES.map((entry) => entry.id));
+		const english = new Set(
+			THEMES.flatMap((entry) => [
+				...splitKeyWords(entry.words),
+				...Object.values(entry.hits ?? {}).flatMap(splitKeyWords),
+			]),
+		);
+		for (const [code, words] of Object.entries(LANGUAGES)) {
+			for (const id of Object.keys(words.themes)) {
+				expect(themeIds.has(id), `${id} in ${code}`).toBe(true);
+			}
+			const seen = new Set<string>();
+			const all = [
+				...Object.values(words.themes).flatMap(splitKeyWords),
+				...Object.values(words.hits).flatMap(splitKeyWords),
+			];
+			for (const word of all) {
+				const read = nameWords(word).join(" ");
+				expect(read, `"${word}" in ${code}`).not.toBe("");
+				expect(seen.has(read), `"${word}" twice in ${code}`).toBe(false);
+				seen.add(read);
+			}
+			for (const word of splitKeyWords(words.notEnglish ?? "")) {
+				expect(english.has(word), `"${word}" in ${code}'s notEnglish`).toBe(true);
+			}
+		}
 	});
 });
