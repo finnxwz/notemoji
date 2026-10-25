@@ -2,9 +2,8 @@
  * Typings for the undocumented Obsidian internals Notemoji relies on.
  *
  * Obsidian has no public API for decorating the file explorer or tab headers.
- * The fields below have been stable for years and are what icon plugins build
- * on, but they are not guaranteed: every access is defensive, and renderers
- * simply skip what they cannot find.
+ * The fields below have been stable for years, but they are not guaranteed:
+ * every access is defensive, and renderers simply skip what they cannot find.
  */
 import {
 	requireApiVersion,
