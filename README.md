@@ -80,7 +80,8 @@ right-click.
 - **directly in Obsidian:**
   - Settings → Community plugins → _Browse_ → search for **Notemoji** → _Install_ → **Enable**
 - **via GitHub:**
-  - Copy `manifest.json`, `main.js` and `styles.css` from the latest release into `<your vault>/.obsidian/plugins/notemoji/`.
+  - Copy `manifest.json`, `main.js` and `styles.css` from the latest release into `<your
+vault>/.obsidian/plugins/notemoji/`.
   - Reload Obsidian and enable **Notemoji** under _Settings → Community plugins_.
 
 ## ❓ FAQ
@@ -89,10 +90,10 @@ right-click.
 <summary><b>Where are the emoji stored? Are my notes changed?</b></summary>
 
 Your notes are never changed. Emoji are stored in `.obsidian/plugins/notemoji/data.json`, by the
-path of each note, folder or file. Renaming or moving items inside Obsidian keeps their emoji; doing it outside of Obsidian (file manager, Git,
-another editor) does not. Deleted items keep their entry, so a restore or a sync brings the emoji
-back; _Remove emoji of missing files_ cleans them up. Each device also keeps a copy,
-`backup.json`, which repairs `data.json` if it gets damaged.
+path of each note, folder or file. Renaming or moving items inside Obsidian keeps their emoji; doing
+it outside of Obsidian (file manager, Git, another editor) does not. Deleted items keep their entry,
+so a restore or a sync brings the emoji back; _Remove emoji of missing files_ cleans them up. Each
+device also keeps a copy, `backup.json`, which repairs `data.json` if it gets damaged.
 
 </details>
 
@@ -173,10 +174,11 @@ copying a paragraph copies the links as they are. In reading view, clicking it o
 With _Automatic emoji for new notes_ on, each note you create on this device gets an emoji from
 its name: the obvious one for a word like `pizza` (🍕) or `dentist` (🦷), one of a few fitting
 emoji for a word like `trip` (✈️, 🧳, 🗺️ …), otherwise one that suits any note (📝, 💡, 🌱 …). A
-new _Untitled_ note gets its emoji once you've named it. Your own emoji always win: notes that have one are never changed, and you can
-change or remove the automatic one like any other (it is not added to your recently used emoji).
-Notes that arrive by sync or import are left alone. Words are recognised in English, and in
-German when Obsidian is set to German.
+new _Untitled_ note gets its emoji once you've named it. Your own emoji always win: notes that
+have one are never changed, and you can change or remove the automatic one like any other (it is
+not added to your recently used emoji). Notes that arrive by sync or import are normally left
+alone. Words are recognised in English, and also in German when Obsidian (1.8.7 or newer) is set
+to German.
 
 </details>
 
@@ -198,8 +200,8 @@ After the emoji come Obsidian's own icons, as many as your version of Obsidian h
 ## 🌐 Network use
 
 Notemoji works offline. It only connects to the internet when you click _Download_ for an emoji
-style, and then downloads exactly that font from GitHub. Each file is pinned to a release and
-checked against its SHA-256 checksum before it is used:
+style, and then downloads exactly that font from GitHub. Each file is pinned to a release (or a
+fixed commit) and checked against its SHA-256 checksum before it is used:
 
 - Twemoji: `github.com/mozilla/twemoji-colr` (release v0.7.0, 1.5 MB)
 - Noto Color Emoji: `github.com/googlefonts/noto-emoji` (v2.051, 5.0 MB)
@@ -208,7 +210,8 @@ checked against its SHA-256 checksum before it is used:
 
 ## 😎 You might also like some other plugins I've made:
 
-- **[TidyTasks](obsidian://show-plugin?id=tidytasks)** - Automatically move completed tasks to the bottom of each Markdown task list, keeping subtasks attached and surrounding text in place.
+- **[TidyTasks](obsidian://show-plugin?id=tidytasks)** - Automatically move completed tasks to the
+  bottom of each Markdown task list, keeping subtasks attached and surrounding text in place.
 
 My plugins are designed to work across Windows, macOS, Android, and iOS.
 

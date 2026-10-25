@@ -55,12 +55,12 @@ ideas are listed so they are not proposed again without a new reason.
   custom or Obsidian icons and their values, trimmed paths) and never reloads. When a device that
   wasn't updated yet saves over the file, the others put back what it dropped: from memory when
   running, else from `backup.json`. Its emoji win, except over custom and Obsidian icons (it can
-  only hold an outdated emoji there); emoji it lacks are restored (a removal there comes back, which is
-  easier to undo than a lost emoji). An emoji 1.x changed and an outdated one can't be told
-  apart; the newer write wins. A marker key in `icons` that 1.x drops also catches Obsidian
-  Sync merging a 2.x file with a 1.x copy key by key; sections it merged in are used, except that
-  copies of Obsidian icons are combined (that section may be older). Release notes still ask to
-  update every device.
+  only hold an outdated emoji there); emoji it lacks are restored (a removal there comes back, which
+  is easier to undo than a lost emoji). An emoji 1.x changed and an outdated one can't be told
+  apart; the newer write wins. A marker key in `icons` that 1.x drops also catches Obsidian Sync
+  merging a 2.x file with a 1.x copy key by key; sections it merged in are used, except that copies
+  of Obsidian icons are combined (that section may be older). Release notes still ask to update
+  every device.
 - **`backup.json`** in the plugin folder: a copy of `data.json` on this device, written shortly
   after saves and reloads (never a backup of nothing). Obsidian Sync doesn't sync it, so it
   survives another device damaging the file; other sync tools copy it along, which is
@@ -68,9 +68,9 @@ ideas are listed so they are not proposed again without a new reason.
   downloaded yet; without a backup, nothing is saved over an unreadable file until it is
   restored or deleted (it may still be recovered from sync history). To start over on a device
   with a backup, delete both files.
-- **Everything else lives in the plugin folder** (`fonts/`, `cache/`, `backup.json`), so uninstalling
-  removes it. Obsidian has no uninstall hook; never delete user files in `onunload`. Never write
-  anywhere else in the vault ("never bloat the user's disk").
+- **Everything else lives in the plugin folder** (`fonts/`, `cache/`, `backup.json`), so
+  uninstalling removes it. Obsidian has no uninstall hook; never delete user files in `onunload`.
+  Never write anywhere else in the vault ("never bloat the user's disk").
 
 ## Picker
 
@@ -84,15 +84,15 @@ ideas are listed so they are not proposed again without a new reason.
   when no tile is selected), Esc closes.
 - Mobile: the search field is not focused automatically (the keyboard would cover the grid).
 - Emoji up to Emoji 15.0, generated from emojibase.
-  - _Rejected:_ skin tone selector, random button. (Random emoji for new notes is a separate,
-    opt-in use the maintainer asked for; see "Automatic emoji for new notes".)
-- **Performance:** the grid is virtualized and shows pre-rendered sprite sheets of the emoji,
-  drawn in idle time after startup and cached in `cache/sprites/` per style, device type,
-  density and a fingerprint of how the device draws emoji. Chosen after real lag on Windows,
-  where drawing colour emoji glyphs is slow. A new folder replaces outdated ones (older format,
-  emoji list or font) but keeps up to two that only look different (another computer of the
-  same kind when the folder syncs), so devices don't delete each other's images. Drawn at up to
-  2× density: 3× would triple the memory of the decoded images on phones. The cache lives in the plugin folder by the
+  - _Rejected:_ skin tone selector, random button. (Emoji for new notes are a separate, opt-in
+    feature the maintainer asked for; see "Automatic emoji for new notes".)
+- **Performance:** the grid is virtualized and shows pre-rendered sprite sheets of the emoji, drawn
+  in idle time after startup and cached in `cache/sprites/` per style, device type, density and a
+  fingerprint of how the device draws emoji. Chosen after real lag on Windows, where drawing colour
+  emoji glyphs is slow. A new folder replaces outdated ones (older format, emoji list or font) but
+  keeps up to two that only look different (another computer of the same kind when the folder
+  syncs), so devices don't delete each other's images. Drawn at up to 2× density: 3× would triple
+  the memory of the decoded images on phones. The cache lives in the plugin folder by the
   maintainer's choice (removed on uninstall), 3–7 MB per style.
 - **No tooltips:** Obsidian shows every `aria-label` as a tooltip, which looked bad and caused
   lag on hover. Tiles, cards and the title emoji have none; the picker footer names the hovered
@@ -179,45 +179,48 @@ ideas are listed so they are not proposed again without a new reason.
   name only, in this order:
   1. a word with one obvious emoji (pizza → 🍕, dentist → 🦷), or the name of a listed emoji in
      the title (brain → 🧠, mountain → ⛰️): that emoji;
-  2. a key word of a theme (trip, meeting, budget): one of the theme's 3–6 emoji, by chance;
+  2. a key word of a theme (trip, meeting, budget): one of the theme's 3–5 emoji, by chance;
   3. otherwise one of about 45 emoji that suit any note (📝 💡 🌱 ✨ …), by chance.
 
-  An obvious emoji anywhere in the name beats a theme word ("Pizza with the team" → 🍕); of two
-  of a kind, the first in the name wins; a phrase counts as one ("cover letter" is no letter).
-  English key words, whole words only, plurals listed, no stemming (loose matching gave
-  "Bank balance" → ☯️-style mistakes); words in camel case stay one word ("MacBook" isn't about
-  books). Left out on purpose: words that often mean something else (map, as in Obsidian's maps
-  of content; German "Chef"; chicken, a dinner or a bird). Emoji names only count for listed
-  emoji: the picker's full list has emoji no note should get ("bomb" → 💣). Groups only hold
-  emoji that fit every note of the theme, and none some systems draw as something else (🏨 looks
-  like a hospital on Windows; hotels get 🛎️).
+  An obvious emoji anywhere in the name beats a theme word ("Pizza with the team" → 🍕); of two of a
+  kind, the first in the name wins; a phrase counts as one ("cover letter" is no letter). English
+  key words, whole words only, plurals listed, no stemming (loose matching gave "Bank balance" →
+  ☯️-style mistakes); words in camel case stay one word ("MacBook" isn't about books). Left out on
+  purpose: words that often mean something else (map, as in Obsidian's maps of content; "chef", a
+  cook or, in German, a boss; chicken, a dinner or a bird). Emoji names only count for listed emoji:
+  the picker's full list has emoji no note should get ("bomb" → 💣), and not names that are common
+  words for other things (turkey, chicken, pie, ring, gear, hamburger) or theme words ("house" stays
+  a theme word, not 🏠 only). Groups only hold emoji that fit every note of the theme, and none some
+  systems draw as something else (🏨 looks like a hospital on Windows; hotels get 🛎️).
   - _Rejected (too complex for what it adds):_ the folder's theme or emoji, seasons for daily
     notes by hemisphere, neighbours getting different emoji, official emoji keywords as an extra
     layer. A daily note gets an emoji that suits any note.
 
-- **English, plus the language Obsidian runs in** (`getLanguage()`, Obsidian 1.8.7 and later;
-  before that, English only). Each other language is one file in `src/icons/auto-emoji-words/`
-  with theme words and obvious hits for the same emoji groups (German first). Its words win where
-  both languages have one, and it names English words that mean something else in it (German
-  _Gift_ is poison, _Art_ a kind), which then don't count. Words are written as usual (umlauts,
-  capitals, hyphens) and compared like names; compound words are listed as they are
-  (_Einkaufsliste_). _Rejected:_ every language at once (nearly every short word means something
-  somewhere); splitting compounds (guesswork). Japanese, Chinese and Korean write without spaces,
-  so whole words don't work there.
+- **English, plus the language Obsidian runs in** (`getLanguage()`, Obsidian 1.8.7 and later; before
+  that, English only). Each other language is one file in `src/icons/auto-emoji-words/` with theme
+  words and obvious hits for the same emoji groups (German first). Its words win where both
+  languages have one, and it names English words that mean something else in it (German _Gift_ is
+  poison, _Art_ a kind), which then don't count. Words are written as usual (umlauts, capitals,
+  hyphens) and compared like names (ß as ss, for Swiss German); a region code counts as its language
+  (de-AT as de); compound words are listed as they are (_Einkaufsliste_). _Rejected:_ every language
+  at once (nearly every short word means something somewhere); splitting compounds (guesswork).
+  Japanese, Chinese and Korean write without spaces, so whole words don't work there.
 
 - **Every note is treated the same, also personal or serious ones.** _Rejected:_ a list of sad
   words (funeral, cancer, depressed …) that get no emoji. It can't be complete (acronyms, other
   languages), a miss looks like a bug, and so does a research note about chemotherapy without an
   emoji; an emoji that suits any note doesn't hurt on any note.
 - **"Untitled" notes wait for their name:** Obsidian names a new note _Untitled_ (translated:
-  _Unbenannt_, _Sans titre_ …, from all of Obsidian's translations, also numbered) until it gets
-  a name, which is what says what the note is about. Such a note gets no emoji until then, and once
-  named, its emoji is picked as for any new note, however long that takes in this session; one left untitled gets none. An emoji the user sets meanwhile wins. _Rejected:_
-  a friendly emoji right away, replaced when the name fits (looked random, and stayed random for
-  names in other languages than English).
+  _Unbenannt_, _Sans titre_ …, from all of Obsidian's translations, also numbered) until it gets a
+  name, which is what says what the note is about. Such a note gets no emoji until then, and once
+  named, its emoji is picked as for any new note, however long that takes in this session; one left
+  untitled gets none. An emoji the user sets meanwhile wins; a note deleted while untitled is
+  forgotten. _Rejected:_ a friendly emoji right away, replaced when the name fits (looked random,
+  and stayed random for names in other languages than English).
 - **Renamed soon after:** each automatic pick is remembered for this session; when the note gets
   another name within 5 minutes of it and still has that emoji, an emoji picked because nothing fit
-  makes way for one that fits the new name. Picks that already fit the name stay. Moving the note or renaming a folder above it is no new name.
+  makes way for one that fits the new name. Picks that already fit the name stay. Moving the note or
+  renaming a folder above it is no new name.
 - Every listed emoji is in the picker's list, written as the list writes it, so emoji styles can
   draw it, and from Emoji 12.0 or older, so the system emoji of Windows 10 and older phones can
   draw it too: nobody chose these emoji, so nobody would know why a box shows instead. Tests check
@@ -241,8 +244,8 @@ ideas are listed so they are not proposed again without a new reason.
   image that already fits is stored unchanged (animations keep playing); others become WebP at
   quality 90 → 60 (JPEG or PNG where WebP can't be written). AVIF is always converted.
 - **Refused, with the reason:** HEIC, files over 20 MB, SVG over 45 KB (simplify or use PNG),
-  animated GIF, PNG or WebP over 512 px or 45 KB (not frozen silently), images still too large at the lowest
-  quality.
+  animated GIF, PNG or WebP over 512 px or 45 KB (not frozen silently), images still too large at
+  the lowest quality.
 - Custom icons are shown through `blob:` URLs in `<img>` or CSS, never inline (SVG scripts never
   run). A missing icon (deleted or not synced yet) keeps its space empty; the settings list such
   icons and can remove them.
@@ -301,8 +304,8 @@ ideas are listed so they are not proposed again without a new reason.
 ## Compatibility and tooling
 
 - Version 2.0.0 for the rework (new data format; update every device).
-- `minAppVersion` 1.7.2: newer APIs only when guarded (`SettingTab.icon`; `setDestructive()` behind
-  `requireApiVersion`, which the lint rule for newer APIs understands).
+- `minAppVersion` 1.7.2: newer APIs only when guarded (`SettingTab.icon`; `getLanguage()` and
+  `setDestructive()` behind `requireApiVersion`, which the lint rule for newer APIs understands).
 - Undocumented Obsidian internals (explorer items, tab title elements) only through
   `src/internals.ts`, always defensive.
 - `npm run check` (Prettier, ESLint with the Obsidian rules, TypeScript, Vitest, build) must pass;

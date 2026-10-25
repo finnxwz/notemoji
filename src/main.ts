@@ -220,7 +220,12 @@ export default class NotemojiPlugin extends Plugin {
 				this.links.scheduleRefresh();
 			}),
 		);
-		this.registerEvent(vault.on("delete", () => this.links.scheduleRefresh()));
+		this.registerEvent(
+			vault.on("delete", (file) => {
+				this.newNotes.handleDelete(file.path);
+				this.links.scheduleRefresh();
+			}),
+		);
 		// The reading view may re-render a note's title when the note changes.
 		this.registerEvent(metadataCache.on("changed", () => this.scheduleTitleSync()));
 

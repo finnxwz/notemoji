@@ -2,9 +2,10 @@ import type { LanguageWords } from "../auto-emoji-themes";
 
 /**
  * German words for automatic emoji, used when Obsidian runs in German (in
- * addition to the English ones). Written as usual (umlauts, ß, capitals);
- * they are compared the way names are read. The groups of emoji are the
- * themes' in `auto-emoji-themes.ts`.
+ * addition to the English ones). Written as usual (umlauts, ß, capitals); they
+ * are compared the way names are read. The groups of emoji are the themes' in
+ * `auto-emoji-themes.ts`. Left out: German words that are common in English
+ * titles too ("mode", "auto", "kind", "brief"), and "bär", which reads as "bar".
  */
 export const de: LanguageWords = {
 	themes: {
@@ -53,7 +54,7 @@ export const de: LanguageWords = {
 		animals: `tier, tiere, haustier, haustiere, tierarzt, tierärztin`,
 		weather: `wetter, wettervorhersage, klima, temperatur, hitze, hitzewelle`,
 		celebrations: `feier, feiern, jubiläum, jahrestag, fest, feste`,
-		shopping: `wunschliste, kaufen, bestellung, bestellungen, mode, kleidung, kleiderschrank`,
+		shopping: `wunschliste, kaufen, bestellung, bestellungen, kleidung, kleiderschrank`,
 		transport: `fahrzeug, fahrzeuge, fahren, pendeln, verkehr, werkstatt, führerschein`,
 		art: `kunst, kunstwerk, zeichnen, zeichnung, zeichnungen, gemälde, skizze, skizzen, skizzenbuch,
 			illustrationen, basteln, galerie, farben`,
@@ -105,7 +106,7 @@ export const de: LanguageWords = {
 		"🧃": "saft",
 		"🥛": "milch",
 		"🔖": "lesezeichen",
-		"✉️": "brief, briefe",
+		"✉️": "briefe",
 		"📰": "nachrichten",
 		"🎹": "klavier",
 		"🎸": "gitarre",
@@ -187,7 +188,7 @@ export const de: LanguageWords = {
 		"🦉": "eule",
 		"🐧": "pinguin",
 		"🦊": "fuchs",
-		"🐻": "bär",
+		"🐻": "bären",
 		"🐄": "kuh, kühe",
 		"🐖": "schwein",
 		"🐑": "schaf, schafe",
@@ -226,7 +227,7 @@ export const de: LanguageWords = {
 		"👗": "kleid, kleider",
 		"💍": "schmuck",
 		"👓": "brille",
-		"🚗": "auto, autos",
+		"🚗": "autos",
 		"🚆": "zug, bahn",
 		"🚇": "u bahn",
 		"🚊": "straßenbahn",
@@ -243,7 +244,7 @@ export const de: LanguageWords = {
 		"🖋️": "kalligrafie",
 		"📷": "kamera",
 		"🍼": "baby",
-		"🧸": "kinder, kind, spielzeug",
+		"🧸": "kinder, spielzeug",
 		"💝": "valentinstag",
 		"🏁": "meilenstein, meilensteine",
 		"🔔": "erinnerung, erinnerungen",

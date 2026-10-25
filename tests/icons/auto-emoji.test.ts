@@ -147,12 +147,16 @@ describe("isUntitled", () => {
 
 describe("nameWords", () => {
 	it("drops the extension, numbering, emoji, punctuation and accents", () => {
-		expect(nameWords("01 - Café trip.md")).toEqual(["cafe", "trip"]);
+		expect(nameWords("01 - Café trip")).toEqual(["cafe", "trip"]);
 		expect(nameWords("1. Ideas")).toEqual(["ideas"]);
 		expect(nameWords("10) Packing list!")).toEqual(["packing", "list"]);
 		expect(nameWords("🍕 Pizza night")).toEqual(["pizza", "night"]);
 		expect(nameWords("to-do, (draft)")).toEqual(["to", "do", "draft"]);
 		expect(nameWords("Grandma’s recipes")).toEqual(["grandma", "s", "recipes"]);
+	});
+
+	it("reads ß as ss, as Swiss German writes it", () => {
+		expect(nameWords("Fußball")).toEqual(nameWords("Fussball"));
 	});
 
 	it("keeps words in camel case together", () => {
@@ -181,6 +185,28 @@ describe("obvious emoji", () => {
 	it("only from listed emoji, never any emoji of the picker", () => {
 		expect(pick("Bomb").source).toBe("fallback");
 		expect(pick("Pineapple").source).toBe("fallback");
+	});
+
+	it("never from names that are common words for other things", () => {
+		for (const name of ["Chicken coop", "Pie chart", "Ring buffer", "Hamburger menu"]) {
+			expect(pick(name).source, name).toBe("fallback");
+		}
+		expect(theme("travel")).toContain(pick("Trip to Turkey").emoji);
+		expect(theme("nature")).toContain(pick("Hiking gear list").emoji);
+		// The emoji still come from their hits.
+		expect(pick("Burger night").emoji).toBe("🍔");
+	});
+
+	it("never turn a theme word into one emoji", () => {
+		for (const [name, id] of [
+			["Budget for the house", "money"],
+			["House rules", "home"],
+			["School holidays", "learning"],
+			["Books to read", "books"],
+		] as const) {
+			expect(theme(id), name).toContain(pick(name).emoji);
+			expect(pick(name).source, name).toBe("theme");
+		}
 	});
 
 	it("beat a theme word anywhere in the name; of two, the first wins", () => {
@@ -219,9 +245,9 @@ describe("theme words", () => {
 			expect(pick(name).source, name).toBe("fallback");
 		}
 		expect(theme("tech")).toContain(pick("TypeScript notes").emoji);
-		expect(theme("meetings")).not.toContain(pick("Retro games").emoji);
-		// A chicken coop is no dinner.
-		expect(pick("Chicken coop").emoji).not.toBe("🍗");
+		expect(theme("games")).toContain(pick("Retro games").emoji);
+		// A chicken coop is no dinner, and no hit at all.
+		expect(pick("Chicken coop").source).toBe("fallback");
 	});
 
 	it("count a phrase as one: a cover letter is no letter", () => {
@@ -263,6 +289,19 @@ describe("other languages", () => {
 		expect(de("Zahnärztin").emoji).toBe("🦷");
 		expect(de("Fußball").emoji).toBe("⚽");
 		expect(de("U-Bahn Linien").emoji).toBe("🚇");
+	});
+
+	it("are found by region codes too, and odd codes are no language", () => {
+		expect(pick("Zahnarzttermin", () => 0, "de-AT").emoji).toBe("🦷");
+		expect(pick("Pizza", () => 0, "constructor").emoji).toBe("🍕");
+	});
+
+	it("leave out words that read as something else", () => {
+		// "Bär" would read as "bar", "Mode" and "Auto" are common in English titles.
+		expect(de("Bar mit Freunden").source).toBe("fallback");
+		expect(de("Dark mode").source).toBe("fallback");
+		expect(de("Auto backup").emoji).toBe("💾");
+		expect(de("Fussball").emoji).toBe("⚽");
 	});
 
 	it("don't count when Obsidian runs in English, or in a language without words", () => {

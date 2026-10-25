@@ -126,6 +126,21 @@ export class NewNoteEmoji {
 	}
 
 	/**
+	 * Vault `delete`: a note that is gone is no new note anymore, also not one
+	 * still waiting for its name (a later note at that path is another one).
+	 * Its automatic emoji is remembered still: a new note at the same path may
+	 * take its place (deletes never touch data.json).
+	 */
+	handleDelete(path: string): void {
+		const below = `${path}/`;
+		for (const map of [this.created, this.unnamed]) {
+			for (const key of map.keys()) {
+				if (key === path || key.startsWith(below)) map.delete(key);
+			}
+		}
+	}
+
+	/**
 	 * The user chose an emoji for this item or removed it, also when it is the
 	 * same as the automatic one: from now on it is theirs.
 	 */

@@ -51,7 +51,7 @@ function wait(ms: number): void {
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ["Date"] });
 	vi.setSystemTime(new Date(2026, 9, 24, 12));
-	// The first emoji among the least used, so picks are predictable.
+	// The first emoji of a group, so picks are predictable.
 	vi.spyOn(Math, "random").mockReturnValue(0);
 	settingsCreated.length = 0;
 	for (const modal of [...openModals]) modal.close();
@@ -270,6 +270,19 @@ describe("an untitled note that gets its name", () => {
 		harness.app.vault.rename("Untitled.md", "Pizza.md");
 		await flush();
 		expect(harness.plugin.icons.get("Pizza.md")).toBe("🍕");
+	});
+
+	it("is forgotten when deleted, so a note moved to its path keeps its emoji", async () => {
+		const harness = await load({
+			files: ["Archive/Untitled.md"],
+			data: { ...ON, icons: { "Archive/Untitled.md": "🎸" } },
+		});
+		await newNote(harness, "Untitled.md");
+		harness.app.vault.remove("Untitled.md");
+		harness.app.vault.rename("Archive/Untitled.md", "Untitled.md");
+		harness.app.vault.rename("Untitled.md", "Pizza.md");
+		await flush();
+		expect(harness.plugin.icons.get("Pizza.md")).toBe("🎸");
 	});
 
 	it("also when it gets its name later", async () => {

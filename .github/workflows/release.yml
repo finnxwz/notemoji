@@ -19,19 +19,28 @@ permissions:
   attestations: write # store them with the repository
   artifact-metadata: write # record the signed files
 
+# One release at a time: two runs started together would both find the version new.
+concurrency: release
+
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       # Actions are pinned to an exact commit, as this workflow may write to the repository.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The token isn't stored in the checkout, so the dependencies the checks run
+          # (npm ci, npm run check) can't use it; only the release step gets it.
+          persist-credentials: false
+      # No dependency cache: a release is built from a fresh install of the lock file.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-          cache: npm
 
-      # Stops before building when this version already has a tag, a release or a draft:
-      # releasing it again would replace files people already downloaded.
+      # Stops before building unless this runs on the default branch (Obsidian reads the
+      # version from manifest.json there), or when the version already has a tag, a release or a
+      # draft: releasing it again would replace files people already downloaded. A lookup that
+      # fails stops it too, rather than counting as "not released yet".
       #
       # `gh` is GitHub's own command line tool, installed on every GitHub runner. GH_TOKEN is
       # the token GitHub creates by itself for each run: nobody has to make or store it, it can
@@ -40,14 +49,21 @@ jobs:
         id: version
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
+          if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+            echo "::error::Releases are made from $DEFAULT_BRANCH. Choose it under 'Run workflow'."
+            exit 1
+          fi
           version=$(node -p "require('./manifest.json').version")
           echo "Version in manifest.json: $version"
-          if git ls-remote --exit-code --tags origin "refs/tags/$version" > /dev/null; then
+          tags=$(git ls-remote --tags origin "refs/tags/$version")
+          if [ -n "$tags" ]; then
             echo "::error::Version $version already has a tag. Raise the version first (see CONTRIBUTING.md)."
             exit 1
           fi
-          if gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[].tag_name' | grep -qxF "$version"; then
+          releases=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq '.[].tag_name')
+          if grep -qxF "$version" <<< "$releases"; then
             echo "::error::A release or draft for $version exists. Delete the draft on the Releases page, or raise the version."
             exit 1
           fi

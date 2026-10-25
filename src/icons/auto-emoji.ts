@@ -1,5 +1,12 @@
 import { findEntry } from "../picker/catalog";
-import { FRIENDLY_EMOJI, LANGUAGES, THEMES, UNTITLED_NAMES } from "./auto-emoji-themes";
+import {
+	FRIENDLY_EMOJI,
+	LANGUAGES,
+	LanguageWords,
+	NAMES_LEFT_OUT,
+	THEMES,
+	UNTITLED_NAMES,
+} from "./auto-emoji-themes";
 
 /**
  * Picks the emoji for a new note, from its name (English words, and those of
@@ -62,17 +69,18 @@ export function splitKeyWords(list: string): string[] {
 }
 
 /**
- * The words of a note or folder name, as key words are written: lower case,
- * without accents, numbering, emoji or punctuation ("01 - Café trip.md" →
- * "cafe", "trip"). Words in camel case stay one word: split, "MacBook" would
- * be about books and "TypeScript" about nothing.
+ * The words of a note's name, as key words are compared: lower case, without
+ * accents, numbering, emoji or punctuation, ß as ss ("01 - Café trip" →
+ * "cafe", "trip"; "Fußball" and Swiss "Fussball" alike). Words in camel case
+ * stay one word: split, "MacBook" would be about books and "TypeScript" about
+ * nothing.
  */
 export function nameWords(name: string): string[] {
 	return name
-		.replace(/\.md$/i, "")
 		.normalize("NFD")
 		.replace(/\p{M}/gu, "")
 		.toLowerCase()
+		.replace(/ß/g, "ss")
 		.split(/[^\p{L}]+/u)
 		.filter((word) => word !== "");
 }
@@ -89,10 +97,20 @@ interface Index {
 
 const indexes = new Map<string, Index>();
 
+/** The words of a language Obsidian reports ("de", "pt-BR" → "pt"), and their code. */
+function languageWords(language: string | undefined): [string, LanguageWords] | undefined {
+	if (language === undefined) return undefined;
+	for (const code of [language, language.split("-")[0]]) {
+		if (Object.hasOwn(LANGUAGES, code)) return [code, LANGUAGES[code]];
+	}
+	return undefined;
+}
+
 /** The words of `language` (only English when there are none) with their emoji. */
 function getIndex(language: string | undefined): Index {
-	const words = language === undefined ? undefined : LANGUAGES[language];
-	const key = words ? (language as string) : "en";
+	const found = languageWords(language);
+	const key = found?.[0] ?? "en";
+	const words = found?.[1];
 	const cached = indexes.get(key);
 	if (cached) return cached;
 
@@ -140,10 +158,14 @@ function getIndex(language: string | undefined): Index {
 		for (const entry of emoji) listed.add(entry);
 	}
 	// The names of the listed emoji only: a name in the title is as obvious as
-	// a hit, but the full list has emoji no note should get ("bomb" → 💣).
+	// a hit, but the full list has emoji no note should get ("bomb" → 💣). Not
+	// where a theme has the word (a name never turns "house" into 🏠 only), nor
+	// names that are common words for other things ("turkey", "chicken").
+	const leftOut = new Set(splitEmoji(NAMES_LEFT_OUT));
 	for (const emoji of listed) {
 		const name = findEntry(emoji)?.name;
-		if (name !== undefined) add(exact, name, emoji);
+		if (name === undefined || leftOut.has(emoji)) continue;
+		if (!themes.has(nameWords(name).join(" "))) add(exact, name, emoji);
 	}
 	const index = { exact, themes, longest, friendly };
 	indexes.set(key, index);

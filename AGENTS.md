@@ -31,24 +31,27 @@ npm run set-previews # regenerate the emoji style previews (downloads the pinned
 
 ## Map
 
-| Path                      | What                                                                       |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `src/main.ts`             | Plugin wiring: events, menus, commands, saving                             |
-| `src/data.ts`             | `data.json` shape, defaults, lenient parsing, repair and merge rules       |
-| `src/data-file.ts`        | Loading, saving, reloading after sync, read-only guard, `backup.json`      |
-| `src/internals.ts`        | The only place that touches undocumented Obsidian internals                |
-| `src/icons/`              | What an item's icon is: emoji, values, path store, custom, Obsidian icons  |
-| `src/icons/auto-emoji.ts` | Automatic emoji for new notes (pure); `new-note-emoji.ts` decides when     |
-| `src/style/`              | Emoji styles: downloadable sets, font loading, `EmojiStyle` (font + cache) |
-| `src/picker/`             | Picker modal, catalog/search, grid geometry, virtual grid, sprite sheets   |
-| `src/display/`            | Rendering: file explorer, titles (note, tab, view header), links in notes  |
-| `src/settings/`           | Settings tab and the emoji style cards                                     |
-| `styles.css`              | All styles (no inline styles; CSS variables via `setCssProps`)             |
-| `tests/obsidian.ts`       | Fake `obsidian` module (the npm package is types only)                     |
-| `tests/plugin-harness.ts` | Loads the real plugin against the fake app                                 |
-| `scripts/demo/`           | Showcase scene: the real plugin in an Obsidian-like page                   |
-| `scripts/record-demo.mjs` | Records GIFs (stop motion) and composed images into `docs/media`           |
-| `docs/decisions.md`       | Decisions and their reasons                                                |
+| Path                          | What                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------ |
+| `src/main.ts`                 | Plugin wiring: events, menus, commands, saving                                 |
+| `src/data.ts`                 | `data.json` shape, defaults, lenient parsing, repair and merge rules           |
+| `src/data-file.ts`            | Loading, saving, reloading after sync, read-only guard, `backup.json`          |
+| `src/internals.ts`            | The only place that touches undocumented Obsidian internals                    |
+| `src/icons/`                  | What an item's icon is: emoji, values, path store, custom, Obsidian icons      |
+| `src/icons/auto-emoji.ts`     | Automatic emoji for new notes (pure); `new-note-emoji.ts` decides when         |
+| `src/icons/auto-emoji-words/` | Words of other languages for automatic emoji (one file each)                   |
+| `src/style/`                  | Emoji styles: downloadable sets, font loading, `EmojiStyle` (font + cache)     |
+| `src/picker/`                 | Picker modal, catalog/search, grid geometry, virtual grid, sprite sheets       |
+| `src/display/`                | Rendering: file explorer, titles (note, tab, view header), links in notes      |
+| `src/settings/`               | Settings tab and the emoji style cards                                         |
+| `styles.css`                  | All styles (no inline styles; CSS variables via `setCssProps`)                 |
+| `tests/obsidian.ts`           | Fake `obsidian` module (the npm package is types only)                         |
+| `tests/plugin-harness.ts`     | Loads the real plugin against the fake app                                     |
+| `scripts/demo/`               | Showcase scene: the real plugin in an Obsidian-like page                       |
+| `scripts/record-demo.mjs`     | Records GIFs (stop motion) and composed images into `docs/media`               |
+| `docs/decisions.md`           | Decisions and their reasons                                                    |
+| `CONTRIBUTING.md`             | Setup, adding a language, and how releases are made                            |
+| `.github/workflows/`          | CI (checks on push and PRs) and the release workflow (started by hand for now) |
 
 ## Conventions
 

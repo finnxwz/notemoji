@@ -46,16 +46,19 @@ language. The tests check that every emoji works on all systems and that no word
 
 Releases are built by the _Release_ workflow (`.github/workflows/release.yml`). For now it only
 runs when started by hand, so the release process can be tested first; starting it on a pushed
-version tag can be added later.
+version tag can be added later. GitHub offers _Run workflow_ only once the workflow file is on the
+default branch, so the first run is the real one for that version: it only makes a draft, which
+you can check and delete.
 
 1. **Raise the version** in `manifest.json`, `package.json`, `package-lock.json` (both version
    fields) and `versions.json` (the new version with its `minAppVersion`). A test checks that they
    agree, so `npm run check` fails if one is missed. Obsidian uses the version without a `v`.
-2. **Commit and push** that change to the branch to release from (normally `main`).
-3. **Start the workflow:** on GitHub, open _Actions_ → _Release_ → _Run workflow_, choose the
-   branch and confirm. It:
-   - stops if the version already has a tag, a release or a draft, so a published version is
-     not replaced;
+2. **Commit and push** that change to the default branch (`main`): Obsidian reads the version
+   from `manifest.json` there.
+3. **Start the workflow:** on GitHub, open _Actions_ → _Release_ → _Run workflow_, choose `main`
+   and confirm. It:
+   - stops if it runs on another branch, or if the version already has a tag, a release or a
+     draft, so a published version is not replaced;
    - runs `npm ci` and `npm run check` (formatting, lint, types, tests and the build of `main.js`);
    - signs `main.js`, `manifest.json` and `styles.css` (an artifact attestation: a record, signed
      by GitHub, that these exact files were built by this workflow from this commit);

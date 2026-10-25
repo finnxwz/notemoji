@@ -20,4 +20,18 @@ describe("release files", () => {
 	it("list the version with its minimum Obsidian version", () => {
 		expect(json("versions.json")[manifest.version as string]).toBe(manifest.minAppVersion);
 	});
+
+	it("use a plain version, the newest in versions.json, as Obsidian expects", () => {
+		const version = manifest.version as string;
+		expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+		const parts = (value: string) => value.split(".").map(Number);
+		const newer = (a: string, b: string) => {
+			const [x, y] = [parts(a), parts(b)];
+			const i = x.findIndex((part, index) => part !== y[index]);
+			return i !== -1 && x[i] > y[i];
+		};
+		for (const listed of Object.keys(json("versions.json"))) {
+			expect(newer(listed, version), listed).toBe(false);
+		}
+	});
 });

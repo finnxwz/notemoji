@@ -23,6 +23,8 @@ const SETTINGS_ICON_SVG =
 	"style=\"stroke: none; fill: currentColor; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif\">" +
 	"😀</text>";
 
+const CACHE_NAME = "Picker image cache";
+const MISSING_NAME = "Remove emoji of missing files";
 const CACHE_DESC =
 	"Pre-rendered emoji for each style, so the picker opens and scrolls smoothly. Removed with the plugin.";
 
@@ -199,12 +201,12 @@ export class NotemojiSettingTab extends PluginSettingTab {
 				heading: "Maintenance",
 				rows: [
 					{
-						name: "Picker image cache",
+						name: CACHE_NAME,
 						desc: CACHE_DESC,
 						render: (setting) => this.pickerCache(setting),
 					},
 					{
-						name: "Remove emoji of missing files",
+						name: MISSING_NAME,
 						// Replaced by the current count when drawn.
 						desc: "Emoji of deleted notes, folders and files are kept, so they come back after a restore or sync.",
 						render: (setting) => this.missingFiles(setting),
@@ -223,7 +225,9 @@ export class NotemojiSettingTab extends PluginSettingTab {
 		create(setting.settingEl);
 	}
 
+	// These rows also name themselves, whatever Obsidian fills in before drawing them.
 	private pickerCache(setting: Setting): void {
+		setting.setName(CACHE_NAME);
 		const { spriteCache } = this.plugin.style;
 		setting.addButton((button) => {
 			const show = () =>
@@ -255,6 +259,7 @@ export class NotemojiSettingTab extends PluginSettingTab {
 	}
 
 	private missingFiles(setting: Setting): void {
+		setting.setName(MISSING_NAME);
 		const { icons } = this.plugin;
 		setting.addButton((button) => {
 			const show = () => {

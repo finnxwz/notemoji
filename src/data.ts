@@ -39,7 +39,7 @@ export interface NotemojiSettings {
 	emojiStyle: string;
 	/** File name of your own emoji font (used with `emojiStyle: "file"`), or "". */
 	emojiFont: string;
-	/** Gives notes made on this device an emoji that fits their name or folder. */
+	/** Gives notes made on this device an emoji that fits their name. */
 	autoEmoji: boolean;
 }
 

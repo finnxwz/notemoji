@@ -570,6 +570,13 @@ export const THEMES: readonly Theme[] = [
 ];
 
 /**
+ * Emoji whose names don't count as a hit: they are common words for other
+ * things ("Trip to Turkey", "Chicken curry", "Pie chart", "Ring buffer",
+ * "Hiking gear", "Hamburger menu"). The emoji stay in their themes and hits.
+ */
+export const NAMES_LEFT_OUT = "🐔 🦃 🥧 💍 ⚙️ 🍔";
+
+/**
  * For notes whose name fits nothing: emoji that suit any note, picked by
  * chance. No faces, people, flags or animals that would read as a statement,
  * nothing festive, ambiguous, religious or political.
