@@ -112,6 +112,8 @@ export class PickerModal extends Modal {
 	private shownSection: string | null = null;
 	/** Set once the arrow keys moved the selection: ←/→ then move tiles, not the caret. */
 	private navigating = false;
+	/** Set once closed: work still in progress (an upload) must not use the picker any more. */
+	private closed = false;
 
 	constructor(app: App, options: PickerOptions) {
 		super(app);
@@ -206,6 +208,7 @@ export class PickerModal extends Modal {
 	}
 
 	onClose(): void {
+		this.closed = true;
 		this.stopSprites?.();
 		this.resizeObserver?.disconnect();
 		this.grid.dispose();
@@ -222,7 +225,7 @@ export class PickerModal extends Modal {
 			console.error("[notemoji] Could not list custom icons.", error);
 			ids = [];
 		}
-		if (ids.join("\n") === this.customIds.join("\n")) return;
+		if (this.closed || ids.join("\n") === this.customIds.join("\n")) return;
 		const hadRecent = this.recent().length > 0;
 		this.customIds = ids;
 		if (this.recent().length > 0 !== hadRecent) this.renderTabs();
@@ -556,7 +559,8 @@ export class PickerModal extends Modal {
 				);
 			}
 		}
-		if (added.length === 0) return;
+		// Closed meanwhile: the icons stay in the library, but closing means nothing is chosen.
+		if (added.length === 0 || this.closed) return;
 
 		// A single upload is what the user wants to use right away.
 		if (files.length === 1) {

@@ -47,7 +47,8 @@ function withoutCopies(data: StoredData): string {
  * ever loses data another one wrote.
  *
  * - It remembers what is on disk (last read or written). Everything in
- *   memory that differs from it is a change not saved yet; when the file
+ *   memory that differs from it (or, before there was a readable file, from
+ *   what was shown at startup) is a change not saved yet; when the file
  *   changed on disk meanwhile (sync), those changes are combined with it
  *   entry by entry (see `mergeChanges`), never dropped.
  * - Saves and reloads run one after another in a queue. A save writes the
@@ -65,6 +66,12 @@ export class DataFile {
 	data!: PluginData;
 	/** What data.json holds (canonical), or null when there is none or it is unreadable. */
 	private onDisk: string | null = null;
+	/**
+	 * What was shown at startup without a readable data.json (the backup or
+	 * defaults, canonical): changes made since are measured against it when
+	 * the file arrives, so they are combined with it rather than dropped.
+	 */
+	private shownWithoutFile: string | null = null;
 	private queue: Promise<void> = Promise.resolve();
 	private savePending = false;
 	/** Why nothing may be saved right now. */
@@ -73,6 +80,8 @@ export class DataFile {
 	private missing = false;
 	private noticeShown = false;
 	private backupTimer: number | null = null;
+	/** Backup writes, one after another, so an older one never finishes after a newer one. */
+	private backups: Promise<void> = Promise.resolve();
 	private lastBackup = "";
 
 	constructor(private readonly host: DataFileHost) {}
@@ -116,6 +125,7 @@ export class DataFile {
 			this.setReadOnly("newer");
 		}
 		this.data = data;
+		if (this.onDisk === null) this.shownWithoutFile = canonical(data);
 		if (repaired) this.save();
 		// A backup of nothing would only ever restore nothing.
 		else if (data.source !== "none") this.scheduleBackup();
@@ -158,7 +168,7 @@ export class DataFile {
 	unload(): void {
 		if (this.backupTimer === null) return;
 		window.clearTimeout(this.backupTimer);
-		void this.writeBackup();
+		this.writeBackup();
 	}
 
 	private enqueue(task: () => Promise<void>): Promise<void> {
@@ -188,6 +198,7 @@ export class DataFile {
 			return;
 		}
 		this.onDisk = canonical(parseData(snapshot));
+		this.shownWithoutFile = null;
 		this.missing = false;
 		this.scheduleBackup();
 	}
@@ -198,8 +209,9 @@ export class DataFile {
 	 * copies of Obsidian icons).
 	 */
 	private async takeIn(raw: unknown, next: PluginData): Promise<boolean> {
-		const base = this.onDisk;
+		const base = this.onDisk ?? this.shownWithoutFile;
 		this.onDisk = canonical(next);
+		this.shownWithoutFile = null;
 		if (next.source === "old") {
 			// The file this device can't save over stays untouched.
 			if (this.readOnly === "newer") return false;
@@ -270,20 +282,23 @@ export class DataFile {
 	private scheduleBackup(): void {
 		if (this.readOnly) return;
 		if (this.backupTimer !== null) window.clearTimeout(this.backupTimer);
-		this.backupTimer = window.setTimeout(() => void this.writeBackup(), BACKUP_DELAY_MS);
+		this.backupTimer = window.setTimeout(() => this.writeBackup(), BACKUP_DELAY_MS);
 	}
 
-	private async writeBackup(): Promise<void> {
+	/** Queues a backup of the data as it is when its turn comes. */
+	private writeBackup(): void {
 		this.backupTimer = null;
-		if (this.readOnly) return;
-		const json = JSON.stringify(serializeData(this.data));
-		if (json === this.lastBackup) return;
-		try {
-			await this.host.adapter.write(this.host.backupPath, json);
-			this.lastBackup = json;
-		} catch (error) {
-			console.error("[notemoji] Could not write the backup.", error);
-		}
+		this.backups = this.backups.then(async () => {
+			if (this.readOnly) return;
+			try {
+				const json = JSON.stringify(serializeData(this.data));
+				if (json === this.lastBackup) return;
+				await this.host.adapter.write(this.host.backupPath, json);
+				this.lastBackup = json;
+			} catch (error) {
+				console.error("[notemoji] Could not write the backup.", error);
+			}
+		});
 	}
 
 	/** The backup, when it holds data of this version. */

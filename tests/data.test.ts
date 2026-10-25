@@ -160,7 +160,7 @@ describe("compatibility with other versions", () => {
 			icons: { "A.md": "phosphor:rocket", "B.md": "🚀" },
 			recent: ["phosphor:rocket", "🚀"],
 			customIcons: {
-				logo: { type: "image/png", data: "AAAA" },
+				logo: { type: "image/png", data: "AAAA", name: "Company logo" },
 				photo: { type: "image/avif", data: "AAAA", width: 512 },
 				"lucide:star": { type: "image/svg+xml", data: "AAAA" },
 			},
@@ -320,6 +320,57 @@ describe("compatibility with other versions", () => {
 		expect(merged.source).toBe("current");
 		expect(merged.icons.toRecord()).toEqual({ A: "🎉", C: "🌱", D: "🔄" });
 		expect(merged.settings).toMatchObject({ showInTabs: false, noteTitle: "above" });
+	});
+
+	it("keeps custom icons of the same name from two devices apart", () => {
+		const png = (data: string) => ({ type: "image/png", data });
+		const stored = (raw: object) => serializeData(parseData({ version: 2, ...raw }));
+		const base = stored({
+			icons: { "A.md": "custom:logo" },
+			customIcons: { logo: png("AAAA") },
+		});
+		// Here: logo replaced by another image, photo uploaded, both used and recently used.
+		const local = stored({
+			icons: { "A.md": "custom:logo", "B.md": "custom:photo", "C.md": "custom:logo" },
+			recent: ["custom:photo", "custom:logo"],
+			customIcons: { logo: png("BBBB"), photo: png("CCCC") },
+		});
+		// The file: another device did the same with its own images, and has a photo-2.
+		const remote = stored({
+			icons: { "A.md": "custom:logo", "D.md": "custom:photo" },
+			recent: ["custom:photo"],
+			customIcons: { logo: png("DDDD"), photo: png("EEEE"), "photo-2": png("FFFF") },
+		});
+		const merged = parseData(mergeChanges(base, local, remote));
+		// The file's keep their names, those from here get new ones.
+		expect(Object.fromEntries(merged.customIcons)).toEqual({
+			logo: png("DDDD"),
+			photo: png("EEEE"),
+			"photo-2": png("FFFF"),
+			"logo-2": png("BBBB"),
+			"photo-3": png("CCCC"),
+		});
+		// What was set here shows this device's icons; the rest the file's.
+		expect(merged.icons.toRecord()).toEqual({
+			"A.md": "custom:logo",
+			"B.md": "custom:photo-3",
+			"C.md": "custom:logo-2",
+			"D.md": "custom:photo",
+		});
+		expect(merged.recent).toEqual(["custom:photo-3", "custom:logo-2"]);
+
+		// The same image on both sides, or a change on one side only, is one icon.
+		const same = stored({
+			icons: { "A.md": "custom:logo", "B.md": "custom:photo" },
+			customIcons: { logo: png("AAAA"), photo: png("CCCC") },
+		});
+		const theirs = stored({ customIcons: { logo: png("DDDD"), photo: png("CCCC") } });
+		const combined = parseData(mergeChanges(base, same, theirs));
+		expect(Object.fromEntries(combined.customIcons)).toEqual({
+			logo: png("DDDD"),
+			photo: png("CCCC"),
+		});
+		expect(combined.icons.get("B.md")).toBe("custom:photo");
 	});
 
 	it("combines copies of Obsidian icons without ever dropping or replacing the file's", () => {

@@ -303,6 +303,17 @@ describe("an untitled note that gets its name", () => {
 		expect(harness.plugin.icons.get("Pizza.md")).toBe("🚀");
 	});
 
+	it("keeps an emoji chosen for it on another device while it was untitled", async () => {
+		const harness = await load();
+		await newNote(harness, "Untitled.md");
+		harness.fake.dataJson = { version: 2, ...ON, icons: { "Untitled.md": "🚀" } };
+		await harness.plugin.onExternalSettingsChange();
+		expect(harness.plugin.icons.get("Untitled.md")).toBe("🚀");
+		harness.app.vault.rename("Untitled.md", "Pizza.md");
+		await flush();
+		expect(harness.plugin.icons.get("Pizza.md")).toBe("🚀");
+	});
+
 	it("gets none when turned off before it has a name", async () => {
 		const harness = await load();
 		await newNote(harness, "Untitled.md");

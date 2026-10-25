@@ -26,6 +26,7 @@ export class EmojiStyle {
 	readonly sprites: EmojiSprites;
 	private warmUpTimer: number | null = null;
 	private warmedUp = false;
+	private unloaded = false;
 
 	constructor(
 		adapter: DataAdapter,
@@ -65,8 +66,8 @@ export class EmojiStyle {
 	async load(): Promise<void> {
 		const { emojiStyle, emojiFont } = this.settings.get();
 		await this.fonts.apply(emojiStyle, emojiFont);
-		// The picker's images show the style: prepare them again.
-		if (this.warmedUp) this.sprites.rebuild();
+		// The picker's images show the style: prepare them again (unless the plugin unloaded meanwhile).
+		if (this.warmedUp && !this.unloaded) this.sprites.rebuild();
 	}
 
 	async select(style: string): Promise<void> {
@@ -104,7 +105,8 @@ export class EmojiStyle {
 
 	unload(): void {
 		if (this.warmUpTimer !== null) window.clearTimeout(this.warmUpTimer);
-		this.fonts.unload();
+		this.unloaded = true;
+		this.fonts.dispose();
 		this.sprites.dispose();
 	}
 

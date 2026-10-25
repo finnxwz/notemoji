@@ -183,6 +183,17 @@ describe("own font file", () => {
 		expect(uses(later)).toBe(true);
 	});
 
+	it("keeps the previous file when the new one can't be stored", async () => {
+		const { adapter, fonts } = setup();
+		await fonts.installOwn("Mine.ttf", data());
+		vi.spyOn(adapter, "writeBinary").mockRejectedValueOnce(new Error("Disk full"));
+		await expect(fonts.installOwn("Other.woff2", data())).rejects.toThrow("Disk full");
+		expect([...adapter.files.keys()]).toEqual([`${FOLDER}/own/Mine.ttf`]);
+		// The same name again simply replaces the file.
+		await fonts.installOwn("Mine.ttf", data(8));
+		expect(adapter.files.get(`${FOLDER}/own/Mine.ttf`)?.byteLength).toBe(8);
+	});
+
 	it("keeps downloaded sets when the own font changes", async () => {
 		const { adapter, fonts } = setup();
 		await fonts.download(twemoji);

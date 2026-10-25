@@ -99,14 +99,18 @@ export class NewNoteEmoji {
 	 * "Untitled" gets its emoji now that it has a name. Soon after an emoji
 	 * picked because nothing fit, a new name that fits makes it give way,
 	 * unless the user chose an emoji meanwhile. Moving the note or renaming a
-	 * folder above it is no new name.
+	 * folder above it is no new name. `broughtEmoji`: the note had an emoji
+	 * before the rename (it moved along).
 	 */
-	handleRename(file: TAbstractFile, oldPath: string): void {
+	handleRename(file: TAbstractFile, oldPath: string, broughtEmoji: boolean): void {
 		moveEntry(this.created, oldPath, file.path);
 		moveEntry(this.picks, oldPath, file.path);
 
 		if (this.unnamed.delete(oldPath)) {
-			if (!isNote(file)) return;
+			// Leftovers at "Untitled" are dropped when the note is made, so an emoji
+			// it brought was chosen for it since, on another device (choosing one here
+			// ends the wait already): it is the user's.
+			if (broughtEmoji || !isNote(file)) return;
 			if (isUntitled(file.basename)) this.unnamed.add(file.path);
 			else if (this.enabled()) {
 				// Obsidian can't rename onto an existing note, so an emoji stored for

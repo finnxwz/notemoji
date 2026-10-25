@@ -355,6 +355,25 @@ describe("custom icons", () => {
 		expect(picker.tile("b.png")).toBeDefined();
 	});
 
+	it("keeps uploads that finish after closing, but chooses nothing", async () => {
+		for (const names of [["new.png"], ["a.png", "b.png"]]) {
+			const custom = fakeCustom();
+			const store = custom.upload.getMockImplementation()!;
+			let release = () => {};
+			const slow = new Promise<void>((resolve) => (release = resolve));
+			custom.upload.mockImplementation((name: string) => slow.then(() => store(name)));
+			const picker = await open({ custom });
+			await picker.upload(...names);
+			picker.modal.close();
+			release();
+			await flush(10);
+			expect(custom.files).toEqual(names);
+			expect(picker.onSubmit).not.toHaveBeenCalled();
+			// The closed picker is not rendered again.
+			expect(custom.list).toHaveBeenCalledTimes(1);
+		}
+	});
+
 	it("refuses huge files before reading them", async () => {
 		const picker = await open();
 		await picker.upload("clip.mov");

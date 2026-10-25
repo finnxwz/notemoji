@@ -16,6 +16,8 @@ export type StoredIconType = (typeof STORED_TYPES)[number];
 export interface StoredIcon {
 	type: StoredIconType;
 	data: string;
+	/** Other fields of the stored entry (a newer version's, e.g. a name), saved again as they are. */
+	extra?: Record<string, unknown>;
 }
 
 /**
@@ -38,7 +40,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * Reads the `customIcons` section of data.json leniently. Entries this
  * version can't use (e.g. a format or a kind of name added later) go to
- * `unreadable` as they are, so they are saved again unchanged.
+ * `unreadable` as they are, so they are saved again unchanged; so do fields
+ * it doesn't know in the entries it uses (`extra`).
  */
 export function readCustomIcons(
 	raw: unknown,
@@ -47,14 +50,16 @@ export function readCustomIcons(
 	const icons = new Map<string, StoredIcon>();
 	if (!isRecord(raw)) return icons;
 	for (const [id, entry] of Object.entries(raw)) {
-		const { type, data } = isRecord(entry) ? entry : {};
+		const { type, data, ...extra } = isRecord(entry) ? entry : {};
 		if (
 			isCustomIconId(id) &&
 			(STORED_TYPES as readonly unknown[]).includes(type) &&
 			typeof data === "string" &&
 			isBase64(data)
 		) {
-			icons.set(id, { type: type as StoredIconType, data });
+			const icon: StoredIcon = { type: type as StoredIconType, data };
+			if (Object.keys(extra).length > 0) icon.extra = extra;
+			icons.set(id, icon);
 		} else {
 			// As an own property, also for a name like `__proto__`.
 			Object.defineProperty(unreadable, id, {
@@ -132,8 +137,8 @@ export class CustomIconLibrary {
 	}
 
 	/**
-	 * Adds a prepared icon under a name made from `fileName`. An identical
-	 * icon that is already stored is reused instead (`existing: true`).
+	 * Adds a prepared icon under a name made from `fileName`. An icon with the
+	 * same image that is already stored is reused instead (`existing: true`).
 	 */
 	add(fileName: string, icon: StoredIcon): { id: string; existing: boolean } {
 		const icons = this.icons();

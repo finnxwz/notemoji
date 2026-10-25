@@ -55,6 +55,19 @@ describe("CustomIconLibrary", () => {
 		expect(library.add("logo.gif", icon(8, "A", "image/gif")).existing).toBe(false);
 	});
 
+	it("tells an upload apart only by its image, not by fields of a newer version", () => {
+		const { library, save, icons } = setup([
+			["logo", { ...icon(8, "A"), extra: { name: "Company logo" } }],
+		]);
+		expect(library.add("logo copy.png", icon(8, "A"))).toEqual({ id: "logo", existing: true });
+		// A new icon has no fields of a newer version.
+		expect(library.add("photo.png", { ...icon(8, "B"), extra: { name: "x" } }).id).toBe(
+			"photo",
+		);
+		expect(icons().get("photo")).toEqual(icon(8, "B"));
+		expect(save).toHaveBeenCalledTimes(1);
+	});
+
 	it("keeps the total within 3 MB, so at least 50 full-size icons always fit", () => {
 		const { library } = setup();
 		const full = Math.floor(ICON_STORAGE_LIMIT / MAX_ICON_SIZE);
@@ -202,10 +215,17 @@ describe("readCustomIcons", () => {
 		}
 	});
 
-	it("drops extra properties, so they are not saved again", () => {
+	it("keeps fields it doesn't know, so they are saved again", () => {
 		const icons = readCustomIcons({
-			a: { type: "image/png", data: "AAAA", extra: "x".repeat(10) },
+			a: { type: "image/png", data: "AAAA", name: "Logo", size: { width: 64 } },
+			b: { type: "image/png", data: "AAAA" },
 		});
-		expect(icons.get("a")).toEqual({ type: "image/png", data: "AAAA" });
+		expect(icons.get("a")).toEqual({
+			type: "image/png",
+			data: "AAAA",
+			extra: { name: "Logo", size: { width: 64 } },
+		});
+		expect(icons.get("b")).toEqual({ type: "image/png", data: "AAAA" });
+		expect(Object.hasOwn(icons.get("b")!, "extra")).toBe(false);
 	});
 });

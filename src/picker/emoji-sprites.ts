@@ -81,8 +81,11 @@ export interface SpriteOptions {
 	toPng?: (canvas: HTMLCanvasElement) => Promise<Blob>;
 	createUrl?: (blob: Blob) => string;
 	revokeUrl?: (url: string) => void;
-	/** Decodes an image ahead of time, so showing it first does not stall a frame. */
-	decode?: (url: string) => Promise<void>;
+	/**
+	 * Decodes an image ahead of time, so showing it first does not stall a
+	 * frame. Resolves false when the image can't be decoded (it is damaged).
+	 */
+	decode?: (url: string) => Promise<boolean>;
 }
 
 const idleScheduler: IdleScheduler = (task) => {
@@ -114,13 +117,16 @@ const canvasToPng = (canvas: HTMLCanvasElement): Promise<Blob> =>
 		),
 	);
 
-const decodeImage = async (url: string): Promise<void> => {
+const decodeImage = async (url: string): Promise<boolean> => {
 	const image = new Image();
 	image.src = url;
+	// Decoding ahead is an optimisation only; without it, the image still loads when shown.
+	if (typeof image.decode !== "function") return true;
 	try {
 		await image.decode();
+		return true;
 	} catch {
-		// Decoding ahead is an optimisation only; the image still loads when shown.
+		return false;
 	}
 };
 
@@ -218,19 +224,29 @@ export class EmojiSprites implements SpriteSource {
 		generation: number,
 	): Promise<void> {
 		const { cache } = this.options;
+		const createUrl = this.options.createUrl ?? ((blob: Blob) => URL.createObjectURL(blob));
+		const revoke = this.options.revokeUrl ?? ((value: string) => URL.revokeObjectURL(value));
+		const decode = this.options.decode ?? decodeImage;
 		const cached = key && cache ? await cache.read(key, category.id) : null;
-		let png: Blob | null = cached ? new Blob([cached], { type: "image/png" }) : null;
-		if (!png) {
-			png = await this.draw(category, ratio, generation);
+		if (generation !== this.generation) return;
+		let url = cached ? createUrl(new Blob([cached], { type: "image/png" })) : null;
+		if (url && !(await decode(url))) {
+			// Damaged in the cache (complete, but broken inside): drawn again and
+			// replaced, so the category does not stay blank until the cache is cleared.
+			revoke(url);
+			url = null;
+		}
+		if (!url) {
+			const png = await this.draw(category, ratio, generation);
 			if (!png) return;
 			if (key && cache) await cache.write(key, category.id, await png.arrayBuffer());
+			if (generation !== this.generation) return;
+			url = createUrl(png);
+			// Used even if decoding ahead fails: drawing it again would not help.
+			await decode(url);
 		}
-		if (generation !== this.generation) return;
-
-		const url = (this.options.createUrl ?? ((blob: Blob) => URL.createObjectURL(blob)))(png);
-		await (this.options.decode ?? decodeImage)(url);
 		if (generation !== this.generation) {
-			(this.options.revokeUrl ?? ((value: string) => URL.revokeObjectURL(value)))(url);
+			revoke(url);
 			return;
 		}
 		this.urls.push(url);

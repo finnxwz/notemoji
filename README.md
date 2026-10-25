@@ -186,7 +186,9 @@ to German.
 <details>
 <summary><b>I'm upgrading from Notemoji 1.x. Anything to do?</b></summary>
 
-No, your emoji keep working as they are.
+No, your emoji keep working as they are. If you sync your vault, update Notemoji on all devices:
+a device still on 1.x shows only the emoji, not Obsidian icons or your own images. Meanwhile 2.0
+puts back what 1.x leaves out when it saves.
 
 </details>
 

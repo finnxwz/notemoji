@@ -1,6 +1,13 @@
 import { readCustomIcons, StoredIcon } from "./icons/custom-icons";
 import { IconStore } from "./icons/icon-store";
-import { isFutureIconValue, LUCIDE_PREFIX, normalizeIcon, parseIcon } from "./icons/icon-value";
+import {
+	customValue,
+	isFutureIconValue,
+	LUCIDE_PREFIX,
+	normalizeIcon,
+	parseIcon,
+	uniqueIconId,
+} from "./icons/icon-value";
 import { readLibraryIcons } from "./icons/library-icons";
 import { findEmojiSet, isFontFileName } from "./style/emoji-sets";
 
@@ -247,7 +254,7 @@ export function serializeData(data: PluginData): StoredData {
 			...Object.fromEntries(
 				[...data.customIcons].map(([id, icon]) => [
 					id,
-					{ type: icon.type, data: icon.data },
+					{ type: icon.type, data: icon.data, ...icon.extra },
 				]),
 			),
 		},
@@ -327,6 +334,7 @@ export function repairAfterOldVersion(raw: unknown, known: PluginData): PluginDa
  * all others come from the file. Works on saved data, entry by entry.
  */
 export function mergeChanges(base: StoredData, local: StoredData, remote: StoredData): StoredData {
+	local = keepIconsApart(base, local, remote);
 	const merged: StoredData = { ...remote };
 	for (const key of ["settings", "icons", "customIcons"] as const) {
 		merged[key] = mergeEntries(base[key], local[key], remote[key]) as never;
@@ -343,6 +351,48 @@ export function mergeChanges(base: StoredData, local: StoredData, remote: Stored
 	};
 	if (!same(base.recent, local.recent)) merged.recent = local.recent;
 	return merged;
+}
+
+/**
+ * Custom icons added or changed under the same name both here and in the
+ * file, with different images (e.g. a "logo" uploaded on two devices), must
+ * not replace each other: the file's keeps the name, the one from here gets a
+ * new one, and the changes made here (assignments, the recent list) use it.
+ */
+function keepIconsApart(base: StoredData, local: StoredData, remote: StoredData): StoredData {
+	const customIcons = { ...local.customIcons };
+	const taken = new Set([...Object.keys(local.customIcons), ...Object.keys(remote.customIcons)]);
+	const moved = new Map<string, string>();
+	for (const [id, icon] of Object.entries(local.customIcons)) {
+		const before = Object.hasOwn(base.customIcons, id) ? base.customIcons[id] : undefined;
+		const theirs = Object.hasOwn(remote.customIcons, id) ? remote.customIcons[id] : undefined;
+		// Changed on one side only, or to the same image: combined as usual.
+		if (theirs === undefined || same(before, icon) || same(before, theirs)) continue;
+		if (sameImage(icon, theirs)) continue;
+		const newId = uniqueIconId(id, taken);
+		taken.add(newId);
+		moved.set(customValue(id), customValue(newId));
+		setOwn(customIcons, id, theirs);
+		setOwn(customIcons, newId, icon);
+	}
+	if (moved.size === 0) return local;
+
+	const icons = { ...local.icons };
+	for (const [path, value] of Object.entries(local.icons)) {
+		const target = moved.get(value);
+		const changed = !Object.hasOwn(base.icons, path) || base.icons[path] !== value;
+		if (target !== undefined && changed) setOwn(icons, path, target);
+	}
+	const recent = same(base.recent, local.recent)
+		? local.recent
+		: local.recent.map((value) => moved.get(value) ?? value);
+	return { ...local, icons, recent, customIcons };
+}
+
+/** Whether two entries of `customIcons` hold the same image (other fields may differ). */
+function sameImage(a: unknown, b: unknown): boolean {
+	if (!isRecord(a) || !isRecord(b)) return same(a, b);
+	return a.type === b.type && a.data === b.data;
 }
 
 /** The entries of `libraryIcons` this version can't read (see `readLibraryIcons`). */

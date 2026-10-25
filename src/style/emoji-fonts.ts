@@ -206,10 +206,18 @@ export class EmojiFonts {
 		} catch {
 			throw new EmojiFontError(`"${name}" could not be loaded as a font.`);
 		}
-		await this.removeOwn();
 		await this.ensureFolder(this.folder);
 		await this.ensureFolder(this.ownFolder);
-		await this.adapter.writeBinary(normalizePath(`${this.ownFolder}/${name}`), data);
+		// Written before the previous file is removed: if writing fails, the font
+		// the settings name is still there.
+		const path = normalizePath(`${this.ownFolder}/${name}`);
+		await this.adapter.writeBinary(path, data);
+		for (const file of (await this.adapter.list(this.ownFolder)).files) {
+			// Ignoring case: on Windows and macOS, `mine.ttf` overwrites `Mine.ttf`,
+			// so removing `Mine.ttf` would remove the new font.
+			if (normalizePath(file).toLowerCase() !== path.toLowerCase())
+				await this.adapter.remove(file);
+		}
 		return name;
 	}
 
@@ -240,6 +248,12 @@ export class EmojiFonts {
 			doc.body.setCssProps({ [EMOJI_FONT_VARIABLE]: "" });
 		}
 		this.face = null;
+	}
+
+	/** Stops using the font for good (the plugin unloads): a font still loading is not used when it arrives. */
+	dispose(): void {
+		this.generation += 1;
+		this.unload();
 	}
 
 	private use(face: FontFace, family: string): void {

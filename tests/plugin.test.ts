@@ -435,6 +435,71 @@ describe("data safety", () => {
 		expect(harness.fake.saved).toEqual([]);
 	});
 
+	it("combines a change made while the backup is shown with data.json once it arrives", async () => {
+		const first = await loadPlugin({ data: v2 });
+		first.plugin.updateSettings({ showInTabs: true });
+		await flush();
+		const harness = await loadPluginWith(first, null);
+		const fake = harness.fake as unknown as { loadData: () => Promise<unknown> };
+		const read = fake.loadData.bind(harness.fake);
+		fake.loadData = async () => {
+			fake.loadData = read;
+			const result = await read();
+			// The user picks an emoji while sync brings data.json.
+			harness.fileMenu("C.md").item("Set note emoji").click();
+			picker().options.onSubmit("🌱");
+			return result;
+		};
+		harness.fake.dataJson = { ...v2, icons: { ...v2.icons, "D.md": "🔄" } };
+		await harness.plugin.onExternalSettingsChange();
+		await flush();
+		expect(harness.plugin.icons.get("C.md")).toBe("🌱");
+		expect(harness.lastSaved()?.icons).toEqual({ ...v2.icons, "C.md": "🌱", "D.md": "🔄" });
+	});
+
+	it("combines an emoji set on a new device with data.json arriving right then", async () => {
+		const harness = await loadPlugin();
+		// Sync wrote data.json; Obsidian has not reported it yet.
+		harness.fake.dataJson = v2;
+		harness.fileMenu("C.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌱");
+		await flush();
+		expect(harness.lastSaved()?.icons).toEqual({ ...v2.icons, "C.md": "🌱" });
+		expect(harness.lastSaved()?.customIcons).toEqual(v2.customIcons);
+		expect(harness.plugin.settings.noteTitle).toBe("above");
+	});
+
+	it("writes the backup one write after another, so an older one never wins", async () => {
+		// The backup follows a change after 2 s; here at once.
+		const later = window.setTimeout.bind(window);
+		const timers = vi
+			.spyOn(window, "setTimeout")
+			.mockImplementation((run, ms) => later(run, ms === 2000 ? 0 : ms) as never);
+		let release: (() => void) | undefined;
+		const harness = await loadPlugin({
+			data: v2,
+			beforeLoad: ({ vault: { adapter } }) => {
+				const write = adapter.write.bind(adapter);
+				adapter.write = async (path, text) => {
+					// The first backup takes a while (a slow disk).
+					if (path === BACKUP && !release) {
+						await new Promise<void>((resolve) => (release = resolve));
+					}
+					return write(path, text);
+				};
+			},
+		});
+		await flush();
+		harness.fileMenu("C.md").item("Set note emoji").click();
+		picker().options.onSubmit("🌱");
+		await flush();
+		harness.unload();
+		release!();
+		await flush();
+		timers.mockRestore();
+		expect((await readBackup(harness)).icons).toMatchObject({ "C.md": "🌱" });
+	});
+
 	it("keeps settings of a newer version until they are changed here", async () => {
 		const harness = await loadPlugin({
 			data: { ...v2, settings: { emojiStyle: "fluent", iconSize: "large" } },
@@ -1509,6 +1574,34 @@ describe("emoji style", () => {
 		await harness.plugin.style.installOwn("Mine.ttf", new Uint8Array(8).buffer);
 		harness.unload();
 		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
+	});
+
+	it("drops a font that is still loading when the plugin unloads", async () => {
+		const loads: Array<() => void> = [];
+		vi.stubGlobal(
+			"FontFace",
+			class {
+				load() {
+					return new Promise((resolve) => loads.push(() => resolve(this)));
+				}
+			},
+		);
+		const harness = await loadPlugin({
+			data: { settings: { emojiStyle: "twemoji" } },
+			adapterFiles: new Map([[`${FONTS}/${twemoji.file}`, download]]),
+		});
+		const rebuild = vi
+			.spyOn(harness.plugin.style.sprites, "rebuild")
+			.mockImplementation(() => undefined);
+		harness.plugin.style.warmUp();
+		await flush(10);
+		expect(loads).toHaveLength(1);
+		harness.unload();
+		loads[0]();
+		await flush(10);
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
+		// Nor are the picker's images prepared again for it.
+		expect(rebuild).toHaveBeenCalledTimes(1);
 	});
 });
 

@@ -59,7 +59,8 @@ you can check and delete.
    and confirm. It:
    - stops if it runs on another branch, or if the version already has a tag, a release or a
      draft, so a published version is not replaced;
-   - runs `npm ci` and `npm run check` (formatting, lint, types, tests and the build of `main.js`);
+   - runs `npm ci` and `npm run check` (formatting, lint, types, tests and the build of `main.js`)
+     in a job that can only read the repository, so the dependencies they run can't write to it;
    - signs `main.js`, `manifest.json` and `styles.css` (an artifact attestation: a record, signed
      by GitHub, that these exact files were built by this workflow from this commit);
    - creates a **draft** release with those three files and notes generated from the changes.

@@ -12,39 +12,36 @@ name: Release
 on:
   workflow_dispatch:
 
-# What the automatic token of this run may do (see GH_TOKEN below); nothing else.
-permissions:
-  contents: write # create the draft release (its tag is created when you publish it)
-  id-token: write # sign the attestations
-  attestations: write # store them with the repository
-  artifact-metadata: write # record the signed files
+# Nothing by default: each job below gets only what it needs. The job that runs the
+# dependencies (npm ci, the checks, the build) can only read, so a dependency that was ever
+# compromised couldn't write to the repository or sign files. The jobs that can write run no
+# dependencies.
+permissions: {}
 
 # One release at a time: two runs started together would both find the version new.
 concurrency: release
 
 jobs:
-  release:
+  # Stops before building unless this runs on the default branch (Obsidian reads the version
+  # from manifest.json there), or when the version already has a tag, a release or a draft:
+  # releasing it again would replace files people already downloaded. A lookup that fails stops
+  # it too, rather than counting as "not released yet".
+  version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # only to see drafts, which need write access; nothing is written here
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       # Actions are pinned to an exact commit, as this workflow may write to the repository.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The token isn't stored in the checkout, so the dependencies the checks run
-          # (npm ci, npm run check) can't use it; only the release step gets it.
+          # The token isn't stored in the checkout: only the steps given GH_TOKEN can use it.
           persist-credentials: false
-      # No dependency cache: a release is built from a fresh install of the lock file.
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
 
-      # Stops before building unless this runs on the default branch (Obsidian reads the
-      # version from manifest.json there), or when the version already has a tag, a release or a
-      # draft: releasing it again would replace files people already downloaded. A lookup that
-      # fails stops it too, rather than counting as "not released yet".
-      #
       # `gh` is GitHub's own command line tool, installed on every GitHub runner. GH_TOKEN is
-      # the token GitHub creates by itself for each run: nobody has to make or store it, it can
-      # only do what `permissions` above allows, and it expires when the run ends.
+      # the token GitHub creates by itself for each job: nobody has to make or store it, it can
+      # only do what the job's `permissions` allow, and it expires when the job ends.
       - name: Check the version is new
         id: version
         env:
@@ -55,7 +52,7 @@ jobs:
             echo "::error::Releases are made from $DEFAULT_BRANCH. Choose it under 'Run workflow'."
             exit 1
           fi
-          version=$(node -p "require('./manifest.json').version")
+          version=$(jq -r .version manifest.json)
           echo "Version in manifest.json: $version"
           tags=$(git ls-remote --tags origin "refs/tags/$version")
           if [ -n "$tags" ]; then
@@ -69,10 +66,46 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      # Exactly the checks that must pass before every commit; the build makes main.js.
+  # Exactly the checks that must pass before every commit; the build makes main.js.
+  build:
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # No dependency cache: a release is built from a fresh install of the lock file.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
       - run: npm ci
       - name: Format, lint, typecheck, test and build
         run: npm run check
+      # Hands the three release files to the next job (kept for a day, only for this run).
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-files
+          path: |
+            main.js
+            manifest.json
+            styles.css
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the draft release (its tag is created when you publish it)
+      id-token: write # sign the attestations
+      attestations: write # store them with the repository
+      artifact-metadata: write # record the signed files
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
 
       - name: Sign the release files
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
@@ -86,7 +119,8 @@ jobs:
       - name: Create the draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
+          GH_REPO: ${{ github.repository }} # no checkout in this job to tell gh the repository
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
           gh release create "$VERSION" main.js manifest.json styles.css \
             --draft --title "$VERSION" --target "$GITHUB_SHA" --generate-notes

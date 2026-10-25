@@ -60,7 +60,7 @@ function setup(overrides: Partial<SpriteOptions> = {}) {
 		},
 		toPng: () => Promise.resolve(new Blob(["png"], { type: "image/png" })),
 		createUrl: () => `blob:sprite-${++urls}`,
-		decode: () => Promise.resolve(),
+		decode: () => Promise.resolve(true),
 		revokeUrl: (url) => revoked.push(url),
 		...overrides,
 	};
@@ -160,6 +160,43 @@ describe("EmojiSprites", () => {
 		await flush(10);
 		expect(third.drawn.slice(4)).toEqual(["😀", "😃", "😄", "🐻"]);
 		expect(stored.size).toBe(4);
+	});
+
+	it("draws a damaged cached image again and replaces it in the cache", async () => {
+		const stored = new Map<string, ArrayBuffer>();
+		const cache = {
+			read: (key: string, id: string) => Promise.resolve(stored.get(`${key}/${id}`) ?? null),
+			write: (key: string, id: string, data: ArrayBuffer) => {
+				stored.set(`${key}/${id}`, data);
+				return Promise.resolve();
+			},
+		};
+		const cacheKey = (details: string) => `twemoji/windows-${details}-fp`;
+		const first = setup({ cache, cacheKey });
+		first.sprites.rebuild();
+		await flush(10);
+		const [pathA] = [...stored.keys()];
+		stored.set(pathA, new TextEncoder().encode("damaged").buffer);
+
+		// Like a browser, which can't decode the damaged file.
+		const images = new Map<string, Blob>();
+		const second = setup({
+			cache,
+			cacheKey,
+			createUrl: (blob) => {
+				const url = `blob:image-${images.size + 1}`;
+				images.set(url, blob);
+				return url;
+			},
+			decode: async (url) => (await images.get(url)!.text()) !== "damaged",
+		});
+		second.sprites.rebuild();
+		await flush(10);
+		expect(second.drawn.slice(4)).toEqual(["😀", "😃", "😄"]);
+		expect(second.revoked).toEqual(["blob:image-1"]);
+		expect(new TextDecoder().decode(stored.get(pathA))).toBe("png");
+		expect(second.sprites.slot("😀")?.image).toBe('url("blob:image-2")');
+		expect(second.sprites.slot("🐻")?.image).toBe('url("blob:image-3")');
 	});
 
 	it("does nothing without a canvas context", async () => {

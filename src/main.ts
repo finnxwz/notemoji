@@ -214,9 +214,10 @@ export default class NotemojiPlugin extends Plugin {
 		);
 		this.registerEvent(
 			vault.on("rename", (file, oldPath) => {
+				const broughtEmoji = this.icons.get(oldPath) !== undefined;
 				this.icons.handleRename(file, oldPath);
 				// After the emoji moved along: an automatic one may follow the new name.
-				this.newNotes.handleRename(file, oldPath);
+				this.newNotes.handleRename(file, oldPath, broughtEmoji);
 				this.links.scheduleRefresh();
 			}),
 		);

@@ -44,18 +44,19 @@ the code comments.
   entry, never dropped (`src/data-file.ts`). A deleted, empty or unreadable file during sync is
   ignored: the complete file follows.
 - **Compatible in both directions.** Changes to `data.json` only add entries. Everything a
-  version doesn't understand (entries, settings, values, icon formats) is kept and written back,
-  so an older version never drops a newer one's data. The version number goes up only for a
-  change older versions can't handle; they then show a notice and stop saving instead of
-  damaging the file. Icons kept for a newer version never count as missing.
+  version doesn't understand (entries, settings, values, icon formats, fields of an icon) is kept
+  and written back, so an older version never drops a newer one's data. The version number goes
+  up only for a change older versions can't handle; they then show a notice and stop saving
+  instead of damaging the file. Icons kept for a newer version never count as missing.
 - **Repairing after 1.x.** Released 1.x keeps only the emoji when it saves. When a device that
   wasn't updated yet saves over the file, the others put back what it dropped (from memory, else
   from `backup.json`); its emoji win, except over custom and Obsidian icons, which it can't have
   seen. Release notes still ask to update every device.
 - **`backup.json`** in the plugin folder: this device's copy of `data.json`, used when the file is
-  unreadable or not downloaded yet. Obsidian Sync doesn't sync it, so it survives another device
-  damaging the file. Without a backup, nothing is saved over an unreadable file. To start over on a
-  device, delete both files.
+  unreadable or not downloaded yet; changes made while it is shown are combined with the file once
+  it arrives. Obsidian Sync doesn't sync it, so it survives another device damaging the file.
+  Without a backup, nothing is saved over an unreadable file. To start over on a device, delete
+  both files.
 - **Everything else lives in the plugin folder** (`fonts/`, `cache/`, `backup.json`), so
   uninstalling removes it. Obsidian has no uninstall hook; never delete user files in `onunload`.
   Never write anywhere else in the vault ("never bloat the user's disk").
@@ -169,7 +170,9 @@ the code comments.
 
 - **Custom icons live in `data.json`** (by name), so they sync exactly when the emoji that use
   them sync. Uploaded in the picker; listed in the settings with size and uses. Deleting asks
-  first.
+  first. Same names from two devices are kept apart: when both add a different image under one
+  name before syncing, the file's keeps it and this device's gets a new one (`logo-2`), which its
+  changes then use.
   - _Rejected:_ the plugin folder (Obsidian Sync copies only `manifest.json`, `main.js`,
     `styles.css` and `data.json` of a plugin); a vault folder (visible, easy to delete by
     accident); dot folders and folders in `.obsidian/` (never synced); a setting to choose
@@ -225,7 +228,8 @@ the code comments.
   versions get the same rows. Settings are always saved through the plugin, never by Obsidian
   saving the settings alone over `data.json`.
 - **Releases are built by a workflow** that checks, builds, signs the release files (which the
-  scorecard checks) and creates a draft to publish; the built `main.js` is reproducible. For now
+  scorecard checks) and creates a draft to publish; the built `main.js` is reproducible. The
+  dependencies run in a job that can only read; the jobs that write or sign run none. For now
   it is only started by hand, to test the process first; a trigger on pushed version tags can be
   added later. Steps in CONTRIBUTING.md.
 - **Node 24** (`.nvmrc`) for the tooling only; the plugin runs in Obsidian. CodeMirror packages
