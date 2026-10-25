@@ -35,7 +35,32 @@ emoji font. gifsicle and pngquant, when installed, make the files smaller.
 
 ## Releases
 
-Raise the version in `manifest.json`, `package.json`, `package-lock.json` and `versions.json`
-(a test checks they agree), then run the _Release_ workflow by hand in the repository's Actions
-tab. It checks and builds that version, signs the files and creates a draft release; review it
-and publish it.
+Releases are built by the _Release_ workflow (`.github/workflows/release.yml`). For now it only
+runs when started by hand, so the release process can be tested first; starting it on a pushed
+version tag can be added later.
+
+1. **Raise the version** in `manifest.json`, `package.json`, `package-lock.json` (both version
+   fields) and `versions.json` (the new version with its `minAppVersion`). A test checks that they
+   agree, so `npm run check` fails if one is missed. Obsidian uses the version without a `v`.
+2. **Commit and push** that change to the branch to release from (normally `main`).
+3. **Start the workflow:** on GitHub, open _Actions_ → _Release_ → _Run workflow_, choose the
+   branch and confirm. It:
+   - stops if the version already has a tag, a release or a draft, so a published version is
+     not replaced;
+   - runs `npm ci` and `npm run check` (formatting, lint, types, tests and the build of `main.js`);
+   - signs `main.js`, `manifest.json` and `styles.css` (an artifact attestation: a record, signed
+     by GitHub, that these exact files were built by this workflow from this commit);
+   - creates a **draft** release with those three files and notes generated from the changes.
+4. **Check the draft** on the _Releases_ page: the version, the notes (edit them as you like) and
+   the three files. A draft is only visible to maintainers.
+5. **Publish it.** Publishing creates the version tag on the commit the workflow built from.
+   Obsidian picks up the new version from there; its community directory scans the release and
+   shows the signed files on the plugin's scorecard.
+
+If a step fails, the run stops and nothing is released: open the run in the _Actions_ tab to see
+which step and why. To start over for the same version, delete its draft on the _Releases_ page
+first. To check the signature of a downloaded file (GitHub CLI 2.49 or newer):
+
+```sh
+gh attestation verify main.js --repo finnxwz/notemoji
+```
