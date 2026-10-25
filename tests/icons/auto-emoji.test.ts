@@ -2,7 +2,6 @@ import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import {
 	AutoPick,
-	isSensitive,
 	isUntitled,
 	nameWords,
 	pickAutoEmoji,
@@ -23,11 +22,9 @@ function theme(id: string): string[] {
 
 const friendly = splitEmoji(FRIENDLY_EMOJI);
 
-/** Picks for a note named `name` in the vault root. */
-function pick(name: string, random = () => 0, folders: string[] = []): AutoPick {
-	const result = pickAutoEmoji({ name, folders }, random);
-	if (!result) throw new Error(`No emoji for ${name}`);
-	return result;
+/** Picks for a note named `name`. */
+function pick(name: string, random = () => 0): AutoPick {
+	return pickAutoEmoji({ name }, random);
 }
 
 describe("lists", () => {
@@ -222,51 +219,15 @@ describe("theme words", () => {
 	it("count a phrase as one: a cover letter is no letter", () => {
 		expect(theme("work")).toContain(pick("Cover letter for Acme").emoji);
 	});
-
-	it("ignore the folders, which only matter for sad or serious notes", () => {
-		expect(pick("Untitled", () => 0, ["Recipes"]).source).toBe("fallback");
-	});
-});
-
-describe("sad or serious notes", () => {
-	it("get no emoji", () => {
-		for (const name of [
-			"Mom's funeral",
-			"Death of my father",
-			"Divorce papers",
-			"Cancer treatment",
-			"Miscarriage",
-			"Grandpa passed away",
-			"Eating disorder",
-			"Suicidal thoughts",
-			"Feeling depressed",
-			"Bad mood",
-			"School shooting",
-			"Pet loss",
-			"Self-harm",
-			"Divorced parents",
-			"In memoriam",
-			"RIP Bella",
-		]) {
-			expect(isSensitive(name), name).toBe(true);
-			expect(pickAutoEmoji({ name, folders: [] }), name).toBeUndefined();
-		}
-	});
-
-	it("also in a sad or serious folder, however far up", () => {
-		expect(pickAutoEmoji({ name: "Today", folders: ["10", "2024", "Grief journal"] })).toBe(
-			undefined,
-		);
-	});
-
-	it("are found by whole words, leaving out words with other common meanings", () => {
-		for (const name of ["Weight loss", "Terminal commands", "Die Reise", "Deadline", "Diet"]) {
-			expect(isSensitive(name), name).toBe(false);
-		}
-	});
 });
 
 describe("notes nothing fits", () => {
+	it("are treated like any other, also personal or serious ones", () => {
+		// Spotting sad notes can't work (acronyms, other languages), and a miss would
+		// look like a bug: an emoji that suits any note is fine on any note.
+		expect(pick("Chemo notes").source).toBe("fallback");
+	});
+
 	it("get an emoji that suits any note, by chance", () => {
 		for (const random of [0, 0.3, 0.7, 0.99]) {
 			const result = pick("Q3 summary", () => random);

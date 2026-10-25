@@ -195,11 +195,10 @@ ideas are listed so they are not proposed again without a new reason.
     notes by hemisphere, neighbours getting different emoji, official emoji keywords as an extra
     layer, other languages. A daily note gets an emoji that suits any note.
 
-- **Sad or serious notes get none:** a name, or any folder above it (`Grief journal/2024/10`),
-  with a word such as funeral, death, cancer, divorce, suicidal, eating disorder or depressed
-  gets no emoji; any pick would be out of place. Words with other common meanings (terminal,
-  loss, passed) aren't on the list, but phrases with them are (pet loss). Mood words like
-  "feeling" are no theme: they come with sad names as often as with happy ones.
+- **Every note is treated the same, also personal or serious ones.** _Rejected:_ a list of sad
+  words (funeral, cancer, depressed …) that get no emoji. It can't be complete (acronyms, other
+  languages), a miss looks like a bug, and so does a research note about chemotherapy without an
+  emoji; an emoji that suits any note doesn't hurt on any note.
 - **"Untitled" notes wait for their name:** Obsidian names a new note _Untitled_ (translated:
   _Unbenannt_, _Sans titre_ …, from all of Obsidian's translations, also numbered) until it gets
   a name, which is what says what the note is about. Such a note gets no emoji until then, and once
@@ -207,9 +206,8 @@ ideas are listed so they are not proposed again without a new reason.
   a friendly emoji right away, replaced when the name fits (looked random, and stayed random for
   names in other languages than English).
 - **Renamed soon after:** each automatic pick is remembered for this session; when the note gets
-  another name within 5 minutes of it and still has that emoji, a sad or serious name removes it,
-  and an emoji picked because nothing fit makes way for one that fits the new name. Picks that
-  already fit the name stay. Moving the note or renaming a folder above it is no new name.
+  another name within 5 minutes of it and still has that emoji, an emoji picked because nothing fit
+  makes way for one that fits the new name. Picks that already fit the name stay. Moving the note or renaming a folder above it is no new name.
 - Every listed emoji is in the picker's list, written as the list writes it, so emoji styles can
   draw it, and from Emoji 12.0 or older, so the system emoji of Windows 10 and older phones can
   draw it too: nobody chose these emoji, so nobody would know why a box shows instead. Tests check

@@ -173,8 +173,7 @@ copying a paragraph copies the links as they are. In reading view, clicking it o
 With _Automatic emoji for new notes_ on, each note you create on this device gets an emoji from
 its name: the obvious one for a word like `pizza` (🍕) or `dentist` (🦷), one of a few fitting
 emoji for a word like `trip` (✈️, 🧳, 🗺️ …), otherwise one that suits any note (📝, 💡, 🌱 …). A
-new _Untitled_ note gets its emoji once you've named it. Sad or serious notes (a funeral, an
-illness) get none. Your own emoji always win: notes that have one are never changed, and you can
+new _Untitled_ note gets its emoji once you've named it. Your own emoji always win: notes that have one are never changed, and you can
 change or remove the automatic one like any other (it is not added to your recently used emoji).
 Notes that arrive by sync or import are left alone. Only English words are recognised for now.
 

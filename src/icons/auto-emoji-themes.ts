@@ -559,23 +559,6 @@ export const FRIENDLY_EMOJI =
 	"📝 🗒️ 📌 📎 🔖 💡 ✨ ⭐ 🌟 🧩 📓 📚 ✏️ 🎯 🚀 🧭 🔑 💎 🔔 🌱 🌿 🍀 🌸 🌻 🌷 🍁 🌊 ⛰️ 🌙 ☀️ 🌈 ❄️ 🔥 ⚡ 🎨 🎵 📷 ☕ 🍎 🐝 🦋 💛 💚 💙 💜";
 
 /**
- * Words of sad or serious notes, which get no automatic emoji: any pick would
- * be out of place there. Whole words, like key words; words with other common
- * meanings ("terminal", "loss", German "die") are left out.
- */
-export const SENSITIVE_WORDS = `funeral, funerals, death, deaths, dead, died, dying, deceased,
-	killed, murder, murdered, grief, grieving, mourning, bereavement, bereaved, condolences,
-	obituary, obituaries, eulogy, memorial, memoriam, rip, burial, cemetery, widow, widows,
-	widowed, widower, passed away, cancer, chemo, chemotherapy, tumor, tumour, illness,
-	diagnosis, hospice, dementia, alzheimer, alzheimers, heart attack, overdose, addiction,
-	relapse, divorce, divorced, breakup, break up, miscarriage, miscarriages, stillbirth,
-	stillbirths, baby loss, pregnancy loss, pet loss, suicide, suicidal, self harm, selfharm,
-	eating disorder, eating disorders, abuse, abused, abusive, assault, rape, raped,
-	violence, harassment, harassed, bullying, bullied, school shooting, mass shooting,
-	terrorism, terrorist, genocide, holocaust, trauma, ptsd, depression, depressed,
-	anxiety, panic attack, panic attacks, lonely, loneliness, bad mood, low mood`;
-
-/**
  * The name Obsidian gives a new note before it has one ("Untitled"), in every
  * language Obsidian is translated into (`plugins.file-explorer.label-untitled-file`
  * in obsidianmd/obsidian-translations). Compared without invisible format

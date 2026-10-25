@@ -168,18 +168,6 @@ describe("automatic emoji for new notes", () => {
 		expect(harness.fake.saved).toEqual([]);
 	});
 
-	it("gives none to a sad or serious note", async () => {
-		const harness = await load();
-		await newNote(harness, "Mom's funeral.md");
-		expect(harness.fake.saved).toEqual([]);
-	});
-
-	it("gives none in a sad or serious folder, however far up", async () => {
-		const harness = await load({ files: ["Grief journal/2024/10"] });
-		await newNote(harness, "Grief journal/2024/10/Today.md");
-		expect(harness.plugin.icons.get("Grief journal/2024/10/Today.md")).toBeUndefined();
-	});
-
 	it("follows a rename before the note is opened", async () => {
 		const harness = await load();
 		harness.app.vault.create("Untitled.md");
@@ -265,14 +253,6 @@ describe("an untitled note that gets its name", () => {
 		expect(harness.plugin.icons.get("Pizza.md")).toBe("🍕");
 	});
 
-	it("gets none for a sad or serious name", async () => {
-		const harness = await load();
-		await newNote(harness, "Untitled.md");
-		harness.app.vault.rename("Untitled.md", "Grandpa passed away.md");
-		await flush();
-		expect(harness.plugin.icons.get("Grandpa passed away.md")).toBeUndefined();
-	});
-
 	it("keeps an emoji the user chose while it was untitled", async () => {
 		const harness = await load();
 		const file = await newNote(harness, "Untitled.md");
@@ -317,14 +297,6 @@ describe("a renamed note soon after its automatic emoji", () => {
 		harness.app.vault.rename("Trip.md", "Coffee.md");
 		await flush();
 		expect(harness.plugin.icons.get("Coffee.md")).toBe(theme("travel")[0]);
-	});
-
-	it("loses its emoji when the new name is sad or serious", async () => {
-		const harness = await load();
-		await newNote(harness, "Lunch.md");
-		harness.app.vault.rename("Lunch.md", "Funeral lunch.md");
-		await flush();
-		expect(harness.plugin.icons.get("Funeral lunch.md")).toBeUndefined();
 	});
 
 	it("keeps the automatic emoji once the user chose it too", async () => {

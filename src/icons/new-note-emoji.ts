@@ -96,10 +96,10 @@ export class NewNoteEmoji {
 
 	/**
 	 * Vault `rename`, after the emoji moved along. A new note that was
-	 * "Untitled" gets its emoji now that it has a name. Soon after its automatic
-	 * emoji, a sad or serious name removes it, and a friendly emoji makes way
-	 * for one that fits the new name, unless the user chose an emoji meanwhile.
-	 * Moving the note or renaming a folder above it is no new name.
+	 * "Untitled" gets its emoji now that it has a name. Soon after an emoji
+	 * picked because nothing fit, a new name that fits makes it give way,
+	 * unless the user chose an emoji meanwhile. Moving the note or renaming a
+	 * folder above it is no new name.
 	 */
 	handleRename(file: TAbstractFile, oldPath: string): void {
 		moveEntry(this.created, oldPath, file.path);
@@ -118,16 +118,11 @@ export class NewNoteEmoji {
 		}
 
 		const pick = this.picks.get(file.path);
-		if (!pick || !isNote(file) || fileName(oldPath) === file.name) return;
+		if (pick?.source !== "fallback" || !isNote(file) || fileName(oldPath) === file.name) return;
 		if (!this.enabled() || Date.now() - pick.time > RENAME_WITHIN_MS) return;
 		if (this.icons.get(file.path) !== pick.emoji) return;
 		const next = this.pick(file);
-		if (next === undefined) {
-			this.icons.removeIcon(file);
-			this.picks.delete(file.path);
-		} else if (pick.source === "fallback" && next.source !== "fallback") {
-			this.store(file, next);
-		}
+		if (next.source !== "fallback") this.store(file, next);
 	}
 
 	/**
@@ -151,8 +146,7 @@ export class NewNoteEmoji {
 		// The user's own emoji always win, also one that moved here with a rename.
 		const current = this.icons.get(file.path);
 		if (current !== undefined && current !== this.picks.get(file.path)?.emoji) return;
-		const pick = this.pick(file);
-		if (pick) this.store(file, pick);
+		this.store(file, this.pick(file));
 	}
 
 	private dropLeftover(file: TFile): void {
@@ -167,11 +161,7 @@ export class NewNoteEmoji {
 		this.picks.set(file.path, { ...pick, time: Date.now() });
 	}
 
-	private pick(file: TFile): AutoPick | undefined {
-		const folders: string[] = [];
-		for (let folder = file.parent; folder && !folder.isRoot(); folder = folder.parent) {
-			folders.push(folder.name);
-		}
-		return pickAutoEmoji({ name: file.basename, folders });
+	private pick(file: TFile): AutoPick {
+		return pickAutoEmoji({ name: file.basename });
 	}
 }

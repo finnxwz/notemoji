@@ -1,5 +1,5 @@
 import { findEntry } from "../picker/catalog";
-import { FRIENDLY_EMOJI, SENSITIVE_WORDS, THEMES, UNTITLED_NAMES } from "./auto-emoji-themes";
+import { FRIENDLY_EMOJI, THEMES, UNTITLED_NAMES } from "./auto-emoji-themes";
 
 /**
  * Picks the emoji for a new note, from its name:
@@ -16,8 +16,6 @@ import { FRIENDLY_EMOJI, SENSITIVE_WORDS, THEMES, UNTITLED_NAMES } from "./auto-
 export interface NewNote {
 	/** The note's name without `.md`. */
 	name: string;
-	/** The names of its folders, without the vault root: any can make it a sad or serious note. */
-	folders: readonly string[];
 }
 
 /** What the pick is based on; `fallback` when nothing in the name fits. */
@@ -83,9 +81,6 @@ interface Index {
 	themes: Map<string, readonly string[]>;
 	/** Words in the longest word or phrase of `exact` and `themes`. */
 	longest: number;
-	sensitive: Set<string>;
-	/** Words in the longest sensitive word. */
-	longestSensitive: number;
 	friendly: readonly string[];
 }
 
@@ -118,9 +113,7 @@ function getIndex(): Index {
 		const name = findEntry(emoji)?.name;
 		if (name !== undefined) add(exact, nameWords(name).join(" "), emoji);
 	}
-	const sensitive = new Set(splitKeyWords(SENSITIVE_WORDS));
-	const longestSensitive = Math.max(...[...sensitive].map((word) => word.split(" ").length));
-	index = { exact, themes, longest, sensitive, longestSensitive, friendly };
+	index = { exact, themes, longest, friendly };
 	return index;
 }
 
@@ -135,18 +128,6 @@ function* phrasesAt(
 	}
 }
 
-/** Whether a name has a word of sad or serious notes (see `SENSITIVE_WORDS`). */
-export function isSensitive(name: string): boolean {
-	const { sensitive, longestSensitive } = getIndex();
-	const words = nameWords(name);
-	for (let start = 0; start < words.length; start++) {
-		for (const { phrase } of phrasesAt(words, start, longestSensitive)) {
-			if (sensitive.has(phrase)) return true;
-		}
-	}
-	return false;
-}
-
 function pickFrom(pool: readonly string[], random: () => number): string {
 	return pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))];
 }
@@ -154,14 +135,9 @@ function pickFrom(pool: readonly string[], random: () => number): string {
 /**
  * The emoji for a new note (see the top of this file). An obvious emoji
  * anywhere in the name beats a theme ("Pizza with the team" → 🍕); of two of
- * a kind, the first in the name wins. `undefined` for a sad or serious note
- * (its name or a folder has a word of `SENSITIVE_WORDS`): no emoji fits there.
+ * a kind, the first in the name wins.
  */
-export function pickAutoEmoji(
-	note: NewNote,
-	random: () => number = Math.random,
-): AutoPick | undefined {
-	if ([note.name, ...note.folders].some(isSensitive)) return undefined;
+export function pickAutoEmoji(note: NewNote, random: () => number = Math.random): AutoPick {
 	const { exact, themes, longest, friendly } = getIndex();
 	const words = nameWords(note.name);
 	let theme: readonly string[] | undefined;
