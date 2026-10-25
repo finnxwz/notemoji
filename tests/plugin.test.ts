@@ -1481,6 +1481,38 @@ describe("emoji style", () => {
 		expect(harness.lastSaved()?.settings).toMatchObject({ emojiStyle: "twemoji" });
 	});
 
+	it("doesn't switch to a download that finishes after another style was chosen", async () => {
+		const harness = await loadPlugin();
+		let finish!: () => void;
+		vi.spyOn(harness.plugin.style.fonts, "download").mockImplementation(
+			() => new Promise<void>((resolve) => (finish = resolve)),
+		);
+		const downloading = harness.plugin.style.download(twemoji);
+		await harness.plugin.style.select("noto-mono");
+		finish();
+		await downloading;
+		await flush();
+		expect(harness.plugin.settings.emojiStyle).toBe("noto-mono");
+	});
+
+	it("changes nothing when a download finishes after the plugin unloaded", async () => {
+		const harness = await loadPlugin();
+		const { adapter } = harness.app.vault;
+		let finish!: () => void;
+		vi.spyOn(harness.plugin.style.fonts, "download").mockImplementation(async () => {
+			await new Promise<void>((resolve) => (finish = resolve));
+			adapter.files.set(`${FONTS}/${twemoji.file}`, download);
+		});
+		const downloading = harness.plugin.style.download(twemoji);
+		harness.unload();
+		const saves = harness.fake.saved.length;
+		finish();
+		await downloading;
+		await flush(10);
+		expect(harness.fake.saved).toHaveLength(saves);
+		expect(document.body.hasClass("notemoji-custom-font")).toBe(false);
+	});
+
 	it("keeps the current style when a download fails", async () => {
 		const harness = await loadPlugin();
 		const settings = await openSettings(harness);

@@ -114,6 +114,7 @@ export class EmojiFonts {
 	/** Only the most recent `apply` may change the font. */
 	private generation = 0;
 	private cannotDraw = false;
+	private disposed = false;
 
 	constructor(
 		private readonly adapter: DataAdapter,
@@ -134,6 +135,7 @@ export class EmojiFonts {
 
 	/** Uses a style. Missing files mean system emoji; nothing is downloaded here. */
 	async apply(style: EmojiStyle, ownFont: string): Promise<void> {
+		if (this.disposed) return;
 		const generation = ++this.generation;
 		this.cannotDraw = false;
 		const path = this.pathOf(style, ownFont);
@@ -212,11 +214,16 @@ export class EmojiFonts {
 		// the settings name is still there.
 		const path = normalizePath(`${this.ownFolder}/${name}`);
 		await this.adapter.writeBinary(path, data);
-		for (const file of (await this.adapter.list(this.ownFolder)).files) {
-			// Ignoring case: on Windows and macOS, `mine.ttf` overwrites `Mine.ttf`,
-			// so removing `Mine.ttf` would remove the new font.
-			if (normalizePath(file).toLowerCase() !== path.toLowerCase())
-				await this.adapter.remove(file);
+		// The new font is stored: a file that can't be removed is only left over.
+		try {
+			for (const file of (await this.adapter.list(this.ownFolder)).files) {
+				// Ignoring case: on Windows and macOS, `mine.ttf` overwrites `Mine.ttf`,
+				// so removing `Mine.ttf` would remove the new font.
+				if (normalizePath(file).toLowerCase() !== path.toLowerCase())
+					await this.adapter.remove(file);
+			}
+		} catch (error) {
+			console.error("[notemoji] Could not remove the previous font file.", error);
 		}
 		return name;
 	}
@@ -250,8 +257,12 @@ export class EmojiFonts {
 		this.face = null;
 	}
 
-	/** Stops using the font for good (the plugin unloads): a font still loading is not used when it arrives. */
+	/**
+	 * Stops using fonts for good (the plugin unloads): a font still loading is
+	 * not used when it arrives, and later `apply` calls do nothing.
+	 */
 	dispose(): void {
+		this.disposed = true;
 		this.generation += 1;
 		this.unload();
 	}

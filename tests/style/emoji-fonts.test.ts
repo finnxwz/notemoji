@@ -169,6 +169,14 @@ describe("downloadable sets", () => {
 		await Promise.all([slow, fast]);
 		expect(uses(main)).toBe(false);
 	});
+
+	it("uses no font once disposed (the plugin unloaded)", async () => {
+		const { fonts, main } = setup();
+		await fonts.download(twemoji);
+		fonts.dispose();
+		await fonts.apply("twemoji", "");
+		expect(uses(main)).toBe(false);
+	});
 });
 
 describe("own font file", () => {
@@ -192,6 +200,21 @@ describe("own font file", () => {
 		// The same name again simply replaces the file.
 		await fonts.installOwn("Mine.ttf", data(8));
 		expect(adapter.files.get(`${FOLDER}/own/Mine.ttf`)?.byteLength).toBe(8);
+	});
+
+	it("is installed even when a previous file can't be removed", async () => {
+		const { adapter, fonts } = setup();
+		await fonts.installOwn("Mine.ttf", data());
+		adapter.files.set(`${FOLDER}/own/Stale.otf`, data());
+		const remove = adapter.remove.bind(adapter);
+		const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+		vi.spyOn(adapter, "remove").mockImplementation((path: string) =>
+			path.endsWith("Stale.otf") ? Promise.reject(new Error("Locked")) : remove(path),
+		);
+		await expect(fonts.installOwn("Other.woff2", data())).resolves.toBe("Other.woff2");
+		expect(adapter.files.has(`${FOLDER}/own/Other.woff2`)).toBe(true);
+		expect(logged).toHaveBeenCalled();
+		logged.mockRestore();
 	});
 
 	it("keeps downloaded sets when the own font changes", async () => {

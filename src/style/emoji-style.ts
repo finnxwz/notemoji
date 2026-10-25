@@ -27,6 +27,8 @@ export class EmojiStyle {
 	private warmUpTimer: number | null = null;
 	private warmedUp = false;
 	private unloaded = false;
+	/** Counts style choices: a download that finishes after a newer choice doesn't take over. */
+	private choices = 0;
 
 	constructor(
 		adapter: DataAdapter,
@@ -71,14 +73,20 @@ export class EmojiStyle {
 	}
 
 	async select(style: string): Promise<void> {
+		this.choices += 1;
+		if (this.unloaded) return;
 		this.settings.update({ emojiStyle: style });
 		await this.load();
 	}
 
-	/** Downloads a set (only ever on the user's request) and uses it. Throws with a message for the user. */
+	/**
+	 * Downloads a set (only ever on the user's request) and uses it, unless
+	 * another style was chosen meanwhile. Throws with a message for the user.
+	 */
 	async download(set: EmojiSet): Promise<void> {
+		const choice = ++this.choices;
 		await this.fonts.download(set);
-		await this.select(set.id);
+		if (choice === this.choices) await this.select(set.id);
 	}
 
 	/** Deletes a downloaded set and its images; deleting the active one switches to system emoji. */
@@ -90,8 +98,14 @@ export class EmojiStyle {
 
 	/** Installs your own font file and uses it. Throws with a message for the user. */
 	async installOwn(name: string, data: ArrayBuffer): Promise<void> {
+		const choice = ++this.choices;
 		const file = await this.fonts.installOwn(name, data);
-		this.settings.update({ emojiStyle: "file", emojiFont: file });
+		if (this.unloaded) return;
+		// It replaced the previous file, so it is named either way; used unless
+		// another style was chosen meanwhile.
+		this.settings.update(
+			choice === this.choices ? { emojiStyle: "file", emojiFont: file } : { emojiFont: file },
+		);
 		await this.load();
 	}
 
@@ -99,6 +113,7 @@ export class EmojiStyle {
 	async removeOwn(): Promise<void> {
 		await this.fonts.removeOwn();
 		await this.spriteCache.removeStyle(OWN_FONT_FOLDER);
+		if (this.unloaded) return;
 		this.settings.update({ emojiStyle: "system", emojiFont: "" });
 		await this.load();
 	}
