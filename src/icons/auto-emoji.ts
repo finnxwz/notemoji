@@ -3,6 +3,7 @@ import {
 	HOLIDAY_EMOJI,
 	Season,
 	SEASON_EMOJI,
+	SENSITIVE_WORDS,
 	SOUTHERN_TIME_ZONES,
 	THEMES,
 } from "./auto-emoji-themes";
@@ -62,12 +63,12 @@ export function splitKeyWords(list: string): string[] {
 /**
  * The words of a note or folder name, as key words are written: lower case,
  * without accents, numbering, emoji or punctuation ("01 - Café trip.md" →
- * "cafe", "trip"). Words joined in camel case count apart ("ToDo" → "to", "do").
+ * "cafe", "trip"). Words in camel case stay one word: split, "MacBook" would
+ * be about books and "TypeScript" about nothing.
  */
 export function nameWords(name: string): string[] {
 	return name
 		.replace(/\.md$/i, "")
-		.replace(/(\p{Ll})(\p{Lu})/gu, "$1 $2")
 		.normalize("NFD")
 		.replace(/\p{M}/gu, "")
 		.toLowerCase()
@@ -85,8 +86,11 @@ interface Index {
 	keyWords: Map<string, KeyWord>;
 	/** Words in the longest key word. */
 	longest: number;
-	/** The emoji of the first theme each emoji belongs to, by emoji without variation selector. */
+	/** The theme a folder emoji stands for, by emoji without variation selector (see `getIndex`). */
 	themeOf: Map<string, readonly string[]>;
+	sensitive: Set<string>;
+	/** Words in the longest sensitive word. */
+	longestSensitive: number;
 	friendly: readonly string[];
 }
 
@@ -95,7 +99,10 @@ let index: Index | null = null;
 function getIndex(): Index {
 	if (index) return index;
 	const keyWords = new Map<string, KeyWord>();
-	const themeOf = new Map<string, readonly string[]>();
+	/** The first emoji of each theme, which stands for it. */
+	const symbols = new Map<string, readonly string[]>();
+	/** Every theme each emoji is in. */
+	const themesOf = new Map<string, Set<readonly string[]>>();
 	let longest = 1;
 	const addKeyWords = (list: string, keyWord: KeyWord) => {
 		for (const word of splitKeyWords(list)) {
@@ -108,12 +115,46 @@ function getIndex(): Index {
 		addKeyWords(theme.words, { themeEmoji });
 		const hits = Object.entries(theme.hits ?? {});
 		for (const [hit, words] of hits) addKeyWords(words, { themeEmoji, hit });
+		if (!symbols.has(bare(themeEmoji[0]))) symbols.set(bare(themeEmoji[0]), themeEmoji);
 		for (const emoji of [...themeEmoji, ...hits.map(([hit]) => hit)]) {
-			if (!themeOf.has(bare(emoji))) themeOf.set(bare(emoji), themeEmoji);
+			const themes = themesOf.get(bare(emoji)) ?? new Set();
+			themesOf.set(bare(emoji), themes.add(themeEmoji));
 		}
 	}
-	index = { keyWords, longest, themeOf, friendly: splitEmoji(FRIENDLY_EMOJI) };
+	// A folder emoji stands for the theme it is the first emoji of, else for
+	// the only theme it is in; one in several themes (🏆: sport or goals?) is
+	// no clue at all.
+	const themeOf = new Map(symbols);
+	for (const [emoji, themes] of themesOf) {
+		if (!themeOf.has(emoji) && themes.size === 1) themeOf.set(emoji, [...themes][0]);
+	}
+	const sensitive = new Set(splitKeyWords(SENSITIVE_WORDS));
+	const longestSensitive = Math.max(...[...sensitive].map((word) => word.split(" ").length));
+	index = {
+		keyWords,
+		longest,
+		themeOf,
+		sensitive,
+		longestSensitive,
+		friendly: splitEmoji(FRIENDLY_EMOJI),
+	};
 	return index;
+}
+
+/** Whether a name has a word of sad or serious notes (see `SENSITIVE_WORDS`). */
+export function isSensitive(name: string): boolean {
+	const { sensitive, longestSensitive } = getIndex();
+	const words = nameWords(name);
+	for (let start = 0; start < words.length; start++) {
+		for (
+			let length = 1;
+			length <= longestSensitive && start + length <= words.length;
+			length++
+		) {
+			if (sensitive.has(words.slice(start, start + length).join(" "))) return true;
+		}
+	}
+	return false;
 }
 
 /** The longest key word that starts at `words[start]`, with its number of words. */
@@ -244,10 +285,19 @@ function choose(pool: readonly string[], note: NewNote, random: () => number): s
  *    🍕) unless a neighbour has it, else one of its theme;
  * 2. a date its name starts with: the season (and holiday) of its month;
  * 3. its folder, else the folder above: a key word in the folder's name, or
- *    the folder's own emoji when that belongs to a theme;
+ *    the folder's own emoji when that stands for a theme;
  * 4. the friendly emoji.
+ *
+ * `undefined` for a sad or serious note (its name or folder has a word of
+ * `SENSITIVE_WORDS`): no emoji fits there.
  */
-export function pickAutoEmoji(note: NewNote, random: () => number = Math.random): AutoPick {
+export function pickAutoEmoji(
+	note: NewNote,
+	random: () => number = Math.random,
+): AutoPick | undefined {
+	if ([note.name, ...note.folders.map((folder) => folder.name)].some(isSensitive)) {
+		return undefined;
+	}
 	const keyWord = findKeyWord(note.name);
 	if (keyWord) {
 		const { hit } = keyWord;

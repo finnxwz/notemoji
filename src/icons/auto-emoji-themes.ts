@@ -2,9 +2,12 @@
  * The emoji that automatic emoji for new notes choose from (see `auto-emoji.ts`).
  *
  * Every emoji is written as the picker's list writes it (with the emoji
- * variation selector where the list has one), so emoji styles can draw it;
- * a test checks each against the list. Key words are English, lower case and
- * whole words: plurals and variants are listed, nothing is stemmed.
+ * variation selector where the list has one), so emoji styles can draw it,
+ * and is from Emoji 12.0 or older, so the system emoji of Windows 10, older
+ * phones and tablets can draw it too (nobody chose these emoji, so nobody
+ * would know why a box shows instead). Tests check both. Key words are
+ * English, lower case and whole words: plurals and variants are listed,
+ * nothing is stemmed.
  */
 
 export interface Theme {
@@ -22,10 +25,10 @@ export type Season = "spring" | "summer" | "autumn" | "winter";
 
 /** Emoji of each season, without holidays (see `HOLIDAY_EMOJI`). */
 export const SEASON_EMOJI: Readonly<Record<Season, string>> = {
-	spring: "🌷 🌱 🐣 🌸 🌦️ 🌼 🐝 🦋 🌿 🐞 🌈 🪻",
+	spring: "🌷 🌱 🐣 🌸 🌦️ 🌼 🐝 🦋 🌿 🐞 🌈 🐥",
 	summer: "☀️ 🌻 🍉 🏖️ 🍦 🏝️ 🍓 ⛱️ 🍹 🕶️ 🐚 🍋 🌴",
 	autumn: "🍂 🍁 🌰 🍄 ☕ 🍎 🦔 🌾 🍐 🍇 ☂️ 🦉",
-	winter: "❄️ ⛄ ☃️ 🧣 🧤 🕯️ 🌨️ 🏔️ 🛷 ⛸️ 🫖 🧦",
+	winter: "❄️ ⛄ ☃️ 🧣 🧤 🕯️ 🌨️ 🏔️ 🛷 ⛸️ 🎿 🧦",
 };
 
 /** Holiday emoji, only for dates in their month (the same in both hemispheres), by month. */
@@ -35,8 +38,9 @@ export const HOLIDAY_EMOJI: Readonly<Record<number, string>> = {
 };
 
 /**
- * Specific themes first: a folder emoji that is in several themes counts for
- * the first one. The four seasons are last.
+ * Specific themes first; the four seasons are last. The first emoji of a
+ * theme stands for it: a folder with that emoji counts as the theme's (see
+ * `pickAutoEmoji`).
  */
 export const THEMES: readonly Theme[] = [
 	{
@@ -44,8 +48,8 @@ export const THEMES: readonly Theme[] = [
 		words: `travel, travels, travelling, traveling, trip, trips, road trip, roadtrip, vacation,
 			vacations, holiday, holidays, journey, journeys, packing, packing list, itinerary,
 			itineraries, backpacking, abroad, passport, airport, getaway, tour, tours, sightseeing,
-			wanderlust, destination, destinations, places, map, maps, city, cities, booking,
-			bookings, honeymoon`,
+			wanderlust, destination, destinations, places, city, cities, booking, bookings,
+			honeymoon`,
 		emoji: "✈️ 🧳 🗺️ 🏝️ 🚆 ⛰️ 🏖️ 🧭 🌍 🏕️ 🗼 🚗 🛫 🏨 🎒 🚢",
 		hits: { "✈️": "flight, flights", "🏨": "hotel, hotels", "🛳️": "cruise, cruises" },
 	},
@@ -97,7 +101,7 @@ export const THEMES: readonly Theme[] = [
 	{
 		id: "drinks",
 		words: "drink, drinks, beverages",
-		emoji: "☕ 🍵 🍷 🍺 🍸 🍹 🥤 🧃 🧋 🥂 🫖 🥛 🧉 🍶",
+		emoji: "☕ 🍵 🍷 🍺 🍸 🍹 🥤 🧃 🥂 🥛 🧉 🍶",
 		hits: {
 			"☕": "coffee, espresso, cafe, cafes",
 			"🍵": "tea",
@@ -106,7 +110,6 @@ export const THEMES: readonly Theme[] = [
 			"🍸": "cocktail, cocktails",
 			"🥃": "whisky, whiskey",
 			"🍾": "champagne",
-			"🧋": "bubble tea",
 			"🧃": "juice",
 			"🥤": "smoothie, smoothies",
 			"🥛": "milk",
@@ -114,16 +117,16 @@ export const THEMES: readonly Theme[] = [
 	},
 	{
 		id: "cooking",
-		words: `cooking, cook, cookbook, cookbooks, baking, bake, kitchen, grill, grilling, chef,
+		words: `cooking, cook, cookbook, cookbooks, baking, bake, kitchen, grill, grilling,
 			ingredient, ingredients`,
-		emoji: "🍳 🥘 🔪 🥄 🧂 🍲 🫕 🥣 🍞 🥖 🧈 🫙 🥚 🍴 🥧 🍪",
+		emoji: "🍳 🥘 🥄 🧂 🍲 🥣 🍞 🥖 🧈 🥚 🍴 🥧 🍪 🧁",
 	},
 	{
 		id: "books",
 		words: `book, books, reading, read, reading list, booklist, novel, novels, library,
 			libraries, literature, ebook, ebooks, audiobook, audiobooks, book club, bookshelf,
 			author, authors`,
-		emoji: "📚 📖 📕 📗 📘 📙 🔖 📔 📜 🪶 📑",
+		emoji: "📚 📖 📕 📗 📘 📙 🔖 📔 📜 📑",
 		hits: { "🔖": "bookmark, bookmarks" },
 	},
 	{
@@ -132,7 +135,7 @@ export const THEMES: readonly Theme[] = [
 			diaries, essay, essays, story, stories, poem, poems, poetry, blog, blogs, blog post,
 			article, articles, draft, drafts, manuscript, quote, quotes, chapter, chapters, outline,
 			outlines, newsletter, newsletters, memoir, fiction, worldbuilding`,
-		emoji: "📝 🖋️ ✒️ 🖊️ ✏️ 📓 📔 📒 🗒️ 📜 🪶 📃 💭 📄",
+		emoji: "📝 🖋️ ✒️ 🖊️ ✏️ 📓 📔 📒 🗒️ 📜 📃 💭 📄",
 		hits: { "✉️": "letter, letters", "📰": "news" },
 	},
 	{
@@ -140,7 +143,7 @@ export const THEMES: readonly Theme[] = [
 		words: `music, song, songs, songwriting, lyrics, album, albums, playlist, playlists, band,
 			bands, concert, concerts, gig, gigs, chords, sheet music, musician, musicians, choir,
 			orchestra, vinyl, jazz, opera`,
-		emoji: "🎵 🎶 🎸 🎹 🎧 🎤 🎷 🎺 🥁 🎻 🪕 🪗 📻 💿 🎼 🪘",
+		emoji: "🎵 🎶 🎸 🎹 🎧 🎤 🎷 🎺 🥁 🎻 🪕 📻 💿 🎼",
 		hits: {
 			"🎹": "piano",
 			"🎸": "guitar, guitars",
@@ -148,7 +151,6 @@ export const THEMES: readonly Theme[] = [
 			"🎻": "violin",
 			"🎷": "saxophone",
 			"🎺": "trumpet",
-			"🪗": "accordion",
 			"🪕": "banjo",
 			"🎧": "headphones",
 			"🎤": "singing, karaoke",
@@ -210,7 +212,7 @@ export const THEMES: readonly Theme[] = [
 		words: `health, healthy, medical, medicine, medication, medications, therapy, therapist,
 			wellbeing, well being, wellness, nutrition, diet, diets, symptoms, self care, selfcare,
 			meditation, mindfulness, vitamins, yoga`,
-		emoji: "🩺 🩹 🌡️ 🏥 🍎 🥦 💧 🌿 🧴 🍵 🥗 🍋 💤 🌱 💚 🛁",
+		emoji: "🩺 🩹 🌡️ 🏥 🍎 🥦 💧 🧴 🍵 🥗 🍋 💤 💚 🛁",
 		hits: {
 			"🩺": "doctor, doctors",
 			"🦷": "dentist",
@@ -223,13 +225,13 @@ export const THEMES: readonly Theme[] = [
 		id: "money",
 		words: `money, finance, finances, financial, budget, budgets, budgeting, savings, expenses,
 			expense, income, salary, bills, accounting, bookkeeping, payment, payments, loan, loans,
-			mortgage, retirement, pension, insurance, debt, debts, price, prices, costs`,
-		emoji: "💰 💵 💶 💷 💴 🪙 💳 🏦 📈 🧾 💸 💹 📊 🧮 💎",
+			mortgage, retirement, pension, insurance, debt, debts, price, prices, costs, bank,
+			banks, banking`,
+		emoji: "💰 💵 💶 💷 💴 💳 🏦 📈 🧾 💸 💹 📊 🧮 💎",
 		hits: {
-			"🏦": "bank, banking",
 			"📈": "invest, investing, investment, investments, stocks",
 			"🧾": "tax, taxes, invoice, invoices, receipt, receipts",
-			"🪙": "coins",
+			"💰": "coins",
 			"💳": "credit card",
 		},
 	},
@@ -245,11 +247,11 @@ export const THEMES: readonly Theme[] = [
 	},
 	{
 		id: "meetings",
-		words: `meeting, meetings, standup, standups, stand up, one on one, catch up, retro,
+		words: `meeting, meetings, standup, standups, stand up, one on one, catch up,
 			retrospective, workshop, workshops, conference, conferences, team, teams, people,
 			contacts, contact, networking, discussion, discussions, webinar, webinars, colleagues,
 			coworkers`,
-		emoji: "🤝 👥 💬 🗣️ 📞 ☎️ 📅 🗓️ ☕ 🪑 📢 🎙️ 🫂 🗨️",
+		emoji: "🤝 👥 💬 🗣️ 📞 ☎️ 📅 🗓️ ☕ 🪑 📢 🎙️ 🗨️",
 		hits: { "📞": "call, calls, phone call" },
 	},
 	{
@@ -257,7 +259,7 @@ export const THEMES: readonly Theme[] = [
 		words: `idea, ideas, brainstorm, brainstorming, inspiration, inspirations, thought,
 			thoughts, concept, concepts, musings, insight, insights, creativity, innovation,
 			invention, inventions, mind map, mind maps`,
-		emoji: "💡 ✨ 🧠 💭 🌟 ⚡ 🔮 🪄 🌈 🚀 🎇 🫧 🌠",
+		emoji: "💡 ✨ 🧠 💭 🌟 ⚡ 🔮 🌈 🚀 🎇 🌠",
 	},
 	{
 		id: "learning",
@@ -312,7 +314,7 @@ export const THEMES: readonly Theme[] = [
 		words: `home, house, houses, apartment, apartments, household, chores, decor, interior,
 			rent, repair, repairs, bedroom, bathroom, living room, landlord, roommates, housework,
 			declutter, decluttering`,
-		emoji: "🏠 🏡 🛋️ 🪴 🛏️ 🪑 🧹 🧺 🔑 🚪 🪟 🕯️ 🛁 🧽 🖼️ 🪜",
+		emoji: "🏠 🏡 🛋️ 🛏️ 🪑 🧹 🧺 🔑 🚪 🕯️ 🛁 🧽 🖼️ 🧰",
 		hits: {
 			"🧹": "cleaning",
 			"🧺": "laundry",
@@ -326,7 +328,7 @@ export const THEMES: readonly Theme[] = [
 		id: "garden",
 		words: `garden, gardens, gardening, plant, plants, flower, flowers, houseplant,
 			houseplants, succulents, compost, lawn, greenhouse, allotment, harvest, botany`,
-		emoji: "🌱 🌿 🪴 🌷 🌻 🌼 🌸 🌹 🍅 🥕 🪻 🌵 🍃 🐝 🐞 🌺 🍀",
+		emoji: "🌱 🌿 🌷 🌻 🌼 🌸 🌹 🍅 🥕 🌵 🍃 🐝 🐞 🌺 🍀",
 		hits: {
 			"🌵": "cactus, cacti",
 			"🌿": "herbs",
@@ -341,7 +343,7 @@ export const THEMES: readonly Theme[] = [
 		id: "nature",
 		words: `nature, outdoors, outdoor, hiking, hike, hikes, lake, lakes, river, rivers, trail,
 			trails, park, parks, national park, wilderness, climbing, landscape, landscapes, trees`,
-		emoji: "🌲 🌳 ⛰️ 🏔️ 🏕️ 🌄 🌅 🏞️ 🌊 🍃 🦋 🪨 🪵 🛶 🌾 🗻",
+		emoji: "🌲 🌳 ⛰️ 🏔️ 🏕️ 🌄 🌅 🏞️ 🌊 🍃 🦋 🛶 🌾 🗻",
 		hits: {
 			"🏕️": "camping",
 			"⛰️": "mountain, mountains",
@@ -422,7 +424,7 @@ export const THEMES: readonly Theme[] = [
 	{
 		id: "celebrations",
 		words: "celebration, celebrations, anniversary, anniversaries, festival, festivals",
-		emoji: "🎉 🎊 🎈 🎁 🎂 🎆 🎇 🪅 🎀 🧁 🪩 🍰 ✨ 🥳",
+		emoji: "🎉 🎊 🎈 🎁 🎂 🎆 🎇 🎀 🧁 🍰 ✨ 🥳",
 		hits: {
 			"🎉": "party, parties",
 			"🎂": "birthday, birthdays",
@@ -454,7 +456,7 @@ export const THEMES: readonly Theme[] = [
 		id: "transport",
 		words: `vehicle, vehicles, driving, commute, commuting, transport, transportation, traffic,
 			mechanic, garage`,
-		emoji: "🚗 🚙 🚕 🚌 🚆 🚇 🚊 🚲 🛵 🏍️ 🚦 ⛽ 🛞 🚐 🚚 🚂",
+		emoji: "🚗 🚙 🚕 🚌 🚆 🚇 🚊 🚲 🛵 🏍️ 🚦 ⛽ 🚐 🚚 🚂",
 		hits: {
 			"🚗": "car, cars",
 			"🚌": "bus, buses",
@@ -476,7 +478,7 @@ export const THEMES: readonly Theme[] = [
 			sketches, sketchbook, illustration, illustrations, craft, crafts, gallery, galleries,
 			logo, logos, branding, typography, fonts, colors, colours, palette, ui, ux, mood board,
 			moodboard`,
-		emoji: "🎨 🖌️ 🖍️ 🖼️ 🧵 🧶 🪡 ✂️ 🏺 📐 🖋️ 🌈 🪄",
+		emoji: "🎨 🖌️ 🖍️ 🖼️ 🧵 🧶 ✂️ 🏺 📐 🖋️ 🌈",
 		hits: {
 			"🎨": "painting",
 			"🧶": "knitting, crochet",
@@ -495,31 +497,35 @@ export const THEMES: readonly Theme[] = [
 	},
 	{
 		id: "family",
-		words: `family, families, kids, kid, children, child, parents, parent, parenting, mom, mum,
-			dad, mother, father, grandma, grandpa, grandmother, grandfather, grandparents, sister,
-			brother, siblings, wife, husband, friends, friend, friendship, relatives`,
-		emoji: "🏡 👪 🧸 🍼 🎈 💛 🧡 🤗 🎠 🛝 🪁 🫂 🍪 🌻",
-		hits: { "🍼": "baby, babies", "🌳": "genealogy, family tree" },
+		words: `family, families, parents, parent, parenting, mom, mum, dad, mother, father,
+			grandma, grandpa, grandmother, grandfather, grandparents, sister, brother, siblings,
+			wife, husband, friends, friend, friendship, relatives`,
+		emoji: "🏡 👪 💛 🧡 💞 🤗 🌻 🍪 🧺 🌳",
+		hits: {
+			"🍼": "baby, babies",
+			"🧸": "kids, kid, children, child, toys",
+			"🌳": "genealogy, family tree",
+		},
 	},
 	{
 		id: "love",
 		words: `love, romance, romantic, dating, date night, relationship, relationships,
 			boyfriend, girlfriend, crush, marriage`,
-		emoji: "❤️ 💕 💖 💗 💘 💝 💞 💓 💌 🌹 💐 🩷 💟 🥰",
+		emoji: "❤️ 💕 💖 💗 💘 💝 💞 💓 💌 🌹 💐 💟 🥰",
 		hits: { "💝": "valentine, valentines" },
 	},
 	{
 		id: "mood",
 		words: `mood, moods, feeling, feelings, emotion, emotions, gratitude, grateful, happiness,
 			happy, joy, mindset, affirmations, reflection, reflections`,
-		emoji: "🌈 ☀️ 🌻 💛 🌸 ✨ 🍀 🫧 🌤️ 🦋 🌼 🌙 🕊️ 💫",
+		emoji: "🌈 ☀️ 🌻 💛 🌸 ✨ 🍀 🌤️ 🦋 🌼 🌙 🕊️ 💫",
 	},
 	{
 		id: "goals",
 		words: `goal, goals, project, projects, objective, objectives, vision, resolutions,
 			bucket list, ambitions, okr, okrs, progress, achievements, habit, habits,
 			habit tracker, challenge, challenges`,
-		emoji: "🎯 🚀 🏆 🏁 🗺️ 📈 ⭐ 🌟 🏔️ 🥇 🔥 🧭 🪜 🎖️",
+		emoji: "🎯 🚀 🏆 🏁 🗺️ 📈 ⭐ 🌟 🏔️ 🥇 🔥 🧭 🎖️",
 		hits: { "🗺️": "roadmap, roadmaps", "🏁": "milestone, milestones", "🚀": "launch" },
 	},
 	{
@@ -558,25 +564,38 @@ export const THEMES: readonly Theme[] = [
 /**
  * Pleasant, neutral emoji for notes nothing else fits: plants, animals, food,
  * objects, weather and symbols. No flags, people, body parts or skin tones, no
- * sequences that some systems draw as several emoji, and nothing ambiguous,
- * unpleasant, religious or political.
+ * sequences that some systems draw as several emoji, nothing ambiguous,
+ * unpleasant, religious or political, and nothing festive (balloons, gifts),
+ * which would be out of place on a serious note.
  */
 export const FRIENDLY_EMOJI = [
-	"🌱 🌿 🍀 🌵 🌴 🌲 🌳 🍁 🍂 🍃 🌷 🌸 🌹 🌺 🌻 🌼 💐 🪴 🌾 🍄",
+	"🌱 🌿 🍀 🌵 🌴 🌲 🌳 🍁 🍂 🍃 🌷 🌸 🌹 🌺 🌻 🌼 💐 🌾 🍄",
 	"🐶 🐱 🐹 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐸 🐧 🐦 🐤 🦆 🦉 🦄 🐝 🦋 🐞 🐢 🐙 🐬 🐳 🐠 🦀 🦔 🦦 🦥",
-	"🐿️ 🦩 🦜 🐌 🦒 🐘 🦘 🦭",
-	"🍎 🍐 🍊 🍋 🍉 🍇 🍓 🫐 🍒 🥭 🍍 🥥 🥝 🥑 🥕 🌽 🥐 🥨 🧀 🍕 🌮 🍩 🍪 🧁 🍫 🍭 🍯 🍿 🧇",
-	"☕ 🍵 🧋",
-	"🎈 🎁 🎀 🪁 🧸 🪀 🎨 🧩 🎲 🎯 📚 ✏️ 🖍️ 📎 📌 🔑 💡 🕯️ 🧭 ⏰ ⌛ 🔔 🎵 🎸 🎹 🥁 🎺 🎻 📷 🔭",
-	"🧲 💎 🪄 🧶 ⚓ ⛵ 🚲 🎐 🏮 🪅 🫖 ☂️ 🧳 🗺️ 🏆 ⚽ 🏀 🎾 🎠 🎡 🚀 🛸 🪐 🏰 ⛺ 🏝️",
-	"☀️ 🌤️ ⛅ 🌈 ⭐ 🌟 ✨ 🌙 🌕 ☄️ ❄️ 💧 🌊 ⚡ 🔥 ☁️ 🫧",
+	"🐿️ 🦩 🦜 🐌 🦒 🐘 🦘",
+	"🍎 🍐 🍊 🍋 🍉 🍇 🍓 🍒 🥭 🍍 🥥 🥝 🥑 🥕 🌽 🥐 🥨 🧀 🍕 🌮 🍩 🍪 🧁 🍫 🍭 🍯 🍿 🧇",
+	"☕ 🍵",
+	"🪁 🧸 🪀 🎨 🧩 🎲 🎯 📚 ✏️ 🖍️ 📎 📌 🔑 💡 🕯️ 🧭 ⏰ ⌛ 🔔 🎵 🎸 🎹 🥁 🎺 🎻 📷 🔭",
+	"🧲 💎 🧶 ⚓ ⛵ 🚲 🎐 🏮 ☂️ 🧳 🗺️ 🏆 ⚽ 🏀 🎾 🚀 🛸 🪐 🏰 ⛺ 🏝️",
+	"☀️ 🌤️ ⛅ 🌈 ⭐ 🌟 ✨ 🌙 🌕 ☄️ ❄️ 💧 🌊 ⚡ 🔥 ☁️",
 	"❤️ 🧡 💛 💚 💙 💜 🤍 💖 💫 🎶 🔷 🔶 💠 🌀 🔆",
 ].join(" ");
 
 /**
+ * Words of sad or serious notes, which get no automatic emoji: any pick would
+ * be out of place there. Whole words, like key words; words with other common
+ * meanings ("terminal", "loss", German "die") are left out.
+ */
+export const SENSITIVE_WORDS = `funeral, funerals, death, deaths, dead, died, dying, grief,
+	grieving, mourning, condolences, obituary, obituaries, memorial, burial, cemetery, widow,
+	widowed, passed away, cancer, chemo, chemotherapy, tumor, tumour, illness, diagnosis,
+	hospice, divorce, breakup, break up, miscarriage, stillbirth, suicide, abuse, assault,
+	trauma, depression`;
+
+/**
  * Time zones south of the equator, for the seasons of dates: names, and
  * prefixes ending in `/`. Everything else counts as north, where most people
- * live.
+ * live. Also the old names that browsers still report (`America/Mendoza` for
+ * `America/Argentina/Mendoza`).
  */
 export const SOUTHERN_TIME_ZONES = [
 	"Antarctica/",
@@ -585,12 +604,17 @@ export const SOUTHERN_TIME_ZONES = [
 	"America/Asuncion",
 	"America/Buenos_Aires",
 	"America/Campo_Grande",
+	"America/Catamarca",
 	"America/Cordoba",
+	"America/Coyhaique",
 	"America/Cuiaba",
+	"America/Jujuy",
 	"America/La_Paz",
 	"America/Lima",
+	"America/Mendoza",
 	"America/Montevideo",
 	"America/Punta_Arenas",
+	"America/Rosario",
 	"America/Santiago",
 	"America/Sao_Paulo",
 	"Brazil/",

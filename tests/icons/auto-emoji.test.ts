@@ -1,6 +1,9 @@
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import {
+	AutoPick,
 	hemisphereOf,
+	isSensitive,
 	monthOfDate,
 	nameWords,
 	NewNote,
@@ -29,11 +32,13 @@ function theme(id: string): string[] {
 const friendly = splitEmoji(FRIENDLY_EMOJI);
 
 /** Picks for a note named `name` in the vault root, with nothing around it. */
-function pick(name: string, note: Partial<NewNote> = {}, random = () => 0) {
-	return pickAutoEmoji(
+function pick(name: string, note: Partial<NewNote> = {}, random = () => 0): AutoPick {
+	const result = pickAutoEmoji(
 		{ name, folders: [], neighbours: [], recentPicks: [], hemisphere: "north", ...note },
 		random,
 	);
+	if (!result) throw new Error(`No emoji for ${name}`);
+	return result;
 }
 
 describe("lists", () => {
@@ -53,6 +58,20 @@ describe("lists", () => {
 		for (const [name, emoji] of lists) {
 			for (const entry of emoji)
 				expect(findEntry(entry)?.emoji, `${entry} in ${name}`).toBe(entry);
+		}
+	});
+
+	it("only has emoji of Emoji 12.0 or older, which Windows 10 and older phones can draw", () => {
+		const emojibase = createRequire(import.meta.url)("emojibase-data/en/data.json") as Array<{
+			emoji: string;
+			version: number;
+		}>;
+		const bare = (emoji: string) => emoji.split(VARIATION_SELECTOR).join("");
+		const versions = new Map(emojibase.map((entry) => [bare(entry.emoji), entry.version]));
+		for (const [name, emoji] of lists) {
+			for (const entry of emoji) {
+				expect(versions.get(bare(entry)), `${entry} in ${name}`).toBeLessThanOrEqual(12);
+			}
 		}
 	});
 
@@ -127,10 +146,10 @@ describe("nameWords", () => {
 		expect(nameWords("Grandma’s recipes")).toEqual(["grandma", "s", "recipes"]);
 	});
 
-	it("splits words joined in camel case", () => {
-		expect(nameWords("MeetingNotes")).toEqual(["meeting", "notes"]);
-		expect(nameWords("ToDo")).toEqual(["to", "do"]);
-		expect(nameWords("TODO")).toEqual(["todo"]);
+	it("keeps words in camel case together", () => {
+		expect(nameWords("MacBook setup")).toEqual(["macbook", "setup"]);
+		expect(nameWords("TypeScript")).toEqual(["typescript"]);
+		expect(nameWords("ToDo")).toEqual(["todo"]);
 	});
 });
 
@@ -155,6 +174,17 @@ describe("key words in the name", () => {
 		}
 		// "teacher" is a key word itself; the "tea" in it is not.
 		expect(theme("learning")).toContain(pick("Teacher").emoji);
+	});
+
+	it("leave out words that often mean something else", () => {
+		// Maps of content (MOCs), MacBooks and German bosses (Chef) are no trips, books or cooking.
+		for (const name of ["Map of Content", "Maps", "MacBook", "Chef"]) {
+			expect(pick(name).source, name).toBe("fallback");
+		}
+		expect(theme("tech")).toContain(pick("TypeScript notes").emoji);
+		// A bank by the river is no bank account: "bank" is a key word, not a clear hit.
+		expect(pick("River bank", {}, () => 0.99).emoji).not.toBe("🏦");
+		expect(theme("meetings")).not.toContain(pick("Retro games").emoji);
 	});
 
 	it("take the obvious emoji of a clear hit", () => {
@@ -296,6 +326,11 @@ describe("hemisphereOf", () => {
 			"America/Santiago",
 			"Africa/Johannesburg",
 			"NZ",
+			// Old names that browsers still report.
+			"America/Mendoza",
+			"America/Catamarca",
+			"America/Jujuy",
+			"America/Coyhaique",
 		]) {
 			expect(hemisphereOf(zone), zone).toBe("south");
 		}
@@ -323,10 +358,16 @@ describe("folders", () => {
 		expect(theme("food")).toContain(result.emoji);
 	});
 
-	it("give the theme of their emoji", () => {
-		expect(theme("drinks")).toContain(
-			pick("Untitled", { folders: [{ name: "Stuff", icon: "🍷" }] }).emoji,
-		);
+	it("give the theme their emoji stands for", () => {
+		const byIcon = (icon: string) => pick("Untitled", { folders: [{ name: "Stuff", icon }] });
+		expect(theme("drinks")).toContain(byIcon("🍷").emoji);
+		// The first emoji of a theme stands for it, also when other themes have it too.
+		expect(theme("garden")).toContain(byIcon("🌱").emoji);
+		expect(theme("goals")).toContain(byIcon("🎯").emoji);
+		expect(theme("planning")).toContain(byIcon("📅").emoji);
+		// Others in several themes say nothing: is 🏆 about sport or goals?
+		for (const icon of ["🏆", "📦", "📁", "📌"])
+			expect(byIcon(icon).source, icon).toBe("fallback");
 		// Also an emoji stored without the variation selector.
 		expect(theme("travel")).toContain(
 			pick("Untitled", { folders: [{ name: "B", icon: "✈" }] }).emoji,
@@ -353,6 +394,33 @@ describe("folders", () => {
 	});
 });
 
+describe("sad or serious notes", () => {
+	it("get no emoji", () => {
+		for (const name of [
+			"Mom's funeral",
+			"Death of my father",
+			"Divorce papers",
+			"Cancer treatment",
+			"Miscarriage",
+			"Grandpa passed away",
+		]) {
+			expect(isSensitive(name), name).toBe(true);
+			const note = { name, folders: [], neighbours: [], recentPicks: [] };
+			expect(pickAutoEmoji({ ...note, hemisphere: "north" }), name).toBeUndefined();
+		}
+		const inFolder = { folders: [{ name: "Grief journal" }], neighbours: [], recentPicks: [] };
+		expect(
+			pickAutoEmoji({ name: "Untitled", ...inFolder, hemisphere: "north" }),
+		).toBeUndefined();
+	});
+
+	it("are found by whole words, leaving out words with other common meanings", () => {
+		for (const name of ["Weight loss", "Terminal commands", "Die Reise", "Deadline", "Diet"]) {
+			expect(isSensitive(name), name).toBe(false);
+		}
+	});
+});
+
 describe("fallback", () => {
 	it("is one of the friendly emoji", () => {
 		for (const random of [0, 0.3, 0.7, 0.99]) {
@@ -361,6 +429,11 @@ describe("fallback", () => {
 			expect(friendly).toContain(result.emoji);
 		}
 		expect(pick("Untitled").emoji).toBe(friendly[0]);
+	});
+
+	it("has nothing festive, which would be out of place on a serious note", () => {
+		for (const emoji of ["🎈", "🎁", "🎀", "🎠", "🎡", "🎉"])
+			expect(friendly).not.toContain(emoji);
 	});
 
 	it("avoids the neighbours' emoji too", () => {

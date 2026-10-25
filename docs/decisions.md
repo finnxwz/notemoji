@@ -147,8 +147,9 @@ ideas are listed so they are not proposed again without a new reason.
 
 ## Automatic emoji for new notes
 
-- **Opt-in setting, off by default**, requested by the maintainer. Only notes (`.md`), never
-  folders, attachments, canvases or bases, and never existing notes.
+- **Opt-in setting, off by default**, requested by the maintainer. Only notes (`.md`, which
+  includes Excalidraw drawings and Kanban boards), never folders, attachments, canvases or bases,
+  and never existing notes.
 - **Only notes made on this device:** a note counts when it is opened within 5 seconds of being
   created (_New note_, daily notes, templates, a click on an unresolved link). Notes that arrive
   by sync (Obsidian Sync, iCloud, Git), imports and notes other plugins create in bulk are hardly
@@ -156,28 +157,40 @@ ideas are listed so they are not proposed again without a new reason.
   the device that made it picks, and the emoji syncs like any other. Creates are ignored until the
   layout is ready, because Obsidian reports every file as created while it starts (checked with
   `workspace.layoutReady` rather than by registering later, so a daily note created at startup
-  still counts).
+  still counts). Nothing is picked while `data.json` isn't read from disk (the backup stands in,
+  e.g. not downloaded yet) or belongs to a newer version: a change nobody made must not be what
+  writes the file then.
 - **Your own emoji win:** a note that already has an icon (moved there with a rename, or kept from
-  a deleted note at the same path) is left as it is. The pick is stored like an emoji set in the
+  a deleted note at the same path) is left as it is, unless it is this session's automatic pick
+  for that path (`Untitled.md` deleted and made again). The pick is stored like an emoji set in the
   picker (synced, changeable, removable) but not added to the recently used emoji: nobody chose
   it.
 - **Themed random** (`src/icons/auto-emoji.ts`, lists in `auto-emoji-themes.ts`). The first
   source that fits wins: English key words in the name (whole words only, plurals listed, no
   stemming: loose matching gave "Bank balance" → ☯️-style mistakes); a date the name starts with
   (the season of its month); the note's folder, else the folder above (key words in its name, or
-  its emoji when that belongs to a theme); otherwise about 150 friendly emoji (no flags, people,
-  skin tones, sequences, nothing ambiguous, religious or political). A key word with one obvious
-  emoji (pizza → 🍕) beats other key words and is taken unless a neighbour has it.
+  its emoji when that stands for a theme: the theme's first emoji, else an emoji in only one
+  theme; 🏆, in sport and goals, says nothing); otherwise about 160 friendly emoji (no flags,
+  people, skin tones, sequences, nothing ambiguous, religious, political or festive). A key word
+  with one obvious emoji (pizza → 🍕) beats other key words and is taken unless a neighbour has it.
+  Words in camel case stay one word ("MacBook" isn't about books). Left out on purpose: words that
+  often mean something else (map, as in Obsidian's maps of content; German "Chef").
+- **Sad or serious notes get none:** a name or folder with a word such as funeral, death, cancer
+  or divorce gets no emoji (an untitled note named that way loses its friendly one); any pick
+  would be out of place. Words with other common meanings (terminal, loss) aren't on the list.
 - **Variety:** chosen by chance among the theme's least used emoji: first not used by an item in
   the same folder, then not among the last 8 automatic picks of the session.
 - **Seasons by hemisphere**, from the time zone (a short list of southern zones; north
   otherwise). Holiday emoji (🎄, 🎃) only in their month.
 - **"Untitled", then named:** Obsidian names a new note _Untitled_ (in any language) and the real
-  name follows right away. A pick from the friendly emoji is remembered for this session; at the
-  note's first rename within 5 minutes, if it still has that emoji and the new name fits a theme,
-  the emoji is replaced. Picks that already fit (name, date or folder) stay.
-- Every listed emoji is in the picker's list, written as the list writes it (a test checks), so
-  emoji styles can draw it.
+  name follows right away. A pick from the friendly emoji is remembered for this session; when the
+  note first gets another name within 5 minutes, if it still has that emoji and the new name fits
+  a theme, the emoji is replaced. Moving the note or renaming a folder above it is no new name.
+  Picks that already fit (name, date or folder) stay.
+- Every listed emoji is in the picker's list, written as the list writes it, so emoji styles can
+  draw it, and from Emoji 12.0 or older, so the system emoji of Windows 10 and older phones can
+  draw it too: nobody chose these emoji, so nobody would know why a box shows instead. Tests check
+  both.
 
 ## Custom icons and emoji styles
 

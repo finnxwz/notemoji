@@ -73,7 +73,11 @@ export default class NotemojiPlugin extends Plugin {
 			() => Object.keys(this.data.unknown.libraryIcons),
 			{ getIcon, getIconIds },
 		);
-		this.newNotes = new NewNoteEmoji(this.app, this.icons, () => this.data.settings.autoEmoji);
+		this.newNotes = new NewNoteEmoji(
+			this.app,
+			this.icons,
+			() => this.data.settings.autoEmoji && this.file.settled,
+		);
 		this.customIcons = new CustomIconLibrary(
 			() => this.data.customIcons,
 			() => this.persist(),

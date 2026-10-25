@@ -11,6 +11,11 @@ const RENAME_WITHIN_MS = 5 * 60 * 1000;
 /** How many automatic picks of this session the next one tries to differ from. */
 const RECENT_PICKS = 8;
 
+/** A note's name from its path, without folder and `.md`. */
+function nameOf(path: string): string {
+	return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/i, "");
+}
+
 /** Drops the oldest entries while they are expired (a map keeps the order they were added in). */
 function dropExpired<T>(map: Map<string, T>, expired: (value: T) => boolean): void {
 	for (const [key, value] of map) {
@@ -40,6 +45,12 @@ export class NewNoteEmoji {
 	 * "Untitled" (in any language) and its real name follows right after.
 	 */
 	private readonly untitled = new Map<string, { emoji: string; time: number }>();
+	/**
+	 * This session's automatic emoji by path. A deleted note keeps its emoji
+	 * in data.json (deletes never touch it), so a new note at the same path
+	 * (Untitled.md again) would otherwise count as having one of its own.
+	 */
+	private readonly picks = new Map<string, string>();
 	/** The latest automatic picks, most recent first. */
 	private recentPicks: string[] = [];
 
@@ -68,48 +79,65 @@ export class NewNoteEmoji {
 		const created = file ? this.created.get(file.path) : undefined;
 		if (!file || created === undefined) return;
 		this.created.delete(file.path);
-		if (Date.now() - created <= OPEN_WITHIN_MS && this.enabled()) this.assign(file);
+		// Still a note: it may have been renamed to another extension meanwhile.
+		if (Date.now() - created <= OPEN_WITHIN_MS && this.enabled() && isNote(file)) {
+			this.assign(file);
+		}
 	}
 
 	/**
 	 * Vault `rename`, after the emoji moved along. When an untitled note gets
-	 * its real name and that fits a theme, the friendly emoji makes way, unless
-	 * the user chose another one meanwhile.
+	 * its real name and that fits a theme, the friendly emoji makes way (or
+	 * goes, for a sad or serious name), unless the user chose another one
+	 * meanwhile. Moving the note or renaming a folder above it is no new name.
 	 */
 	handleRename(file: TAbstractFile, oldPath: string): void {
-		const created = this.created.get(oldPath);
-		if (created !== undefined) {
-			this.created.delete(oldPath);
-			this.created.set(file.path, created);
+		for (const map of [this.created, this.picks, this.untitled] as Array<
+			Map<string, unknown>
+		>) {
+			const entry = map.get(oldPath);
+			if (entry === undefined) continue;
+			map.delete(oldPath);
+			map.set(file.path, entry);
 		}
 
-		const pick = this.untitled.get(oldPath);
-		if (!pick) return;
-		this.untitled.delete(oldPath);
-		if (!isNote(file) || !this.enabled() || Date.now() - pick.time > RENAME_WITHIN_MS) return;
+		const pick = this.untitled.get(file.path);
+		if (!pick || !isNote(file) || nameOf(oldPath) === file.basename) return;
+		this.untitled.delete(file.path);
+		if (!this.enabled() || Date.now() - pick.time > RENAME_WITHIN_MS) return;
 		if (this.icons.get(file.path) !== pick.emoji) return;
 		const next = this.pick(file);
-		if (next.source !== "fallback") this.store(file, next.emoji);
+		if (next === undefined) {
+			this.icons.removeIcon(file);
+			this.picks.delete(file.path);
+		} else if (next.source !== "fallback") {
+			this.store(file, next.emoji);
+		}
 	}
 
 	private assign(file: TFile): void {
 		// The user's own emoji always win, also one that moved here with a rename.
-		if (this.icons.get(file.path) !== undefined) return;
+		const current = this.icons.get(file.path);
+		if (current !== undefined && current !== this.picks.get(file.path)) return;
 		const pick = this.pick(file);
-		if (!this.store(file, pick.emoji) || pick.source !== "fallback") return;
+		if (!pick || !this.store(file, pick.emoji) || pick.source !== "fallback") return;
 		const now = Date.now();
 		dropExpired(this.untitled, (entry) => now - entry.time > RENAME_WITHIN_MS);
 		this.untitled.set(file.path, { emoji: pick.emoji, time: now });
 	}
 
-	/** Stores the emoji like one chosen in the picker, but not as recently used: nobody chose it. */
+	/**
+	 * Stores the emoji like one chosen in the picker, but not as recently used:
+	 * nobody chose it. Returns whether the note has it now.
+	 */
 	private store(file: TFile, emoji: string): boolean {
-		if (!this.icons.setIcon(file, emoji)) return false;
+		if (!this.icons.setIcon(file, emoji) && this.icons.get(file.path) !== emoji) return false;
+		this.picks.set(file.path, emoji);
 		this.recentPicks = [emoji, ...this.recentPicks].slice(0, RECENT_PICKS);
 		return true;
 	}
 
-	private pick(file: TFile): AutoPick {
+	private pick(file: TFile): AutoPick | undefined {
 		// Its folder and the one above, without the vault root.
 		const folders: TFolder[] = [];
 		let folder = file.parent;

@@ -71,12 +71,14 @@ export class DataFile {
 	constructor(private readonly host: DataFileHost) {}
 
 	/**
-	 * Whether the data shown is based on data.json as read from disk. Not
-	 * while it is missing or unreadable: then the backup may be shown, and
-	 * nothing is saved until a change is made here (sync may still bring it).
+	 * Whether changes nobody made here (automatic ones) may be saved: the data
+	 * is data.json as read from disk, and this version may save over it. Not
+	 * while data.json is missing or unreadable (the backup may be shown, and
+	 * nothing is saved until a change is made here; sync may still bring it),
+	 * or written by a newer version.
 	 */
-	get fromDisk(): boolean {
-		return this.onDisk !== null;
+	get settled(): boolean {
+		return this.onDisk !== null && this.readOnly === null;
 	}
 
 	/** Reads data.json at startup, repairing it from the backup when needed. */
