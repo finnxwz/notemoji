@@ -387,6 +387,22 @@ body.notemoji-custom-font {
 }
 
 /* ---------------------------------------------------------------------------
+   Settings: a part Notemoji draws itself (style cards, custom icons) fills a
+   whole row; the row's name only serves Obsidian's settings search.
+   --------------------------------------------------------------------------- */
+
+.setting-item.notemoji-section-row {
+	display: block;
+	padding: 0;
+	border: none;
+}
+
+.notemoji-section-row > .setting-item-info,
+.notemoji-section-row > .setting-item-control {
+	display: none;
+}
+
+/* ---------------------------------------------------------------------------
    Settings: emoji style cards
    --------------------------------------------------------------------------- */
 

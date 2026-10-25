@@ -31,12 +31,6 @@ export default defineConfig([
 		rules: { "obsidianmd/validate-manifest": "error" },
 	},
 	{
-		// minAppVersion is 1.7.2: the settings tab is built in display(), as getSettingDefinitions()
-		// needs Obsidian 1.13.
-		files: ["src/**"],
-		rules: { "obsidianmd/settings-tab/prefer-setting-definitions": "off" },
-	},
-	{
 		// Node tooling (never shipped): fetch and dynamic imports are fine here.
 		files: ["scripts/**"],
 		rules: {

@@ -283,8 +283,14 @@ ideas are listed so they are not proposed again without a new reason.
 - Undocumented Obsidian internals (explorer items, tab title elements) only through
   `src/internals.ts`, always defensive.
 - `npm run check` (Prettier, ESLint with the Obsidian rules, TypeScript, Vitest, build) must pass;
-  `src/` is linted with Obsidian's recommended rules as the community directory's scorecard runs
-  them, except `prefer-setting-definitions` (`getSettingDefinitions()` needs Obsidian 1.13).
+  `src/` is linted with Obsidian's recommended rules exactly as the community directory's
+  scorecard runs them.
+- **Settings as setting definitions** (Obsidian 1.13), so every setting is in Obsidian's settings
+  search. One list of groups and rows serves both: 1.13 reads it from `getSettingDefinitions()`,
+  older versions get the same rows drawn by `display()`. The emoji style cards and custom icons are
+  drawn by Notemoji inside a row each; rows that change (cache size, missing files) update
+  themselves. Settings are read and written through the plugin (`getControlValue` and
+  `setControlValue`), never by Obsidian saving the settings alone over `data.json`.
   CI runs it with read-only permissions. A test keeps `manifest.json`, `package.json`, the lock
   file and `versions.json` in step.
 - **Releases are made by hand with a workflow** (`.github/workflows/release.yml`), never on a

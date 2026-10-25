@@ -1,6 +1,13 @@
-import { addIcon, Notice, PluginSettingTab, Setting } from "obsidian";
+import {
+	addIcon,
+	Notice,
+	PluginSettingTab,
+	Setting,
+	type SettingDefinitionItem,
+	type SettingDropdownControl,
+	type SettingToggleControl,
+} from "obsidian";
 import { confirm } from "../confirm-modal";
-import type { NoteTitleMode } from "../data";
 import type NotemojiPlugin from "../main";
 import { CustomIconsSection } from "./custom-icons-section";
 import { EmojiStyleSection } from "./emoji-style-section";
@@ -14,6 +21,41 @@ const SETTINGS_ICON_SVG =
 	"style=\"stroke: none; fill: currentColor; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif\">" +
 	"😀</text>";
 
+const CACHE_DESC =
+	"Pre-rendered emoji for each style, so the picker opens and scrolls smoothly. Removed with the plugin.";
+
+/** The settings changed with a toggle or a dropdown. */
+type ControlKey = "noteTitle" | "showInTabs" | "showInViewHeader" | "showInLinks" | "autoEmoji";
+const CONTROL_KEYS: ReadonlySet<string> = new Set<ControlKey>([
+	"noteTitle",
+	"showInTabs",
+	"showInViewHeader",
+	"showInLinks",
+	"autoEmoji",
+]);
+
+interface RowBase {
+	name: string;
+	desc?: string;
+	/** More words the settings search finds the row by. */
+	aliases?: string[];
+}
+
+/** A row of the tab: a setting with a toggle or dropdown, or one drawn by Notemoji. */
+type Row =
+	| (RowBase & { control: SettingToggleControl<ControlKey> | SettingDropdownControl<ControlKey> })
+	| (RowBase & { render: (setting: Setting) => void });
+
+interface Group {
+	heading: string;
+	rows: Row[];
+}
+
+/**
+ * Notemoji's settings tab. Obsidian 1.13 builds it from setting definitions,
+ * which also put every setting into its settings search; older versions call
+ * `display()`, which draws the same rows itself.
+ */
 export class NotemojiSettingTab extends PluginSettingTab {
 	private readonly plugin: NotemojiPlugin;
 
@@ -26,95 +68,157 @@ export class NotemojiSettingTab extends PluginSettingTab {
 		Reflect.set(this, "icon", SETTINGS_ICON);
 	}
 
-	// Obsidian 1.13 deprecated display() for getSettingDefinitions(), which older
-	// versions don't have; re-renders call render() directly.
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return this.groups().map(({ heading, rows }) => ({ type: "group", heading, items: rows }));
+	}
+
+	getControlValue(key: string): unknown {
+		return CONTROL_KEYS.has(key) ? this.plugin.settings[key as ControlKey] : undefined;
+	}
+
+	/** Through the plugin, which saves all of data.json and shows the change right away. */
+	setControlValue(key: string, value: unknown): void {
+		if (!CONTROL_KEYS.has(key)) return;
+		// A toggle gives a boolean and the dropdown one of its options, as stored.
+		if (typeof value !== typeof this.plugin.settings[key as ControlKey]) return;
+		this.plugin.updateSettings({ [key]: value });
+	}
+
+	/** Before Obsidian 1.13 (deprecated since): the rows of `groups()`, drawn here. */
 	display(): void {
-		this.render();
-	}
-
-	private render(): void {
-		const { containerEl, plugin } = this;
-		const { settings } = plugin;
+		const { containerEl } = this;
 		containerEl.empty();
-
-		new Setting(containerEl).setName("Display").setHeading();
-		new Setting(containerEl)
-			.setName("Emoji at note title")
-			.setDesc("Shown while the inline title is on (appearance settings).")
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOption("above", "Large, above the title")
-					.addOption("inline", "Inline, before the title")
-					.addOption("off", "Off")
-					.setValue(settings.noteTitle)
-					.onChange((value) =>
-						plugin.updateSettings({ noteTitle: value as NoteTitleMode }),
-					),
-			);
-
-		new Setting(containerEl)
-			.setName("Emoji in tab titles")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(settings.showInTabs)
-					.onChange((value) => plugin.updateSettings({ showInTabs: value })),
-			);
-
-		new Setting(containerEl)
-			.setName("Emoji in view header title")
-			.setDesc("The title in the bar at the top of each tab.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(settings.showInViewHeader)
-					.onChange((value) => plugin.updateSettings({ showInViewHeader: value })),
-			);
-
-		new Setting(containerEl)
-			.setName("Emoji next to links")
-			.setDesc("The linked note's emoji in front of links in your notes.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(settings.showInLinks)
-					.onChange((value) => plugin.updateSettings({ showInLinks: value })),
-			);
-
-		new Setting(containerEl)
-			.setName("Automatic emoji for new notes")
-			.setDesc(
-				"Give each new note an emoji that fits its name or folder, with a bit of chance so notes next to each other differ. Your own emoji always win.",
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(settings.autoEmoji)
-					.onChange((value) => plugin.updateSettings({ autoEmoji: value })),
-			);
-
-		this.displayEmojiStyle(containerEl);
-		this.displayCustomIcons(containerEl);
-		this.displayStoredData(containerEl);
+		for (const group of this.groups()) {
+			new Setting(containerEl).setName(group.heading).setHeading();
+			for (const row of group.rows) {
+				const setting = new Setting(containerEl).setName(row.name);
+				if (row.desc !== undefined) setting.setDesc(row.desc);
+				if ("render" in row) row.render(setting);
+				else this.addControl(setting, row.control);
+			}
+		}
 	}
 
-	private displayEmojiStyle(containerEl: HTMLElement): void {
-		new Setting(containerEl).setName("Emoji style").setHeading();
-		new EmojiStyleSection(this.plugin, containerEl);
+	private addControl(
+		setting: Setting,
+		control: SettingToggleControl<ControlKey> | SettingDropdownControl<ControlKey>,
+	): void {
+		const value = this.getControlValue(control.key);
+		const change = (next: unknown) => this.setControlValue(control.key, next);
+		if (control.type === "toggle") {
+			setting.addToggle((toggle) => toggle.setValue(value === true).onChange(change));
+		} else {
+			setting.addDropdown((dropdown) =>
+				dropdown.addOptions(control.options).setValue(String(value)).onChange(change),
+			);
+		}
 	}
 
-	private displayCustomIcons(containerEl: HTMLElement): void {
-		new Setting(containerEl).setName("Custom icons").setHeading();
-		new CustomIconsSection(this.plugin, containerEl);
+	private groups(): Group[] {
+		return [
+			{
+				heading: "Display",
+				rows: [
+					{
+						name: "Emoji at note title",
+						desc: "Shown while the inline title is on (appearance settings).",
+						control: {
+							type: "dropdown",
+							key: "noteTitle",
+							options: {
+								above: "Large, above the title",
+								inline: "Inline, before the title",
+								off: "Off",
+							},
+						},
+					},
+					{
+						name: "Emoji in tab titles",
+						control: { type: "toggle", key: "showInTabs" },
+					},
+					{
+						name: "Emoji in view header title",
+						desc: "The title in the bar at the top of each tab.",
+						control: { type: "toggle", key: "showInViewHeader" },
+					},
+					{
+						name: "Emoji next to links",
+						desc: "The linked note's emoji in front of links in your notes.",
+						control: { type: "toggle", key: "showInLinks" },
+					},
+					{
+						name: "Automatic emoji for new notes",
+						desc: "Give each new note an emoji that fits its name or folder, with a bit of chance so notes next to each other differ. Your own emoji always win.",
+						control: { type: "toggle", key: "autoEmoji" },
+					},
+				],
+			},
+			{
+				heading: "Emoji style",
+				rows: [
+					{
+						name: "Emoji style",
+						aliases: ["Twemoji", "OpenMoji", "Noto", "font", "download"],
+						render: (setting) =>
+							this.section(setting, (el) => new EmojiStyleSection(this.plugin, el)),
+					},
+				],
+			},
+			{
+				heading: "Custom icons",
+				rows: [
+					{
+						name: "Custom icons",
+						aliases: ["image", "upload", "storage", "Obsidian icons"],
+						render: (setting) =>
+							this.section(setting, (el) => new CustomIconsSection(this.plugin, el)),
+					},
+				],
+			},
+			{
+				heading: "Maintenance",
+				rows: [
+					{
+						name: "Picker image cache",
+						desc: CACHE_DESC,
+						render: (setting) => this.pickerCache(setting),
+					},
+					{
+						name: "Remove emoji of missing files",
+						// Replaced by the current count when drawn.
+						desc: "Emoji of deleted notes, folders and files are kept, so they come back after a restore or sync.",
+						render: (setting) => this.missingFiles(setting),
+					},
+				],
+			},
+		];
 	}
 
-	private displayStoredData(containerEl: HTMLElement): void {
-		const { icons } = this.plugin;
+	/**
+	 * A part of the tab Notemoji draws itself (and re-draws after a change),
+	 * in place of the row's name and control.
+	 */
+	private section(setting: Setting, create: (el: HTMLElement) => void): void {
+		setting.setClass("notemoji-section-row");
+		create(setting.settingEl);
+	}
+
+	private pickerCache(setting: Setting): void {
 		const { spriteCache } = this.plugin.style;
-		new Setting(containerEl).setName("Maintenance").setHeading();
-
-		const cacheSetting = new Setting(containerEl)
-			.setName("Picker image cache")
-			.setDesc(
-				"Pre-rendered emoji for each style, so the picker opens and scrolls smoothly. Removed with the plugin.",
-			);
-		cacheSetting.addButton((button) => {
+		setting.addButton((button) => {
+			const show = () =>
+				void spriteCache.size().then(
+					(bytes) => {
+						setting.setDesc(
+							bytes === 0
+								? CACHE_DESC
+								: `${formatBytes(bytes)} of pre-rendered emoji for each style, so the picker opens and scrolls smoothly. They are drawn again when needed and removed with the plugin.`,
+						);
+						button.setDisabled(bytes === 0);
+					},
+					(error: unknown) =>
+						console.error("[notemoji] Could not read the picker image cache.", error),
+				);
 			button
 				.setButtonText("Clear")
 				.setDisabled(true)
@@ -124,46 +228,40 @@ export class NotemojiSettingTab extends PluginSettingTab {
 					} catch (error) {
 						console.error("[notemoji] Could not clear the picker image cache.", error);
 					}
-					this.render();
+					show();
 				});
-			void spriteCache.size().then(
-				(bytes) => {
-					if (bytes === 0) return;
-					cacheSetting.setDesc(
-						`${formatBytes(bytes)} of pre-rendered emoji for each style, so the picker opens and scrolls smoothly. They are drawn again when needed and removed with the plugin.`,
-					);
-					button.setDisabled(false);
-				},
-				(error: unknown) =>
-					console.error("[notemoji] Could not read the picker image cache.", error),
-			);
+			show();
 		});
+	}
 
-		const missing = icons.missingPaths().length;
-		new Setting(containerEl)
-			.setName("Remove emoji of missing files")
-			.setDesc(
-				missing === 0
-					? "Emoji of deleted notes, folders and files are kept, so they come back after a restore or sync. Nothing to clean up right now."
-					: `${plural(missing, "emoji belongs", "emoji belong")} to notes, folders or files that no longer exist. ` +
-							"They are kept on purpose, so they come back after a restore or sync.",
-			)
-			.addButton((button) =>
-				setDestructive(button)
-					.setButtonText(missing === 0 ? "Remove" : `Remove ${missing}`)
-					.setDisabled(missing === 0)
-					.onClick(async () => {
-						const confirmed = await confirm(this.plugin.app, {
-							title: "Remove emoji of missing files?",
-							message: `${plural(missing, "emoji", "emoji")} of notes, folders or files that no longer exist will be removed. They won't come back if the items are restored or synced later.`,
-							confirmText: "Remove",
-							warning: true,
-						});
-						if (!confirmed) return;
-						const removed = icons.removeMissing();
-						new Notice(`Removed ${plural(removed, "emoji", "emoji")}.`);
-						this.render();
-					}),
-			);
+	private missingFiles(setting: Setting): void {
+		const { icons } = this.plugin;
+		setting.addButton((button) => {
+			const show = () => {
+				const missing = icons.missingPaths().length;
+				setting.setDesc(
+					missing === 0
+						? "Emoji of deleted notes, folders and files are kept, so they come back after a restore or sync. Nothing to clean up right now."
+						: `${plural(missing, "emoji belongs", "emoji belong")} to notes, folders or files that no longer exist. ` +
+								"They are kept on purpose, so they come back after a restore or sync.",
+				);
+				button.setButtonText(missing === 0 ? "Remove" : `Remove ${missing}`);
+				button.setDisabled(missing === 0);
+			};
+			setDestructive(button).onClick(async () => {
+				const missing = icons.missingPaths().length;
+				const confirmed = await confirm(this.plugin.app, {
+					title: "Remove emoji of missing files?",
+					message: `${plural(missing, "emoji", "emoji")} of notes, folders or files that no longer exist will be removed. They won't come back if the items are restored or synced later.`,
+					confirmText: "Remove",
+					warning: true,
+				});
+				if (!confirmed) return;
+				const removed = icons.removeMissing();
+				new Notice(`Removed ${plural(removed, "emoji", "emoji")}.`);
+				show();
+			});
+			show();
+		});
 	}
 }

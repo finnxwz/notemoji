@@ -584,7 +584,7 @@ export class DropdownComponent extends ValueComponent<string> {
 		return super.setValue(value);
 	}
 	addOptions(options: Record<string, string>): this {
-		Object.assign(this.options, options);
+		for (const [value, display] of Object.entries(options)) this.addOption(value, display);
 		return this;
 	}
 }

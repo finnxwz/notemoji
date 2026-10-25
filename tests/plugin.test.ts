@@ -9,6 +9,7 @@ import {
 	network,
 	notices,
 	openModals,
+	Setting,
 	settingsCreated,
 	TFile,
 	TFolder,
@@ -20,6 +21,7 @@ import { svgMarkup } from "../src/icons/library-icons";
 import { encodeBase64 } from "../src/icons/image-format";
 import { ICONS_MARKER } from "../src/data";
 import { findEmojiSet } from "../src/style/emoji-sets";
+import type { NotemojiSettingTab } from "../src/settings/settings-tab";
 import { loadPlugin } from "./plugin-harness";
 
 interface PickerLike {
@@ -533,6 +535,86 @@ describe("settings tab", () => {
 		expect(openModals.at(-1)!.contentEl.textContent).toContain("won't come back");
 		await answer("Remove");
 		expect(harness.lastSaved()?.icons).toEqual({ Alive: "🌱" });
+		// The row shows the new state right away.
+		expect(button.buttonEl.textContent).toBe("Remove");
+		expect(button.disabled).toBe(true);
+	});
+});
+
+describe("settings tab in Obsidian 1.13", () => {
+	interface Row {
+		name: string;
+		control?: { key: string };
+		render?: (setting: Setting) => void;
+	}
+
+	/** The tab as Obsidian 1.13 builds it: from setting definitions, not display(). */
+	async function definitions(options: Parameters<typeof loadPlugin>[0] = {}) {
+		const harness = await loadPlugin(options);
+		const tab = harness.fake.settingTabs[0] as unknown as NotemojiSettingTab;
+		const groups = tab.getSettingDefinitions() as Array<{ heading: string; items: Row[] }>;
+		return { ...harness, tab, groups };
+	}
+
+	it("puts every setting into Obsidian's settings search", async () => {
+		const { groups } = await definitions();
+		expect(groups.map((group) => group.heading)).toEqual([
+			"Display",
+			"Emoji style",
+			"Custom icons",
+			"Maintenance",
+		]);
+		expect(groups[0].items.map((item) => item.control?.key)).toEqual([
+			"noteTitle",
+			"showInTabs",
+			"showInViewHeader",
+			"showInLinks",
+			"autoEmoji",
+		]);
+	});
+
+	it("reads and changes settings through Notemoji, which saves all of data.json", async () => {
+		const harness = await definitions({ data: { version: 2, icons: { "A.md": "🚀" } } });
+		expect(harness.tab.getControlValue("showInLinks")).toBe(false);
+		harness.tab.setControlValue("showInLinks", true);
+		await flush();
+		expect(harness.plugin.settings.showInLinks).toBe(true);
+		expect(harness.lastSaved()?.icons).toEqual({ "A.md": "🚀" });
+		// Only its own controls, with values of the stored kind.
+		harness.tab.setControlValue("emojiStyle", "twemoji");
+		harness.tab.setControlValue("showInTabs", "yes");
+		expect(harness.plugin.settings.emojiStyle).toBe("system");
+		expect(harness.plugin.settings.showInTabs).toBe(true);
+	});
+
+	it("draws the same rows in older versions", async () => {
+		const harness = await definitions();
+		settingsCreated.length = 0;
+		harness.fake.settingTabs[0].display();
+		const rows = settingsCreated.filter(
+			(setting) => setting.settingEl.parentElement === harness.tab.containerEl,
+		);
+		expect(rows.map((setting) => setting.nameEl.textContent)).toEqual(
+			harness.groups.flatMap((group) => [
+				group.heading,
+				...group.items.map((row) => row.name),
+			]),
+		);
+	});
+
+	it("draws the emoji styles and the custom icons in their rows", async () => {
+		const { groups } = await definitions();
+		const containerEl = createDiv();
+		for (const group of groups.slice(1, 3)) {
+			const row = group.items[0];
+			row.render?.(new Setting(containerEl).setName(row.name));
+		}
+		expect(
+			containerEl.querySelector(".notemoji-section-row .notemoji-styles-section"),
+		).not.toBe(null);
+		expect(
+			containerEl.querySelector(".notemoji-section-row .notemoji-custom-icons-section"),
+		).not.toBe(null);
 	});
 });
 
