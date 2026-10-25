@@ -32,3 +32,10 @@ npm run demo           # re-records everything; --only=styles,banner for some of
 
 It needs Chromium for Playwright (`npx playwright-core install chromium`), ffmpeg, and a colour
 emoji font. gifsicle and pngquant, when installed, make the files smaller.
+
+## Releases
+
+Raise the version in `manifest.json`, `package.json`, `package-lock.json` and `versions.json`
+(a test checks they agree), then run the _Release_ workflow by hand in the repository's Actions
+tab. It checks and builds that version, signs the files and creates a draft release; review it
+and publish it.

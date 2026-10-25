@@ -286,7 +286,12 @@ ideas are listed so they are not proposed again without a new reason.
   `src/` is linted with Obsidian's recommended rules as the community directory's scorecard runs
   them, except `prefer-setting-definitions` (`getSettingDefinitions()` needs Obsidian 1.13).
   CI runs it with read-only permissions. A test keeps `manifest.json`, `package.json`, the lock
-  file and `versions.json` in step. No release automation.
+  file and `versions.json` in step.
+- **Releases are made by hand with a workflow** (`.github/workflows/release.yml`), never on a
+  push: it builds the version in `manifest.json`, runs `npm run check`, signs where the three
+  release files come from (artifact attestations, which the community directory's scorecard
+  checks) and creates a draft release to publish. Built from the repository with `npm ci`, the
+  release `main.js` is exactly what `npm run build` makes, which the scorecard also checks.
 - README media is recorded from the real plugin (`npm run demo`), so it stays truthful.
 
 ## Open
