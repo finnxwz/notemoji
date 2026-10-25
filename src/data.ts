@@ -44,7 +44,7 @@ export interface NotemojiSettings {
 }
 
 export const DEFAULT_SETTINGS: Readonly<NotemojiSettings> = {
-	noteTitle: "off",
+	noteTitle: "inline",
 	showInTabs: true,
 	showInViewHeader: false,
 	showInLinks: false,

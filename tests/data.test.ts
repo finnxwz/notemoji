@@ -59,7 +59,7 @@ describe("parseData", () => {
 			emojiFont: "",
 			autoEmoji: false,
 		});
-		expect(parseData({ settings: { noteTitle: "huge" } }).settings.noteTitle).toBe("off");
+		expect(parseData({ settings: { noteTitle: "huge" } }).settings.noteTitle).toBe("inline");
 	});
 
 	it("reads the emoji style and font, ignoring invalid values", () => {

@@ -65,7 +65,7 @@ right-click.
 
 | Setting                       | Default      | What it does                                                                                            |
 | ----------------------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
-| Emoji at note title           | Off          | _Inline, before the title_, or _Large, above the title_ (click it to change the emoji)                  |
+| Emoji at note title           | Inline       | Before the title, _Large, above the title_ (click it to change the emoji), or _Off_                     |
 | Emoji in tab titles           | On           | The emoji in front of each tab's name                                                                   |
 | Emoji in view header title    | Off          | The emoji in front of the title in the bar at the top of a tab                                          |
 | Emoji next to links           | Off          | The linked note's emoji in front of links in your notes, in reading view and Live Preview               |
@@ -151,10 +151,10 @@ deletes them. Everything is in the plugin folder and is removed with the plugin.
 </details>
 
 <details>
-<summary><b>Where is the emoji at the note title?</b></summary>
+<summary><b>Why don't I see the emoji at the note title?</b></summary>
 
-Turn it on under _Emoji at note title_ in the settings. It follows Obsidian's _Show inline title_
-setting (Appearance).
+It is shown before the title while Obsidian's _Show inline title_ setting (Appearance) is on.
+Under _Emoji at note title_ you can make it large, above the title, or turn it off.
 
 </details>
 

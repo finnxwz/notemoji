@@ -102,7 +102,7 @@ describe("commands", () => {
 		expect(harness.lastSaved()).toEqual({
 			version: 2,
 			settings: {
-				noteTitle: "off",
+				noteTitle: "inline",
 				showInTabs: true,
 				showInViewHeader: false,
 				showInLinks: false,
@@ -493,7 +493,7 @@ describe("settings tab", () => {
 	it("changes and saves the display settings", async () => {
 		const harness = await openSettings();
 		const dropdown = harness.setting("Emoji at note title").components[0] as DropdownComponent;
-		expect(dropdown.getValue()).toBe("off");
+		expect(dropdown.getValue()).toBe("inline");
 		dropdown.change("above");
 		(harness.setting("Emoji in tab titles").components[0] as ToggleComponent).change(false);
 		(harness.setting("Emoji in view header title").components[0] as ToggleComponent).change(

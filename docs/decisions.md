@@ -101,9 +101,10 @@ ideas are listed so they are not proposed again without a new reason.
 ## Where emoji appear
 
 - File explorer: always.
-- Note title: _Off_ (default) / _Large, above the title_ (clickable, opens the picker) /
-  _Inline_ (display-only). Hidden when Obsidian's inline title is off. Editing and reading view
-  only.
+- Note title: _Inline_ (default, display-only) / _Large, above the title_ (clickable, opens the
+  picker) / _Off_. Inline by default since 2.0.0: the title is where people look, and the emoji
+  changes nothing in the note. Hidden when Obsidian's inline title is off. Editing and reading
+  view only.
   - _Rejected:_ hover previews and embeds; an "Add icon" button on notes without an emoji.
 - Tab titles: on by default. View header title: off by default (changed after testing).
 - Title decorations are display-only (CSS `::before` from an attribute), never part of the
