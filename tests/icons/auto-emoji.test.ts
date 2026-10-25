@@ -4,6 +4,7 @@ import {
 	AutoPick,
 	hemisphereOf,
 	isSensitive,
+	isUntitled,
 	monthOfDate,
 	nameWords,
 	NewNote,
@@ -17,6 +18,7 @@ import {
 	HOLIDAY_EMOJI,
 	SEASON_EMOJI,
 	THEMES,
+	UNTITLED_NAMES,
 } from "../../src/icons/auto-emoji-themes";
 import { findEntry, getCatalog } from "../../src/picker/catalog";
 
@@ -132,6 +134,33 @@ describe("lists", () => {
 		}
 		for (const unpleasant of ["💩", "🍆", "🍑", "🔫", "💣", "☠️", "💊", "🩸", "☯️", "☮️"]) {
 			expect(friendly).not.toContain(unpleasant);
+		}
+	});
+});
+
+describe("isUntitled", () => {
+	it("knows the name Obsidian gives a new note, in every language and numbered", () => {
+		for (const name of UNTITLED_NAMES) {
+			expect(isUntitled(name), name).toBe(true);
+			expect(isUntitled(`${name} 3`), name).toBe(true);
+		}
+		// Persian writes it with an invisible joiner.
+		expect(isUntitled(`بی${String.fromCodePoint(0x200c)}نام`)).toBe(true);
+	});
+
+	it("lists every name once and without invisible characters", () => {
+		expect(new Set(UNTITLED_NAMES).size).toBe(UNTITLED_NAMES.length);
+		for (const name of UNTITLED_NAMES) expect(name, name).not.toMatch(/\p{Cf}/u);
+	});
+
+	it("is false for real names", () => {
+		for (const name of [
+			"Untitled draft",
+			"My untitled novel",
+			"Unbenannte Notiz",
+			"2024-01-02",
+		]) {
+			expect(isUntitled(name), name).toBe(false);
 		}
 	});
 });

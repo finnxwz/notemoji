@@ -173,7 +173,7 @@ copying a paragraph copies the links as they are. In reading view, clicking it o
 With _Automatic emoji for new notes_ on, each note you create on this device gets an emoji that
 fits an English word in its name (`Pizza night` → 🍕, `Trip to Rome` → a travel emoji), the season
 of a daily note's date, or its folder; otherwise a pleasant one by chance. Notes next to each other
-get different emoji. An _Untitled_ note that you name right away gets an emoji for its name. Sad or
+get different emoji. A new _Untitled_ note gets its emoji once you've named it. Sad or
 serious notes (a funeral, an illness) get none. Your own emoji always win: notes that have one are
 never changed, and you can change or remove the automatic one like any other (it is not added to
 your recently used emoji). Notes that arrive by sync or import are left alone, so your devices

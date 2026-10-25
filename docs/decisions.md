@@ -190,8 +190,14 @@ ideas are listed so they are not proposed again without a new reason.
   the same folder, then not among the last 8 automatic picks of the session.
 - **Seasons by hemisphere**, from the time zone (a short list of southern zones; north
   otherwise). Holiday emoji (🎄, 🎃) only in their month.
-- **"Untitled", then named:** Obsidian names a new note _Untitled_ (in any language) and the real
-  name follows right away. Each automatic pick is remembered for this session; when the note gets
+- **"Untitled" notes wait for their name:** Obsidian names a new note _Untitled_ (translated:
+  _Unbenannt_, _Sans titre_ …, from all of Obsidian's translations, also numbered) until it gets
+  a name, which is what says what the note is about. Such a note gets no emoji until then, and once
+  named, its emoji is picked as for any new note (name, folder, friendly), however long that takes
+  in this session; one left untitled gets none. An emoji the user sets meanwhile wins. _Rejected:_
+  a friendly emoji right away, replaced when the name fits (looked random, and stayed random for
+  names in other languages than English).
+- **Renamed soon after:** each automatic pick is remembered for this session; when the note gets
   another name within 5 minutes of it and still has that emoji, a sad or serious name removes it,
   and a pick from the friendly emoji makes way for one that fits the new name. Picks that already
   fit (name, date or folder) stay. Moving the note or renaming a folder above it is no new name.

@@ -598,6 +598,65 @@ export const SENSITIVE_WORDS = `funeral, funerals, death, deaths, dead, died, dy
 	anxiety, panic attack, panic attacks, lonely, loneliness, bad mood, low mood`;
 
 /**
+ * The name Obsidian gives a new note before it has one ("Untitled"), in every
+ * language Obsidian is translated into (`plugins.file-explorer.label-untitled-file`
+ * in obsidianmd/obsidian-translations). Compared without invisible format
+ * characters, which some languages put in (Persian).
+ */
+export const UNTITLED_NAMES = [
+	"Untitled",
+	"Başlıksız",
+	"Bez naslova",
+	"Bez nazwy",
+	"Bez nosaukuma",
+	"Bez názvu",
+	"Bô miâ-tshing tóng-àn",
+	"Chưa đặt tên",
+	"Fără titlu",
+	"Gan teideal",
+	"I paemërtuar",
+	"Naamloos",
+	"Namnlös",
+	"Neimenovano",
+	"Nimetön",
+	"Nomlanmagan",
+	"Névtelen",
+	"Sans titre",
+	"Sem título",
+	"Sen título",
+	"Sense títol",
+	"Senza nome",
+	"Sin título",
+	"Tak bertajuk",
+	"Tanpa judul",
+	"Unavngivet",
+	"Unbenannt",
+	"Uten tittel",
+	"War azwel",
+	"Χωρίς Τίτλο",
+	"Без названия",
+	"Без назви",
+	"Без назвы",
+	"Без наслова",
+	"Неозаглавен файл",
+	"ללא כותרת",
+	"بدون عنوان",
+	"بینام",
+	"अनशीर्षकम्",
+	"शीर्षकविहीन",
+	"নামহীন",
+	"தலைப்பில்லாதது",
+	"මාතෘකාවක් නොමැති (Untitled)",
+	"ยังไม่ได้ตั้งชื่อ",
+	"უსათაურო",
+	"ርዕስ አልባ",
+	"គ្មានចំណងជើង",
+	"未命名",
+	"無題のファイル",
+	"무제",
+];
+
+/**
  * Time zones south of the equator, for the seasons of dates: names, and
  * prefixes ending in `/`. Everything else counts as north, where most people
  * live. Also the old names that browsers still report (`America/Mendoza` for

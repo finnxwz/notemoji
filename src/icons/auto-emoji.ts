@@ -6,6 +6,7 @@ import {
 	SENSITIVE_WORDS,
 	SOUTHERN_TIME_ZONES,
 	THEMES,
+	UNTITLED_NAMES,
 } from "./auto-emoji-themes";
 
 /**
@@ -48,6 +49,25 @@ const VARIATION_SELECTOR = String.fromCodePoint(0xfe0f);
 
 function bare(emoji: string): string {
 	return emoji.split(VARIATION_SELECTOR).join("");
+}
+
+/** Without invisible format characters (U+200C and the like), lower case. */
+function comparable(name: string): string {
+	return name
+		.replace(/\p{Cf}/gu, "")
+		.trim()
+		.toLowerCase();
+}
+
+let untitledNames: ReadonlySet<string> | undefined;
+
+/**
+ * Whether a note still has the name Obsidian gave it when it was made
+ * ("Untitled", "Untitled 2", "Unbenannt" …), so its real name is still to come.
+ */
+export function isUntitled(name: string): boolean {
+	untitledNames ??= new Set(UNTITLED_NAMES.map(comparable));
+	return untitledNames.has(comparable(name.replace(/ \d+$/, "")));
 }
 
 /** The emoji of a list in `auto-emoji-themes.ts`. */

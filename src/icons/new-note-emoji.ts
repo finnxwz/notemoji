@@ -1,5 +1,5 @@
 import type { App, TAbstractFile, TFile, TFolder } from "obsidian";
-import { AutoPick, hemisphereOf, pickAutoEmoji } from "./auto-emoji";
+import { AutoPick, hemisphereOf, isUntitled, pickAutoEmoji } from "./auto-emoji";
 import { IconService, isNote } from "./icon-service";
 
 /** How soon after it was created a note must be opened to count as made on this device (ms). */
@@ -56,10 +56,13 @@ export class NewNoteEmoji {
 	/** Notes created and not opened yet, with the time they were created. */
 	private readonly created = new Map<string, number>();
 	/**
-	 * This session's automatic emoji by path. Obsidian names a new note
-	 * "Untitled" (in any language) and its real name follows right after, which
-	 * may fit better. A deleted note keeps its emoji in data.json (deletes never
-	 * touch it), so a new note at the same path (Untitled.md again) would
+	 * New notes still named "Untitled" (Obsidian's name for a note before it has
+	 * one): they get their emoji with their real name, which says what they are.
+	 */
+	private readonly unnamed = new Set<string>();
+	/**
+	 * This session's automatic emoji by path. A deleted note keeps its emoji in
+	 * data.json (deletes never touch it), so a new note at the same path would
 	 * otherwise count as having one of its own.
 	 */
 	private readonly picks = new Map<string, Pick>();
@@ -97,7 +100,8 @@ export class NewNoteEmoji {
 	}
 
 	/**
-	 * Vault `rename`, after the emoji moved along. Soon after its automatic
+	 * Vault `rename`, after the emoji moved along. A new note that was
+	 * "Untitled" gets its emoji now that it has a name. Soon after its automatic
 	 * emoji, a sad or serious name removes it, and a friendly emoji makes way
 	 * for one that fits the new name, unless the user chose an emoji meanwhile.
 	 * Moving the note or renaming a folder above it is no new name.
@@ -105,6 +109,13 @@ export class NewNoteEmoji {
 	handleRename(file: TAbstractFile, oldPath: string): void {
 		moveEntry(this.created, oldPath, file.path);
 		moveEntry(this.picks, oldPath, file.path);
+
+		if (this.unnamed.delete(oldPath)) {
+			if (!isNote(file)) return;
+			if (isUntitled(file.basename)) this.unnamed.add(file.path);
+			else if (this.enabled()) this.assign(file);
+			return;
+		}
 
 		const pick = this.picks.get(file.path);
 		if (!pick || !isNote(file) || fileName(oldPath) === file.name) return;
@@ -125,10 +136,15 @@ export class NewNoteEmoji {
 	 */
 	forget(path: string): void {
 		this.created.delete(path);
+		this.unnamed.delete(path);
 		this.picks.delete(path);
 	}
 
 	private assign(file: TFile): void {
+		if (isUntitled(file.basename)) {
+			this.unnamed.add(file.path);
+			return;
+		}
 		// The user's own emoji always win, also one that moved here with a rename.
 		const current = this.icons.get(file.path);
 		if (current !== undefined && current !== this.picks.get(file.path)?.emoji) return;
