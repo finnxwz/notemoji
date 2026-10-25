@@ -304,29 +304,42 @@ describe("compatibility with other versions", () => {
 		expect(merged.settings).toMatchObject({ showInTabs: false, noteTitle: "above" });
 	});
 
-	it("combines copies of Obsidian icons entry by entry", () => {
-		const base = serializeData(
-			parseData({ version: 2, libraryIcons: { "lucide:star": STAR, "lucide:x": STAR } }),
+	it("combines copies of Obsidian icons without ever dropping or replacing the file's", () => {
+		const stored = (icons: Record<string, string>, libraryIcons: Record<string, string>) =>
+			serializeData(parseData({ version: 2, icons, libraryIcons }));
+		const base = stored(
+			{ "A.md": "lucide:star", "B.md": "lucide:x" },
+			{ "lucide:star": STAR, "lucide:x": STAR },
 		);
-		// Here: the copy of x dropped, one of arrow-right added.
-		const local = serializeData(
-			parseData({
-				version: 2,
-				libraryIcons: { "lucide:star": STAR, "lucide:arrow-right": ARROW },
-			}),
+		// Here: x is no longer used (its copy left out), arrow-right added, star drawn differently.
+		const local = stored(
+			{ "A.md": "lucide:star", "C.md": "lucide:arrow-right" },
+			{ "lucide:star": ARROW, "lucide:arrow-right": ARROW },
 		);
-		// The file: a copy of shapes added on another device.
-		const remote = serializeData(
-			parseData({
-				version: 2,
-				libraryIcons: { "lucide:star": STAR, "lucide:x": STAR, "lucide:shapes": ARROW },
-			}),
+		// The file: another device uses x again and added shapes.
+		const remote = stored(
+			{ "A.md": "lucide:star", "B.md": "lucide:x", "D.md": "lucide:shapes" },
+			{ "lucide:star": STAR, "lucide:x": STAR, "lucide:shapes": ARROW },
 		);
 		const merged = parseData(mergeChanges(base, local, remote));
 		expect(Object.fromEntries(merged.libraryIcons)).toEqual({
 			"lucide:star": STAR,
+			"lucide:x": STAR,
 			"lucide:shapes": ARROW,
 			"lucide:arrow-right": ARROW,
+		});
+	});
+
+	it("saves only the copies of Obsidian icons in use", () => {
+		const data = parseData({
+			version: 2,
+			icons: { "A.md": "lucide:star" },
+			recent: ["lucide:x"],
+			libraryIcons: { "lucide:star": STAR, "lucide:x": STAR, "lucide:unused": ARROW },
+		});
+		expect(serializeData(data).libraryIcons).toEqual({
+			"lucide:star": STAR,
+			"lucide:x": STAR,
 		});
 	});
 

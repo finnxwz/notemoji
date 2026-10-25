@@ -171,7 +171,7 @@ describe("LibraryIcons", () => {
 		expect(save).not.toHaveBeenCalled();
 	});
 
-	it("drops copies no longer in use and adds missing ones, saving only after a change", () => {
+	it("drops copies no longer in use and adds missing ones, without saving", () => {
 		const { icons, save, copies } = setup([
 			["lucide:star", other("star")],
 			["lucide:shapes", drawn("shapes")],
@@ -181,10 +181,8 @@ describe("LibraryIcons", () => {
 			"lucide:star": other("star"),
 			"lucide:arrow-right": drawn("arrow-right"),
 		});
-		expect(save).toHaveBeenCalledTimes(1);
-		// Nothing left to do: no second save.
-		icons.update(new Set(["lucide:star", "lucide:arrow-right", "lucide:rocket"]));
-		expect(save).toHaveBeenCalledTimes(1);
+		// Goes with the next change: starting up or syncing never writes just for this.
+		expect(save).not.toHaveBeenCalled();
 	});
 
 	it("leaves copies kept for a newer version to it", () => {

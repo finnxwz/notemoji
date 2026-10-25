@@ -80,8 +80,7 @@ export default class NotemojiPlugin extends Plugin {
 			() => Object.keys(this.data.unknown.customIcons),
 			() => this.libraryIcons.usage().bytes,
 		);
-		// Not while the backup stands in for data.json: nothing is saved on startup then.
-		if (this.file.fromDisk) this.updateLibraryIcons();
+		this.updateLibraryIcons();
 
 		this.style = new EmojiStyle(this.app.vault.adapter, pluginFolder, {
 			get: () => this.data.settings,

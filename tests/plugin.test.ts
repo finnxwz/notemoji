@@ -945,7 +945,7 @@ describe("Obsidian icons", () => {
 		expect(harness.lastSaved()?.libraryIcons).toEqual({ "lucide:star": other("star") });
 	});
 
-	it("drops unused copies and adds missing ones after loading", async () => {
+	it("drops unused copies and adds missing ones after loading, saved with the next change", async () => {
 		const harness = await loadPlugin({
 			data: {
 				version: 2,
@@ -954,7 +954,10 @@ describe("Obsidian icons", () => {
 				libraryIcons: { "lucide:shapes": other("shapes") },
 			},
 		});
-		expect(harness.fake.saved).toHaveLength(1);
+		// Starting up never writes data.json just for this.
+		expect(harness.fake.saved).toEqual([]);
+		harness.plugin.updateSettings({ showInTabs: false });
+		await flush();
 		expect(harness.lastSaved()?.libraryIcons).toEqual({
 			"lucide:star": drawn("star"),
 			"lucide:arrow-right": drawn("arrow-right"),
@@ -996,10 +999,14 @@ describe("Obsidian icons", () => {
 		harness.fake.dataJson = { version: 2, icons: { "A.md": "lucide:arrow-right" } };
 		await harness.plugin.onExternalSettingsChange();
 		await flush();
+		// Not written back right away; the copy goes with the next change.
+		expect(harness.fake.saved).toEqual([]);
+		expect(revoked).toHaveBeenCalledWith(url);
+		harness.plugin.updateSettings({ showInTabs: false });
+		await flush();
 		expect(harness.lastSaved()?.libraryIcons).toEqual({
 			"lucide:arrow-right": drawn("arrow-right"),
 		});
-		expect(revoked).toHaveBeenCalledWith(url);
 
 		// A copy that sync brings is used as it is.
 		const saves = harness.fake.saved.length;
@@ -1029,7 +1036,28 @@ describe("Obsidian icons", () => {
 		harness.fake.dataJson = { version: 2, icons: { "A.md": "lucide:star" } };
 		await harness.plugin.onExternalSettingsChange();
 		await flush();
+		expect(harness.fake.saved).toEqual([]);
+		harness.plugin.updateSettings({ showInTabs: false });
+		await flush();
 		expect(harness.lastSaved()?.libraryIcons).toEqual({ "lucide:star": drawn("star") });
+	});
+
+	it("drops a copy in the same save that removes its last use", async () => {
+		const harness = await loadPlugin({
+			files: ["A.md"],
+			data: {
+				version: 2,
+				icons: { "A.md": "lucide:star" },
+				libraryIcons: { "lucide:star": other("star") },
+			},
+		});
+		harness
+			.fileMenu("A.md")
+			.items.find((item) => item.title === "Remove note emoji")!
+			.click();
+		await flush();
+		expect(harness.fake.saved).toHaveLength(1);
+		expect(harness.lastSaved()?.libraryIcons).toEqual({});
 	});
 
 	it("shows the copy at the note title, in the text colour", async () => {

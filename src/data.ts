@@ -236,13 +236,19 @@ export function parseData(raw: unknown): PluginData {
 
 export function serializeData(data: PluginData): StoredData {
 	const { unknown } = data;
+	// Only the copies in use: a copy whose last use was removed goes with the
+	// next save here, rather than every device dropping and saving it on its own.
+	const inUse = libraryIconsInUse(data);
 	return {
 		...unknown.top,
 		version: DATA_VERSION,
 		settings: { ...unknown.settings, ...settingsToSave(data) },
 		icons: { [ICONS_MARKER]: "", ...data.icons.toRecord() },
 		recent: [...data.recent],
-		libraryIcons: { ...unknown.libraryIcons, ...Object.fromEntries(data.libraryIcons) },
+		libraryIcons: {
+			...unknown.libraryIcons,
+			...Object.fromEntries([...data.libraryIcons].filter(([value]) => inUse.has(value))),
+		},
 		customIcons: {
 			...unknown.customIcons,
 			...Object.fromEntries(
@@ -325,9 +331,14 @@ export function repairAfterOldVersion(raw: unknown, known: PluginData): PluginDa
  */
 export function mergeChanges(base: StoredData, local: StoredData, remote: StoredData): StoredData {
 	const merged: StoredData = { ...remote };
-	for (const key of ["settings", "icons", "libraryIcons", "customIcons"] as const) {
+	for (const key of ["settings", "icons", "customIcons"] as const) {
 		merged[key] = mergeEntries(base[key], local[key], remote[key]) as never;
 	}
+	// Copies of Obsidian icons are never dropped or replaced by a merge (this
+	// device may not be able to draw an icon again): the file's stay, and
+	// those added here join where it has none. Unused ones are left out when
+	// saving.
+	merged.libraryIcons = { ...local.libraryIcons, ...remote.libraryIcons };
 	if (!same(base.recent, local.recent)) merged.recent = local.recent;
 	return merged;
 }

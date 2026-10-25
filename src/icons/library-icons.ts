@@ -172,7 +172,9 @@ export class LibraryIcons {
 	/**
 	 * Keeps the copies in step with the icons in use (after loading, and after
 	 * sync brought changes): drops copies no longer in use and adds missing
-	 * ones this device can draw. Saves when something changed.
+	 * ones this device can draw. Never saves by itself: unused copies are left
+	 * out of every save anyway, and an added one goes with the next change, so
+	 * starting up or syncing doesn't write data.json just for this.
 	 */
 	update(inUse: ReadonlySet<string>): void {
 		let changed = false;
@@ -186,9 +188,7 @@ export class LibraryIcons {
 		for (const value of inUse) {
 			if (this.add(value, reserved)) changed = true;
 		}
-		if (!changed) return;
-		this.releaseStale();
-		this.save();
+		if (changed) this.releaseStale();
 	}
 
 	/** Frees the URLs of icons whose copy was removed, replaced or added, e.g. after data.json was reloaded. */

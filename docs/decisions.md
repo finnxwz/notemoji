@@ -52,10 +52,10 @@ ideas are listed so they are not proposed again without a new reason.
   versions can't handle; they then show a notice and stop saving instead of damaging the file.
   Icons kept for a newer version are never counted as missing or deleted with _Delete all_.
 - **Repairing after 1.x.** Released 1.x keeps only the emoji when it saves (no settings, recent,
-  custom icons or `custom:` values, trimmed paths) and never reloads. When a device that wasn't
-  updated yet saves over the file, the others put back what it dropped: from memory when
-  running, else from `backup.json`. Its emoji win, except over custom icons (it can only hold
-  an outdated emoji there); emoji it lacks are restored (a removal there comes back, which is
+  custom or Obsidian icons and their values, trimmed paths) and never reloads. When a device that
+  wasn't updated yet saves over the file, the others put back what it dropped: from memory when
+  running, else from `backup.json`. Its emoji win, except over custom and Obsidian icons (it can
+  only hold an outdated emoji there); emoji it lacks are restored (a removal there comes back, which is
   easier to undo than a lost emoji). An emoji 1.x changed and an outdated one can't be told
   apart; the newer write wins. A marker key in `icons` that 1.x drops also catches Obsidian
   Sync merging a 2.x file with a 1.x copy key by key. Release notes still ask to update every
@@ -224,12 +224,15 @@ ideas are listed so they are not proposed again without a new reason.
   same name can be missing or look different elsewhere.
   - _Rejected:_ the name alone (icons would differ or vanish between devices); bundling Lucide
     (size, and a second copy of what Obsidian already has).
-- **Copies follow the icons in use:** added when an icon is picked; after loading and after every
-  reload from sync, unused copies are dropped and missing ones added where this device can draw
-  the icon. A copy is never replaced, so two devices with different Obsidian versions don't keep
-  swapping their drawings. Saved only when something changed, never while the backup stands in
-  for `data.json`. Icons used anywhere in data of a newer version count as used, so an older
-  version never drops copies a newer one relies on.
+- **Copies follow the icons in use:** added and saved when an icon is picked; every save writes
+  only the copies in use (by items, the recent list, or values found in entries and settings of a
+  newer version), so a copy goes with the save that removes its last use. After loading and after
+  every reload from sync, missing copies are added where this device can draw the icon, saved
+  with the next change: starting up or syncing never writes `data.json` just for copies.
+- **A copy is never replaced,** so two devices with different Obsidian versions don't keep
+  swapping their drawings, and merging with a file sync changed never drops or replaces the
+  file's copies (this device may not be able to draw an icon again). Copies are keyed by the full
+  stored value (`lucide:star`); a newer version that draws an icon another way needs its own key.
 - **Shown as a CSS mask filled with the text colour,** so they follow light and dark themes like
   Obsidian's own icons, through a `blob:` URL (the copy is synced data and never inserted as
   markup). Without a copy, this device's own drawing is shown; without either, the space stays
