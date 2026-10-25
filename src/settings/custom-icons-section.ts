@@ -2,6 +2,7 @@ import { Notice, Setting } from "obsidian";
 import { confirm } from "../confirm-modal";
 import { formatBytes, plural } from "../format";
 import { ICON_STORAGE_LIMIT, StoredIconType } from "../icons/custom-icons";
+import { setDestructive } from "../internals";
 import type NotemojiPlugin from "../main";
 
 const FORMAT_NAMES: Record<StoredIconType, string> = {
@@ -97,9 +98,8 @@ export class CustomIconsSection {
 			);
 		}
 		storage.addButton((button) =>
-			button
+			setDestructive(button)
 				.setButtonText("Delete all")
-				.setWarning()
 				.setDisabled(count === 0)
 				.onClick(async () => {
 					const confirmed = await confirm(plugin.app, {

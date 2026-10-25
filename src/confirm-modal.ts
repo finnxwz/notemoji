@@ -1,4 +1,5 @@
 import { App, Modal, Setting } from "obsidian";
+import { setDestructive } from "./internals";
 
 export interface ConfirmOptions {
 	title: string;
@@ -35,7 +36,7 @@ class ConfirmModal extends Modal {
 					this.confirmed = true;
 					this.close();
 				});
-				if (this.options.warning) button.setWarning();
+				if (this.options.warning) setDestructive(button);
 				else button.setCta();
 			});
 	}

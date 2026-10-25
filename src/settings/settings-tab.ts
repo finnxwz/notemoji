@@ -5,6 +5,7 @@ import type NotemojiPlugin from "../main";
 import { CustomIconsSection } from "./custom-icons-section";
 import { EmojiStyleSection } from "./emoji-style-section";
 import { formatBytes, plural } from "../format";
+import { setDestructive } from "../internals";
 
 /** Icon of the settings tab: a real, colourful emoji instead of a line icon. */
 const SETTINGS_ICON = "notemoji-emoji";
@@ -25,7 +26,13 @@ export class NotemojiSettingTab extends PluginSettingTab {
 		Reflect.set(this, "icon", SETTINGS_ICON);
 	}
 
+	// Obsidian 1.13 deprecated display() for getSettingDefinitions(), which older
+	// versions don't have; re-renders call render() directly.
 	display(): void {
+		this.render();
+	}
+
+	private render(): void {
 		const { containerEl, plugin } = this;
 		const { settings } = plugin;
 		containerEl.empty();
@@ -117,7 +124,7 @@ export class NotemojiSettingTab extends PluginSettingTab {
 					} catch (error) {
 						console.error("[notemoji] Could not clear the picker image cache.", error);
 					}
-					this.display();
+					this.render();
 				});
 			void spriteCache.size().then(
 				(bytes) => {
@@ -142,9 +149,8 @@ export class NotemojiSettingTab extends PluginSettingTab {
 							"They are kept on purpose, so they come back after a restore or sync.",
 			)
 			.addButton((button) =>
-				button
+				setDestructive(button)
 					.setButtonText(missing === 0 ? "Remove" : `Remove ${missing}`)
-					.setWarning()
 					.setDisabled(missing === 0)
 					.onClick(async () => {
 						const confirmed = await confirm(this.plugin.app, {
@@ -156,7 +162,7 @@ export class NotemojiSettingTab extends PluginSettingTab {
 						if (!confirmed) return;
 						const removed = icons.removeMissing();
 						new Notice(`Removed ${plural(removed, "emoji", "emoji")}.`);
-						this.display();
+						this.render();
 					}),
 			);
 	}

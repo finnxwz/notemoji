@@ -259,14 +259,21 @@ ideas are listed so they are not proposed again without a new reason.
   start of the words of a name (`arrow r` finds `arrow-right`), after emoji and custom icons; the
   footer names the icon in plain words. Picked icons enter the recently used list like emoji.
   - _Not offered:_ a colour of their own (they take the text colour) or a context menu.
+- **No downloadable icon packs for now** (Font Awesome, Tabler, Simple Icons, …): most look like
+  Obsidian's icons, and custom icons cover the rest. If ever, one pack at a time (brand logos
+  first, which Lucide 1.x dropped), downloaded on a click and drawn from copies in `data.json`
+  like Obsidian icons, so sync never depends on the pack (thousands of icon files clog Obsidian Sync).
 
 ## Compatibility and tooling
 
 - Version 2.0.0 for the rework (new data format; update every device).
-- `minAppVersion` 1.7.2: newer APIs only when guarded (see `SettingTab.icon`).
+- `minAppVersion` 1.7.2: newer APIs only when guarded (`SettingTab.icon`; `setDestructive()` behind
+  `requireApiVersion`, which the lint rule for newer APIs understands).
 - Undocumented Obsidian internals (explorer items, tab title elements) only through
   `src/internals.ts`, always defensive.
 - `npm run check` (Prettier, ESLint with the Obsidian rules, TypeScript, Vitest, build) must pass;
+  `src/` is linted with Obsidian's recommended rules as the community directory's scorecard runs
+  them, except `prefer-setting-definitions` (`getSettingDefinitions()` needs Obsidian 1.13).
   CI runs it with read-only permissions. A test keeps `manifest.json`, `package.json`, the lock
   file and `versions.json` in step. No release automation.
 - README media is recorded from the real plugin (`npm run demo`), so it stays truthful.

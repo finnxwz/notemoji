@@ -104,7 +104,22 @@ installDomHelpers(window);
 
 // ------------------------------------------------------------------ basics
 
-export const apiVersion = "1.7.2";
+export let apiVersion = "1.7.2";
+
+/** Tests run as the oldest supported Obsidian unless they set another version. */
+export function setApiVersion(version: string): void {
+	apiVersion = version;
+}
+
+export function requireApiVersion(version: string): boolean {
+	const have = apiVersion.split(".").map(Number);
+	const want = version.split(".").map(Number);
+	for (let i = 0; i < Math.max(have.length, want.length); i++) {
+		const difference = (have[i] ?? 0) - (want[i] ?? 0);
+		if (difference !== 0) return difference > 0;
+	}
+	return true;
+}
 
 export const Platform = {
 	isDesktop: true,
@@ -571,7 +586,7 @@ export class DropdownComponent extends ValueComponent<string> {
 export class ButtonComponent {
 	disabled = false;
 	cta = false;
-	warning = false;
+	destructive = false;
 	private handler: ((event: MouseEvent) => unknown) | null = null;
 	constructor(readonly buttonEl: HTMLButtonElement) {}
 	setButtonText(text: string): this {
@@ -582,8 +597,8 @@ export class ButtonComponent {
 		this.cta = true;
 		return this;
 	}
-	setWarning(): this {
-		this.warning = true;
+	setDestructive(): this {
+		this.destructive = true;
 		return this;
 	}
 	setDisabled(disabled: boolean): this {
