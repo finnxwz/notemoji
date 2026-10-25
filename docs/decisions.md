@@ -300,6 +300,10 @@ ideas are listed so they are not proposed again without a new reason.
   repository with `npm ci`, the release `main.js` is exactly what `npm run build` makes, which the
   scorecard also checks. For now it is only started by hand, to test the process first; a trigger
   on pushed version tags can be added later. Steps in CONTRIBUTING.md.
+- **Node 24** (an LTS version, in `.nvmrc`, which CI and the release workflow read) for the
+  tooling only: Node builds and tests the plugin, which runs in Obsidian, and the built `main.js`
+  is the same with any Node version. npm 11 skips esbuild's install script unless approved and
+  says so; esbuild works without it.
 - README media is recorded from the real plugin (`npm run demo`), so it stays truthful.
 
 ## Open

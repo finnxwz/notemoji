@@ -6,6 +6,8 @@ deliberately does and does not do.
 
 ## Setup
 
+Node 24 or newer (the version in `.nvmrc`, which CI uses too).
+
 ```sh
 npm ci
 OBSIDIAN_VAULT=/path/to/test/vault npm run dev   # builds into the vault; pair with the Hot Reload plugin
@@ -54,8 +56,11 @@ version tag can be added later.
 4. **Check the draft** on the _Releases_ page: the version, the notes (edit them as you like) and
    the three files. A draft is only visible to maintainers.
 5. **Publish it.** Publishing creates the version tag on the commit the workflow built from.
-   Obsidian picks up the new version from there; its community directory scans the release and
-   shows the signed files on the plugin's scorecard.
+   There is no step in Obsidian's developer dashboard: Obsidian finds the new release on GitHub,
+   users get it with _Check for updates_ in Obsidian's community plugins settings, and the
+   community directory reviews every release automatically (its scorecard then shows the
+   signed files). If a release fails that review, the details are in the developer dashboard.
+   To check a branch before releasing, the dashboard can also run a preview scan.
 
 If a step fails, the run stops and nothing is released: open the run in the _Actions_ tab to see
 which step and why. To start over for the same version, delete its draft on the _Releases_ page

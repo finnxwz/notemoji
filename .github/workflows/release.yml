@@ -12,6 +12,7 @@ name: Release
 on:
   workflow_dispatch:
 
+# What the automatic token of this run may do (see GH_TOKEN below); nothing else.
 permissions:
   contents: write # create the draft release (its tag is created when you publish it)
   id-token: write # sign the attestations
@@ -26,15 +27,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       # Stops before building when this version already has a tag, a release or a draft:
       # releasing it again would replace files people already downloaded.
+      #
+      # `gh` is GitHub's own command line tool, installed on every GitHub runner. GH_TOKEN is
+      # the token GitHub creates by itself for each run: nobody has to make or store it, it can
+      # only do what `permissions` above allows, and it expires when the run ends.
       - name: Check the version is new
         id: version
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version=$(node -p "require('./manifest.json').version")
           echo "Version in manifest.json: $version"
@@ -64,7 +69,7 @@ jobs:
       # A draft is only visible to maintainers until it is published.
       - name: Create the draft release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           gh release create "$VERSION" main.js manifest.json styles.css \
