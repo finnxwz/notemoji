@@ -1,6 +1,6 @@
 import { StreamLanguage } from "@codemirror/language";
-import { EditorState, Extension } from "@codemirror/state";
-import { EditorView, WidgetType } from "@codemirror/view";
+import { EditorState, Extension, StateField } from "@codemirror/state";
+import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 import type { MarkdownPostProcessorContext, MarkdownRenderChild } from "obsidian";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -98,6 +98,13 @@ describe("reading view", () => {
 	it("shows nothing for unresolved links, links into the note itself and notes without emoji", () => {
 		const { anchors } = render(["Nowhere", "#Heading", "Index"]);
 		expect(anchors.map(iconOf)).toEqual([null, null, null]);
+	});
+
+	it("shows nothing for links to a heading of the note itself, also written with its name", () => {
+		icons.set("Index.md", "📇");
+		const { anchors } = render(["Index#Day 1", "Index.md#Day%201", "Index#^block", "Index"]);
+		expect(anchors.map(emojiOf)).toEqual([undefined, undefined, undefined, "📇"]);
+		expect(emojiOf(render(["Index#Day 1"], "Rome.md").anchors[0])).toBe("📇");
 	});
 
 	it("shows pictures, but nothing where a picture is missing on this device", () => {
@@ -219,6 +226,17 @@ describe("reading view", () => {
 		expect(anchors.map(iconOf)).toEqual([null, null]);
 		expect(document.querySelectorAll(`.${LINK_ICON_CLASS}`)).toHaveLength(0);
 	});
+
+	it("removes icons on unload also from parts that are out of the page", () => {
+		const { el, anchors } = render(["Rome"]);
+		// Reading view keeps the parts of a long note that are out of view in memory.
+		const parent = el.parentElement!;
+		el.remove();
+		links.dispose();
+		// Scrolled back into view after the plugin was turned off.
+		parent.append(el);
+		expect(iconOf(anchors[0])).toBeNull();
+	});
 });
 
 // ------------------------------------------------------------------ Live Preview
@@ -311,12 +329,20 @@ function editorIcons(state: EditorState): Array<[number, string | null]> {
 		iconOf: (linktext, sourcePath) => links.iconOf(linktext, sourcePath),
 		url: (icon) => source.url(icon),
 	});
+	// The widgets only need the editor's element, for its window.
+	const view = { dom: document.body } as unknown as EditorView;
 	decorations.between(0, state.doc.length, (from, _to, decoration) => {
 		const widget = decoration.spec.widget as WidgetType;
-		found.push([from, widget.toDOM(undefined as never).getAttribute(EMOJI_ATTRIBUTE)]);
+		found.push([from, widget.toDOM(view).getAttribute(EMOJI_ATTRIBUTE)]);
 	});
 	return found;
 }
+
+/** The emoji a mounted editor shows next to links. */
+const shownIn = (view: EditorView) =>
+	Array.from(view.contentDOM.querySelectorAll(`.${LINK_ICON_CLASS}`), (el) =>
+		el.getAttribute(EMOJI_ATTRIBUTE),
+	);
 
 describe("Live Preview", () => {
 	it("shows the emoji right before each link, by its target", () => {
@@ -339,6 +365,16 @@ describe("Live Preview", () => {
 		expect(editorIcons(editorState(doc))).toEqual([]);
 	});
 
+	it("decodes the path of a Markdown link once", () => {
+		app.vault.add("Trips/Day one.md");
+		icons.set("Trips/Day one.md", "1️⃣");
+		app.vault.add("100%.md");
+		icons.set("100%.md", "💯");
+		// `100%2525.md` is `100%25.md`, not `100%.md`.
+		const doc = "[a](Trips/Day%20one.md) [b](100%2525.md)";
+		expect(editorIcons(editorState(doc))).toEqual([[0, "1️⃣"]]);
+	});
+
 	it("shows nothing in source mode or while turned off", () => {
 		expect(editorIcons(editorState("[[Rome]]", { livePreview: false }))).toEqual([]);
 		enabled = false;
@@ -352,10 +388,7 @@ describe("Live Preview", () => {
 			}),
 			parent: document.body,
 		});
-		const shown = () =>
-			Array.from(view.contentDOM.querySelectorAll(`.${LINK_ICON_CLASS}`), (el) =>
-				el.getAttribute(EMOJI_ATTRIBUTE),
-			);
+		const shown = () => shownIn(view);
 		expect(shown()).toEqual(["🏛️", "🥐"]);
 		const rome = view.contentDOM.querySelector(`.${LINK_ICON_CLASS}`);
 
@@ -370,6 +403,26 @@ describe("Live Preview", () => {
 		enabled = false;
 		links.refresh();
 		expect(shown()).toEqual([]);
+		view.destroy();
+	});
+
+	it("keeps the icon of a link whose long target is hidden away from the cursor", () => {
+		app.vault.add("Trips/Long folder name/Rome.md");
+		icons.set("Trips/Long folder name/Rome.md", "🛵");
+		const doc = "See [[Trips/Long folder name/Rome|Rome]] today.";
+		// Hidden by a state field, as Live Preview hides `[[target|`: CodeMirror
+		// then splits the visible text in two around it, right through the link.
+		const hidden = StateField.define({
+			create: () => Decoration.set(Decoration.replace({}).range(4, doc.indexOf("|") + 1)),
+			update: (decorations) => decorations,
+			provide: (field) => EditorView.decorations.from(field),
+		});
+		const view = new EditorView({
+			state: editorState(doc, { extension: [hidden, links.editorExtension] }),
+			parent: document.body,
+		});
+		expect(view.visibleRanges).toHaveLength(2);
+		expect(shownIn(view)).toEqual(["🛵"]);
 		view.destroy();
 	});
 });

@@ -5,23 +5,39 @@ import { IconService, isNote } from "./icon-service";
 /** How soon after it was created a note must be opened to count as made on this device (ms). */
 const OPEN_WITHIN_MS = 5000;
 
-/** How long after its automatic emoji an untitled note's first rename may still change it (ms). */
+/** How long after its automatic emoji a new name of the note may still change it (ms). */
 const RENAME_WITHIN_MS = 5 * 60 * 1000;
 
 /** How many automatic picks of this session the next one tries to differ from. */
 const RECENT_PICKS = 8;
 
-/** A note's name from its path, without folder and `.md`. */
-function nameOf(path: string): string {
-	return path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/i, "");
+interface Pick extends AutoPick {
+	/** When it was picked. */
+	time: number;
 }
 
-/** Drops the oldest entries while they are expired (a map keeps the order they were added in). */
-function dropExpired<T>(map: Map<string, T>, expired: (value: T) => boolean): void {
-	for (const [key, value] of map) {
-		if (!expired(value)) return;
+/**
+ * Drops the oldest entries while they are expired. Entries are added in the
+ * order they were created; one moved by a rename keeps its time and may
+ * outlive the sweep, which is harmless: the time is checked again on use.
+ */
+function dropExpired(map: Map<string, number>, now: number): void {
+	for (const [key, time] of map) {
+		if (now - time <= OPEN_WITHIN_MS) return;
 		map.delete(key);
 	}
+}
+
+function moveEntry<T>(map: Map<string, T>, from: string, to: string): void {
+	const entry = map.get(from);
+	if (entry === undefined) return;
+	map.delete(from);
+	map.set(to, entry);
+}
+
+/** The file name of a path, with its extension. */
+function fileName(path: string): string {
+	return path.slice(path.lastIndexOf("/") + 1);
 }
 
 /**
@@ -40,17 +56,13 @@ export class NewNoteEmoji {
 	/** Notes created and not opened yet, with the time they were created. */
 	private readonly created = new Map<string, number>();
 	/**
-	 * Notes whose automatic emoji came from the friendly emoji because nothing
-	 * fit, with that emoji and when it was picked. Obsidian names a new note
-	 * "Untitled" (in any language) and its real name follows right after.
+	 * This session's automatic emoji by path. Obsidian names a new note
+	 * "Untitled" (in any language) and its real name follows right after, which
+	 * may fit better. A deleted note keeps its emoji in data.json (deletes never
+	 * touch it), so a new note at the same path (Untitled.md again) would
+	 * otherwise count as having one of its own.
 	 */
-	private readonly untitled = new Map<string, { emoji: string; time: number }>();
-	/**
-	 * This session's automatic emoji by path. A deleted note keeps its emoji
-	 * in data.json (deletes never touch it), so a new note at the same path
-	 * (Untitled.md again) would otherwise count as having one of its own.
-	 */
-	private readonly picks = new Map<string, string>();
+	private readonly picks = new Map<string, Pick>();
 	/** The latest automatic picks, most recent first. */
 	private recentPicks: string[] = [];
 
@@ -60,17 +72,16 @@ export class NewNoteEmoji {
 		this.enabled = enabled;
 	}
 
-	/** Vault `create`: remembers a new note until it is opened. */
+	/** Vault `create`: a new note gets its emoji when it is opened (right away if it already is). */
 	handleCreate(file: TAbstractFile): void {
 		// While starting, Obsidian reports every file of the vault as created.
 		if (!this.app.workspace.layoutReady || !this.enabled() || !isNote(file)) return;
-		this.untitled.delete(file.path);
 		if (this.app.workspace.getActiveFile() === file) {
 			this.assign(file);
 			return;
 		}
 		const now = Date.now();
-		dropExpired(this.created, (time) => now - time > OPEN_WITHIN_MS);
+		dropExpired(this.created, now);
 		this.created.set(file.path, now);
 	}
 
@@ -86,64 +97,58 @@ export class NewNoteEmoji {
 	}
 
 	/**
-	 * Vault `rename`, after the emoji moved along. When an untitled note gets
-	 * its real name and that fits a theme, the friendly emoji makes way (or
-	 * goes, for a sad or serious name), unless the user chose another one
-	 * meanwhile. Moving the note or renaming a folder above it is no new name.
+	 * Vault `rename`, after the emoji moved along. Soon after its automatic
+	 * emoji, a sad or serious name removes it, and a friendly emoji makes way
+	 * for one that fits the new name, unless the user chose an emoji meanwhile.
+	 * Moving the note or renaming a folder above it is no new name.
 	 */
 	handleRename(file: TAbstractFile, oldPath: string): void {
-		for (const map of [this.created, this.picks, this.untitled] as Array<
-			Map<string, unknown>
-		>) {
-			const entry = map.get(oldPath);
-			if (entry === undefined) continue;
-			map.delete(oldPath);
-			map.set(file.path, entry);
-		}
+		moveEntry(this.created, oldPath, file.path);
+		moveEntry(this.picks, oldPath, file.path);
 
-		const pick = this.untitled.get(file.path);
-		if (!pick || !isNote(file) || nameOf(oldPath) === file.basename) return;
-		this.untitled.delete(file.path);
+		const pick = this.picks.get(file.path);
+		if (!pick || !isNote(file) || fileName(oldPath) === file.name) return;
 		if (!this.enabled() || Date.now() - pick.time > RENAME_WITHIN_MS) return;
 		if (this.icons.get(file.path) !== pick.emoji) return;
 		const next = this.pick(file);
 		if (next === undefined) {
 			this.icons.removeIcon(file);
 			this.picks.delete(file.path);
-		} else if (next.source !== "fallback") {
-			this.store(file, next.emoji);
+		} else if (pick.source === "fallback" && next.source !== "fallback") {
+			this.store(file, next);
 		}
+	}
+
+	/**
+	 * The user chose an emoji for this item or removed it, also when it is the
+	 * same as the automatic one: from now on it is theirs.
+	 */
+	forget(path: string): void {
+		this.created.delete(path);
+		this.picks.delete(path);
 	}
 
 	private assign(file: TFile): void {
 		// The user's own emoji always win, also one that moved here with a rename.
 		const current = this.icons.get(file.path);
-		if (current !== undefined && current !== this.picks.get(file.path)) return;
+		if (current !== undefined && current !== this.picks.get(file.path)?.emoji) return;
 		const pick = this.pick(file);
-		if (!pick || !this.store(file, pick.emoji) || pick.source !== "fallback") return;
-		const now = Date.now();
-		dropExpired(this.untitled, (entry) => now - entry.time > RENAME_WITHIN_MS);
-		this.untitled.set(file.path, { emoji: pick.emoji, time: now });
+		if (pick) this.store(file, pick);
 	}
 
-	/**
-	 * Stores the emoji like one chosen in the picker, but not as recently used:
-	 * nobody chose it. Returns whether the note has it now.
-	 */
-	private store(file: TFile, emoji: string): boolean {
-		if (!this.icons.setIcon(file, emoji) && this.icons.get(file.path) !== emoji) return false;
-		this.picks.set(file.path, emoji);
-		this.recentPicks = [emoji, ...this.recentPicks].slice(0, RECENT_PICKS);
-		return true;
+	/** Stores the emoji like one chosen in the picker, but not as recently used: nobody chose it. */
+	private store(file: TFile, pick: AutoPick): void {
+		if (!this.icons.setIcon(file, pick.emoji) && this.icons.get(file.path) !== pick.emoji)
+			return;
+		this.picks.set(file.path, { ...pick, time: Date.now() });
+		this.recentPicks = [pick.emoji, ...this.recentPicks].slice(0, RECENT_PICKS);
 	}
 
 	private pick(file: TFile): AutoPick | undefined {
-		// Its folder and the one above, without the vault root.
+		// Its folders up to the vault root, nearest first.
 		const folders: TFolder[] = [];
-		let folder = file.parent;
-		while (folder && !folder.isRoot() && folders.length < 2) {
+		for (let folder = file.parent; folder && !folder.isRoot(); folder = folder.parent) {
 			folders.push(folder);
-			folder = folder.parent;
 		}
 		const neighbours: string[] = [];
 		for (const item of file.parent?.children ?? []) {

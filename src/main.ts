@@ -69,6 +69,7 @@ export default class NotemojiPlugin extends Plugin {
 		this.icons = new IconService(this.app, this.data, () => this.persist());
 		this.libraryIcons = new LibraryIcons(
 			() => this.data.libraryIcons,
+			() => libraryIconsInUse(this.data),
 			() => this.persist(),
 			() => Object.keys(this.data.unknown.libraryIcons),
 			{ getIcon, getIconIds },
@@ -84,7 +85,7 @@ export default class NotemojiPlugin extends Plugin {
 			() => Object.keys(this.data.unknown.customIcons),
 			() => this.libraryIcons.usage().bytes,
 		);
-		this.updateLibraryIcons();
+		this.libraryIcons.update();
 
 		this.style = new EmojiStyle(this.app.vault.adapter, pluginFolder, {
 			get: () => this.data.settings,
@@ -143,8 +144,11 @@ export default class NotemojiPlugin extends Plugin {
 		this.icons.replaceData(data);
 		// Icons removed or replaced on another device.
 		this.customIcons.releaseStale();
-		this.libraryIcons.releaseStale();
-		this.updateLibraryIcons();
+		this.libraryIcons.update();
+		// Notes rendered before the plugin started can't follow the setting live.
+		if (data.settings.showInLinks !== previous.settings.showInLinks) {
+			this.links.rerenderReadingViews();
+		}
 		if (
 			data.settings.emojiStyle !== previous.settings.emojiStyle ||
 			data.settings.emojiFont !== previous.settings.emojiFont
@@ -155,11 +159,14 @@ export default class NotemojiPlugin extends Plugin {
 
 	/** Changes settings, saves and re-renders. Always edits the current data, also after a reload. */
 	updateSettings(patch: Partial<NotemojiSettings>): void {
+		const showedInLinks = this.data.settings.showInLinks;
 		Object.assign(this.data.settings, patch);
 		// A value kept for a newer version is replaced by what was chosen here.
 		for (const key of Object.keys(patch)) delete this.data.unknown.settings[key];
 		this.persist();
 		this.refresh();
+		// Notes rendered before the plugin started can't follow the setting live.
+		if (this.data.settings.showInLinks !== showedInLinks) this.links.rerenderReadingViews();
 	}
 
 	private initialize(late: boolean): void {
@@ -239,7 +246,7 @@ export default class NotemojiPlugin extends Plugin {
 			checkCallback: (checking) => {
 				const file = this.app.workspace.getActiveFile();
 				if (!file || this.icons.get(file.path) === undefined) return false;
-				if (!checking) this.icons.removeIcon(file);
+				if (!checking) this.removeIcon(file);
 				return true;
 			},
 		});
@@ -262,12 +269,18 @@ export default class NotemojiPlugin extends Plugin {
 				item
 					.setTitle(`Remove ${kind} emoji`)
 					.setIcon("eraser")
-					.onClick(() => this.icons.removeIcon(file)),
+					.onClick(() => this.removeIcon(file)),
 			);
 		}
 	}
 
 	// ------------------------------------------------------------------ actions
+
+	/** Removes an item's icon for the user: automatic emoji leave it alone from now on. */
+	private removeIcon(file: TAbstractFile): void {
+		this.newNotes.forget(file.path);
+		this.icons.removeIcon(file);
+	}
 
 	openPicker(file: TAbstractFile): void {
 		// Opened before the startup preparation ran: start it now.
@@ -288,9 +301,11 @@ export default class NotemojiPlugin extends Plugin {
 			library: this.libraryIcons,
 			onSubmit: (value) => {
 				if (value === "") {
-					this.icons.removeIcon(file);
+					this.removeIcon(file);
 					return;
 				}
+				// Also when it is the automatic emoji it already has: now it is the user's.
+				this.newNotes.forget(file.path);
 				const icon = parseIcon(value);
 				// Its copy in data.json, so every device draws it, whatever its Obsidian has.
 				if (icon?.type === "lucide") this.libraryIcons.keep(icon.name);
@@ -353,15 +368,6 @@ export default class NotemojiPlugin extends Plugin {
 				console.error("[notemoji] Could not render title emoji.", error);
 			}
 		}, TITLE_SYNC_DELAY_MS);
-	}
-
-	/**
-	 * Keeps the copies of Obsidian icons in step with the icons in use, after
-	 * loading and after sync: icons may have been picked or removed on another
-	 * device (or with another version), and a copy may be missing.
-	 */
-	private updateLibraryIcons(): void {
-		this.libraryIcons.update(libraryIconsInUse(this.data));
 	}
 
 	private persist(): void {

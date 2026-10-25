@@ -1,5 +1,4 @@
 import * as language from "@codemirror/language";
-import { syntaxTree } from "@codemirror/language";
 import { EditorState, Extension, RangeSetBuilder, StateEffect } from "@codemirror/state";
 import {
 	Decoration,
@@ -48,12 +47,16 @@ function decodedPath(path: string): string | undefined {
 /**
  * The element an icon next to a link is drawn on: empty, drawn by CSS from
  * its attributes (like the title emoji), so the emoji is never part of the
- * text: not copied, not searched, not read out (`aria-hidden`).
+ * text: not copied, not searched, not read out (`aria-hidden`). Created in
+ * `win`, the window it is shown in, which may be a pop-out window.
  */
-export function createLinkIconEl(value: string, url: IconUrl): HTMLElement {
-	const el = createSpan({ cls: LINK_ICON_CLASS, attr: { "aria-hidden": "true" } });
+function createLinkIconEl(value: string, url: IconUrl, win: Window): HTMLElement {
+	// Obsidian gives every window its DOM helpers; its types know them on the main one only.
+	const el = (win as typeof window).createSpan({
+		cls: LINK_ICON_CLASS,
+		attr: { "aria-hidden": "true" },
+	});
 	setIconAttributes(el, value, url);
-	renderedKeys.set(el, renderKey(value, url));
 	return el;
 }
 
@@ -96,16 +99,20 @@ export class LinkIcons {
 		// `[[#heading]]` points into the note itself.
 		if (path === "") return undefined;
 		const { metadataCache } = this.app;
-		const decoded = path.includes("%") ? decodedPath(path) : undefined;
+		// Markdown links are URL-encoded (`My%20note.md`), but a name may contain `%` too.
+		const decoded = decodedPath(path);
 		const file =
 			metadataCache.getFirstLinkpathDest(path, sourcePath) ??
 			(decoded === undefined
 				? null
 				: metadataCache.getFirstLinkpathDest(decoded, sourcePath));
 		if (!file) return undefined;
+		// Like `[[Index#heading]]` in Index.md; a link to the note as a whole keeps its icon.
+		if (file.path === sourcePath && linktext.includes("#")) return undefined;
 		const value = this.source.get(file.path);
+		if (value === undefined) return undefined;
 		const icon = parseIcon(value);
-		if (value === undefined || icon === undefined) return undefined;
+		if (icon === undefined) return undefined;
 		// In running text an empty space would look like a typo, so a picture
 		// missing on this device (not synced yet) shows nothing at all.
 		if (icon.type !== "emoji" && this.source.url(icon) === undefined) return undefined;
@@ -144,8 +151,9 @@ export class LinkIcons {
 
 	/**
 	 * Renders the notes open in reading view again. For when the plugin starts
-	 * while they are open (turned on, or updated): their links never passed
-	 * through the post-processor.
+	 * while they are open (turned on, or updated), and when the setting changes
+	 * after that: notes rendered before the plugin started never passed through
+	 * the post-processor, so they can't follow the setting live.
 	 */
 	rerenderReadingViews(): void {
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
@@ -160,6 +168,9 @@ export class LinkIcons {
 	dispose(): void {
 		this.disposed = true;
 		if (this.timer !== null) window.clearTimeout(this.timer);
+		// Now disposed, updating removes their icons, also from parts that are
+		// out of the page right now (reading view keeps those out of view in memory).
+		for (const section of this.sections) section.update();
 		this.sections.clear();
 		// From the whole page, also parts never loaded and so never tracked
 		// (some plugins render without loading what they render).
@@ -187,8 +198,10 @@ export class LinkIcons {
 			return;
 		}
 		const url: IconUrl = (icon) => this.source.url(icon);
-		if (existing && renderedKeys.get(existing) === renderKey(value, url)) return;
-		const el = createLinkIconEl(value, url);
+		const key = renderKey(value, url);
+		if (existing && renderedKeys.get(existing) === key) return;
+		const el = createLinkIconEl(value, url, anchor.win);
+		renderedKeys.set(el, key);
 		// Inside the link, so a click on the emoji opens it and hovering previews it.
 		if (existing) existing.replaceWith(el);
 		else anchor.prepend(el);
@@ -241,7 +254,7 @@ class LinkSection extends MarkdownRenderChild {
 // ------------------------------------------------------------------ Live Preview
 
 /** What the Live Preview part needs from the plugin. */
-export interface EditorLinkIcons {
+interface EditorLinkIcons {
 	enabled(): boolean;
 	/** The icon to show next to a link in the note at `sourcePath`; `undefined` for none. */
 	iconOf(linktext: string, sourcePath: string): string | undefined;
@@ -279,8 +292,8 @@ class LinkIconWidget extends WidgetType {
 		return other.key === this.key;
 	}
 
-	toDOM(): HTMLElement {
-		return createLinkIconEl(this.value, this.url);
+	toDOM(view: EditorView): HTMLElement {
+		return createLinkIconEl(this.value, this.url, view.dom.win);
 	}
 }
 
@@ -293,12 +306,17 @@ export function linkIconDecorations(
 	// Not in source mode: there the brackets are shown, and icons in front would be noise.
 	if (!links.enabled() || !state.field(editorLivePreviewField, false)) return Decoration.none;
 	const sourcePath = state.field(editorInfoField, false)?.file?.path ?? "";
-	const tree = syntaxTree(state);
+	const tree = language.syntaxTree(state);
 	const slice = (from: number, to: number) =>
 		state.doc.sliceString(Math.max(0, from), Math.min(state.doc.length, to));
 	const builder = new RangeSetBuilder<Decoration>();
 	let last = -1;
-	for (const { from, to } of ranges) {
+	for (const range of ranges) {
+		// Whole lines: the visible text is split around long hidden syntax (Live
+		// Preview hides `[[Long/target|` away from the cursor), and links never
+		// span lines, so no link is cut in two.
+		const from = state.doc.lineAt(range.from).from;
+		const to = state.doc.lineAt(range.to).to;
 		const tokens: LinkToken[] = [];
 		tree.iterate({
 			from,
@@ -311,7 +329,7 @@ export function linkIconDecorations(
 			},
 		});
 		for (const link of findEditorLinks(tokens, slice)) {
-			// A link reaching into the next visible range is found once.
+			// A line shared by two ranges is read twice: each link is shown once.
 			if (link.at <= last) continue;
 			const value = links.iconOf(link.linktext, sourcePath);
 			if (value === undefined) continue;
@@ -344,7 +362,7 @@ function linkIconsExtension(links: EditorLinkIcons): Extension {
 				if (
 					update.docChanged ||
 					update.viewportChanged ||
-					syntaxTree(update.state) !== syntaxTree(update.startState) ||
+					language.syntaxTree(update.state) !== language.syntaxTree(update.startState) ||
 					update.state.field(editorLivePreviewField, false) !==
 						update.startState.field(editorLivePreviewField, false) ||
 					update.transactions.some((tr) => tr.effects.some((e) => e.is(refreshEffect)))

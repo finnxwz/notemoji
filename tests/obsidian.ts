@@ -90,6 +90,12 @@ function installDomHelpers(win: Window & typeof globalThis): void {
 	) {
 		return this instanceof type;
 	};
+	// The window a node belongs to (for pop-out windows).
+	Object.defineProperty(win.Node.prototype, "win", {
+		get(this: Node) {
+			return this.ownerDocument?.defaultView ?? win;
+		},
+	});
 
 	const globals = win as unknown as Record<string, unknown>;
 	globals.createEl = (tag: keyof HTMLElementTagNameMap, info?: DomElementInfo) =>

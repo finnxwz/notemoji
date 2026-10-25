@@ -19,9 +19,11 @@ const other = (name: string) =>
 
 function setup(initial: Array<[string, string]> = [], reserved: string[] = []) {
 	let copies = new Map(initial);
+	let inUse = new Set<string>();
 	const save = vi.fn();
 	const icons = new LibraryIcons(
 		() => copies,
+		() => inUse,
 		save,
 		() => reserved,
 		{ getIcon, getIconIds },
@@ -30,6 +32,10 @@ function setup(initial: Array<[string, string]> = [], reserved: string[] = []) {
 		icons,
 		save,
 		copies: () => copies,
+		/** Sets the icons in use (by items, the recent list, …). */
+		use: (...values: string[]) => {
+			inUse = new Set(values);
+		},
 		/** Swaps in different data, like a reload of data.json after sync. */
 		reload(next: Array<[string, string]>) {
 			copies = new Map(next);
@@ -172,11 +178,12 @@ describe("LibraryIcons", () => {
 	});
 
 	it("drops copies no longer in use and adds missing ones, without saving", () => {
-		const { icons, save, copies } = setup([
+		const { icons, save, copies, use } = setup([
 			["lucide:star", other("star")],
 			["lucide:shapes", drawn("shapes")],
 		]);
-		icons.update(new Set(["lucide:star", "lucide:arrow-right", "lucide:rocket"]));
+		use("lucide:star", "lucide:arrow-right", "lucide:rocket");
+		icons.update();
 		expect(Object.fromEntries(copies())).toEqual({
 			"lucide:star": other("star"),
 			"lucide:arrow-right": drawn("arrow-right"),
@@ -186,18 +193,24 @@ describe("LibraryIcons", () => {
 	});
 
 	it("leaves copies kept for a newer version to it", () => {
-		const { icons, save, copies } = setup([], ["lucide:star"]);
-		icons.update(new Set(["lucide:star"]));
+		const { icons, save, copies, use } = setup([], ["lucide:star"]);
+		use("lucide:star");
+		icons.update();
 		expect(copies().size).toBe(0);
 		expect(save).not.toHaveBeenCalled();
 	});
 
-	it("counts the room the copies take", () => {
-		const { icons } = setup([
+	it("counts the room the copies in use take", () => {
+		const { icons, use } = setup([
 			["lucide:star", "<svg>1</svg>"],
 			["lucide:shapes", "<svg>12</svg>"],
+			["lucide:x", "<svg>123</svg>"],
 		]);
+		use("lucide:star", "lucide:shapes");
 		expect(icons.usage()).toEqual({ count: 2, bytes: 25 });
+		// A copy whose last use was removed here goes with the next save.
+		use("lucide:star");
+		expect(icons.usage()).toEqual({ count: 1, bytes: 12 });
 	});
 
 	describe("image URLs", () => {
@@ -216,8 +229,12 @@ describe("LibraryIcons", () => {
 		});
 
 		it("of the copy only, for the picker", () => {
-			const { revoke } = spyUrls();
+			const { create, revoke } = spyUrls();
 			const { icons } = setup([["lucide:star", other("star")]]);
+			// Whether there is a copy is told without making a URL.
+			expect(icons.hasCopy("star")).toBe(true);
+			expect(icons.hasCopy("arrow-right")).toBe(false);
+			expect(create).not.toHaveBeenCalled();
 			const live = icons.url("arrow-right");
 			expect(icons.storedUrl("arrow-right")).toBeUndefined();
 			// The drawing shown elsewhere stays usable.
@@ -232,7 +249,8 @@ describe("LibraryIcons", () => {
 			const { icons } = test;
 			const before = { star: icons.url("star"), arrow: icons.url("arrow-right") };
 			test.reload([["lucide:arrow-right", other("arrow-right")]]);
-			icons.releaseStale();
+			test.use("lucide:arrow-right");
+			icons.update();
 			expect(revoke.mock.calls.map(([url]) => url).sort()).toEqual([
 				before.star,
 				before.arrow,
@@ -247,7 +265,7 @@ describe("LibraryIcons", () => {
 			const { revoke } = spyUrls();
 			const { icons } = setup([["lucide:star", other("star")]]);
 			const url = icons.url("star");
-			icons.update(new Set());
+			icons.update();
 			expect(revoke).toHaveBeenCalledWith(url);
 			icons.url("star");
 			icons.url("shapes");
@@ -260,6 +278,7 @@ describe("LibraryIcons", () => {
 			const api = { getIcon: vi.fn(getIcon), getIconIds };
 			const icons = new LibraryIcons(
 				() => new Map(),
+				() => new Set(),
 				vi.fn(),
 				() => [],
 				api,

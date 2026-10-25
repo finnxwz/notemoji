@@ -107,14 +107,9 @@ export interface StoredData {
 	[key: string]: unknown;
 }
 
-const KNOWN_TOP = new Set([
-	"version",
-	"settings",
-	"icons",
-	"recent",
-	"libraryIcons",
-	"customIcons",
-]);
+/** Top-level entries only versions from 2.0 on write (1.x writes `version` and `icons`). */
+const NEW_TOP = ["settings", "recent", "libraryIcons", "customIcons"];
+const KNOWN_TOP = new Set(["version", "icons", ...NEW_TOP]);
 
 /**
  * An entry in `icons` that only versions from 2.0 on keep: 1.x drops keys
@@ -196,9 +191,7 @@ function sourceOf(raw: Record<string, unknown>): DataSource {
 		return isRecord(raw.icons) && !Object.hasOwn(raw.icons, ICONS_MARKER) ? "old" : "current";
 	}
 	// Without a version: hand-written, or the early plain `{ path: emoji }` map.
-	if (["settings", "recent", "customIcons", "libraryIcons"].some((key) => key in raw)) {
-		return "current";
-	}
+	if (NEW_TOP.some((key) => key in raw)) return "current";
 	return Object.keys(raw).length === 0 ? "none" : "old";
 }
 
@@ -283,7 +276,9 @@ function settingsToSave(data: PluginData): Partial<NotemojiSettings> {
  * - emoji of the file win, except over custom icons and values of newer
  *   versions, which 1.x can't have seen (it can only hold an older emoji);
  * - emoji missing from the file are restored: a removal on the outdated
- *   device comes back, which is easier to undo than a lost emoji.
+ *   device comes back, which is easier to undo than a lost emoji;
+ * - copies of Obsidian icons are never dropped, as in `mergeChanges`: the
+ *   file's stay, and those of `known` join where it has none.
  *
  * Whether an emoji of 1.x is a change or an outdated copy can't be told
  * apart; the newer write wins.
@@ -311,7 +306,9 @@ export function repairAfterOldVersion(raw: unknown, known: PluginData): PluginDa
 		icons,
 		recent: inFile("recent") ? old.recent : known.recent,
 		customIcons: customIconsInFile ? old.customIcons : known.customIcons,
-		libraryIcons: libraryIconsInFile ? old.libraryIcons : known.libraryIcons,
+		// The file's section may be older than `known`, and this device may not
+		// be able to draw an icon again. Unused copies are left out when saving.
+		libraryIcons: new Map([...known.libraryIcons, ...old.libraryIcons]),
 		unknown: {
 			top: { ...known.unknown.top, ...old.unknown.top },
 			settings: settingsInFile ? old.unknown.settings : known.unknown.settings,
@@ -337,10 +334,22 @@ export function mergeChanges(base: StoredData, local: StoredData, remote: Stored
 	// Copies of Obsidian icons are never dropped or replaced by a merge (this
 	// device may not be able to draw an icon again): the file's stay, and
 	// those added here join where it has none. Unused ones are left out when
-	// saving.
-	merged.libraryIcons = { ...local.libraryIcons, ...remote.libraryIcons };
+	// saving. Entries of a newer version are merged like the rest: it may
+	// have dropped one on purpose.
+	merged.libraryIcons = {
+		...Object.fromEntries(readLibraryIcons(local.libraryIcons)),
+		...mergeEntries(unreadableCopies(base), unreadableCopies(local), unreadableCopies(remote)),
+		...Object.fromEntries(readLibraryIcons(remote.libraryIcons)),
+	};
 	if (!same(base.recent, local.recent)) merged.recent = local.recent;
 	return merged;
+}
+
+/** The entries of `libraryIcons` this version can't read (see `readLibraryIcons`). */
+function unreadableCopies(data: StoredData): Record<string, unknown> {
+	const unreadable: Record<string, unknown> = {};
+	readLibraryIcons(data.libraryIcons, unreadable);
+	return unreadable;
 }
 
 function mergeEntries(
@@ -365,12 +374,13 @@ function same(a: unknown, b: unknown): boolean {
 
 /**
  * The Obsidian icons in use, whose copies are kept: those of items and of the
- * recent list, and any found in data of a newer version, which may use them
- * in places this version doesn't know.
+ * recent list, and any found in data of a newer version (also custom icons in
+ * a newer form), which may use them in places this version doesn't know.
  */
 export function libraryIconsInUse(data: PluginData): Set<string> {
 	const used = new Set<string>();
-	const pending: unknown[] = [data.unknown.top, data.unknown.settings, ...data.recent];
+	const { top, settings, customIcons } = data.unknown;
+	const pending: unknown[] = [top, settings, customIcons, ...data.recent];
 	for (const [, value] of data.icons.entries()) pending.push(value);
 	// Without recursion: data of a newer version may be nested deeply.
 	while (pending.length > 0) {

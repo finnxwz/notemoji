@@ -14,6 +14,9 @@ export interface IconSource {
 /** Resolves a custom icon or an Obsidian icon to the URL of its picture. */
 export type IconUrl = (icon: ImageIcon) => string | undefined;
 
+/** CSS variable with the picture CSS draws: an Obsidian icon's mask, or a custom icon at titles. */
+export const IMAGE_VARIABLE = "--notemoji-image";
+
 /**
  * What a rendered icon depends on: its value, and for pictures also their
  * URL, which changes when sync replaces a custom icon, brings a missing one or
@@ -38,7 +41,7 @@ export function renderIcon(el: HTMLElement, value: string, url: IconUrl): void {
 		// theme (light or dark) like Obsidian's own icons do.
 		const maskEl = el.createSpan({ cls: "notemoji-mask" });
 		if (src === undefined) maskEl.addClass("is-missing");
-		else maskEl.setCssProps({ "--notemoji-image": `url(${JSON.stringify(src)})` });
+		else maskEl.setCssProps({ [IMAGE_VARIABLE]: `url(${JSON.stringify(src)})` });
 		return;
 	}
 	const img = el.createEl("img", {

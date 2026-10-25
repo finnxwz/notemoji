@@ -1,8 +1,9 @@
 import { parseIcon } from "../icons/icon-value";
-import { IconSource, IconUrl, renderKey } from "./icon-source";
+import { IconSource, IconUrl, IMAGE_VARIABLE, renderKey } from "./icon-source";
 
 /**
- * Display-only icons on Obsidian's own title elements.
+ * Display-only icons on Obsidian's own title elements, and on the empty
+ * elements Notemoji puts next to links.
  *
  * The icon is drawn by CSS (`::before`): an emoji from the `data-notemoji`
  * attribute, a picture from the `--notemoji-image` variable (an Obsidian icon
@@ -15,7 +16,6 @@ export const EMOJI_ATTRIBUTE = "data-notemoji";
 /** The stored value of the picture shown (`custom:<name>` or `lucide:<name>`). */
 export const IMAGE_ATTRIBUTE = "data-notemoji-image";
 export const MASK_ATTRIBUTE = "data-notemoji-mask";
-const IMAGE_VARIABLE = "--notemoji-image";
 
 /** Tracks every element we decorated, so cleanup is exact (also across windows). */
 export class EmojiAttributes {

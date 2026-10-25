@@ -58,8 +58,9 @@ ideas are listed so they are not proposed again without a new reason.
   only hold an outdated emoji there); emoji it lacks are restored (a removal there comes back, which is
   easier to undo than a lost emoji). An emoji 1.x changed and an outdated one can't be told
   apart; the newer write wins. A marker key in `icons` that 1.x drops also catches Obsidian
-  Sync merging a 2.x file with a 1.x copy key by key. Release notes still ask to update every
-  device.
+  Sync merging a 2.x file with a 1.x copy key by key; sections it merged in are used, except that
+  copies of Obsidian icons are combined (that section may be older). Release notes still ask to
+  update every device.
 - **`backup.json`** in the plugin folder: a copy of `data.json` on this device, written shortly
   after saves and reloads (never a backup of nothing). Obsidian Sync doesn't sync it, so it
   survives another device damaging the file; other sync tools copy it along, which is
@@ -130,9 +131,10 @@ ideas are listed so they are not proposed again without a new reason.
   or deleting files update every link shown. Reading view: a post-processor marks each rendered
   part with links (also while off), and updates it until Obsidian unloads it. Live Preview: one
   editor extension, always registered, with widgets that compare equal while the icon is the
-  same, so typing never redraws them; rebuilt for the visible text on edits, scrolling, further
-  parsing and mode switches. Only when the plugin starts while notes are open (turned on or
-  updated), notes in reading view are rendered again once, since they were rendered without it.
+  same, so typing never redraws them; rebuilt for the visible lines on edits, scrolling, further
+  parsing and mode switches. Notes in reading view are rendered again only when the plugin
+  starts while they are open with it on (turned on or updated), and when it is turned on or off:
+  notes rendered before the plugin started never passed through the post-processor.
 - **Links in the editor are found from the syntax tokens' classes** (`hmd-internal-link`, `url`,
   …), checked against the text (`[[` before the target, `](` before the URL), so a token split
   differently in another Obsidian version gives no icon rather than a wrong one. Markdown links
@@ -158,35 +160,41 @@ ideas are listed so they are not proposed again without a new reason.
   layout is ready, because Obsidian reports every file as created while it starts (checked with
   `workspace.layoutReady` rather than by registering later, so a daily note created at startup
   still counts). Nothing is picked while `data.json` isn't read from disk (the backup stands in,
-  e.g. not downloaded yet) or belongs to a newer version: a change nobody made must not be what
-  writes the file then.
+  e.g. not downloaded yet), was deleted by sync since, or belongs to a newer version: a change
+  nobody made must not be what writes the file then. Known limit: a note that arrives by sync and
+  is opened within those seconds counts as new; if both devices pick, the emoji changes once when
+  `data.json` syncs.
 - **Your own emoji win:** a note that already has an icon (moved there with a rename, or kept from
   a deleted note at the same path) is left as it is, unless it is this session's automatic pick
   for that path (`Untitled.md` deleted and made again). The pick is stored like an emoji set in the
   picker (synced, changeable, removable) but not added to the recently used emoji: nobody chose
-  it.
+  it. Choosing an emoji in the picker, even the same one, or removing it makes it the user's.
 - **Themed random** (`src/icons/auto-emoji.ts`, lists in `auto-emoji-themes.ts`). The first
   source that fits wins: English key words in the name (whole words only, plurals listed, no
   stemming: loose matching gave "Bank balance" → ☯️-style mistakes); a date the name starts with
   (the season of its month); the note's folder, else the folder above (key words in its name, or
   its emoji when that stands for a theme: the theme's first emoji, else an emoji in only one
   theme; 🏆, in sport and goals, says nothing); otherwise about 160 friendly emoji (no flags,
-  people, skin tones, sequences, nothing ambiguous, religious, political or festive). A key word
+  people, skin tones, sequences, nothing ambiguous, religious, political or festive; no 🍉, 🌽
+  or 🐮, which mean other things online). A key word
   with one obvious emoji (pizza → 🍕) beats other key words and is taken unless a neighbour has it.
   Words in camel case stay one word ("MacBook" isn't about books). Left out on purpose: words that
-  often mean something else (map, as in Obsidian's maps of content; German "Chef").
-- **Sad or serious notes get none:** a name or folder with a word such as funeral, death, cancer
-  or divorce gets no emoji (an untitled note named that way loses its friendly one); any pick
-  would be out of place. Words with other common meanings (terminal, loss) aren't on the list.
+  often mean something else (map, as in Obsidian's maps of content; German "Chef"; chicken, a
+  dinner or a bird).
+- **Sad or serious notes get none:** a name, or any folder above it (`Grief journal/2024/10`),
+  with a word such as funeral, death, cancer, divorce, suicidal, eating disorder or depressed
+  gets no emoji; any pick would be out of place. Words with other common meanings (terminal,
+  loss, passed) aren't on the list, but phrases with them are (pet loss). Mood words like
+  "feeling" are no theme: they come with sad names as often as with happy ones.
 - **Variety:** chosen by chance among the theme's least used emoji: first not used by an item in
   the same folder, then not among the last 8 automatic picks of the session.
 - **Seasons by hemisphere**, from the time zone (a short list of southern zones; north
   otherwise). Holiday emoji (🎄, 🎃) only in their month.
 - **"Untitled", then named:** Obsidian names a new note _Untitled_ (in any language) and the real
-  name follows right away. A pick from the friendly emoji is remembered for this session; when the
-  note first gets another name within 5 minutes, if it still has that emoji and the new name fits
-  a theme, the emoji is replaced. Moving the note or renaming a folder above it is no new name.
-  Picks that already fit (name, date or folder) stay.
+  name follows right away. Each automatic pick is remembered for this session; when the note gets
+  another name within 5 minutes of it and still has that emoji, a sad or serious name removes it,
+  and a pick from the friendly emoji makes way for one that fits the new name. Picks that already
+  fit (name, date or folder) stay. Moving the note or renaming a folder above it is no new name.
 - Every listed emoji is in the picker's list, written as the list writes it, so emoji styles can
   draw it, and from Emoji 12.0 or older, so the system emoji of Windows 10 and older phones can
   draw it too: nobody chose these emoji, so nobody would know why a box shows instead. Tests check
@@ -242,17 +250,20 @@ ideas are listed so they are not proposed again without a new reason.
   only the copies in use (by items, the recent list, or values found in entries and settings of a
   newer version), so a copy goes with the save that removes its last use. After loading and after
   every reload from sync, missing copies are added where this device can draw the icon, saved
-  with the next change: starting up or syncing never writes `data.json` just for copies.
+  with the next change: starting up or syncing never writes `data.json` just for copies, also
+  when a reload is combined with copies added here.
 - **A copy is never replaced,** so two devices with different Obsidian versions don't keep
-  swapping their drawings, and merging with a file sync changed never drops or replaces the
-  file's copies (this device may not be able to draw an icon again). Copies are keyed by the full
+  swapping their drawings, and merging with a file sync changed, or repairing after 1.x, never
+  drops or replaces the file's copies (this device may not be able to draw an icon again); copies
+  only this device has join them. Copies of other icon sources (a newer version's) are merged
+  like any other entry, so one a newer version dropped stays dropped. Copies are keyed by the full
   stored value (`lucide:star`); a newer version that draws an icon another way needs its own key.
 - **Shown as a CSS mask filled with the text colour,** so they follow light and dark themes like
   Obsidian's own icons, through a `blob:` URL (the copy is synced data and never inserted as
   markup). Without a copy, this device's own drawing is shown; without either, the space stays
   empty, like a missing custom icon.
 - **They share the 3 MB of custom icons.** A copy takes about 1 KB, so a pick never fails for
-  lack of room; the storage in the settings counts them, without listing them one by one.
+  lack of room; the storage in the settings counts those in use, without listing them one by one.
 - **In the picker:** a section _Obsidian icons_ after all emoji categories (people who use emoji
   only never scroll past them), its tab showing a Lucide icon. Tiles are drawn by Obsidian
   (`setIcon`) as they scroll into view, fast enough without sprite sheets. Search matches the

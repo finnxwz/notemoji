@@ -243,6 +243,24 @@ describe("compatibility with other versions", () => {
 		expect(fromFile.unknown.libraryIcons).toEqual({});
 	});
 
+	it("never drops a copy of an Obsidian icon when Obsidian Sync merged in an older section", () => {
+		const known = parseData({
+			version: 2,
+			icons: { [ICONS_MARKER]: "", "A.md": "lucide:rocket", "B.md": "lucide:star" },
+			libraryIcons: { "lucide:rocket": ARROW, "lucide:star": STAR },
+		});
+		// The copies of an older 2.x file, without rocket, which this device may not be able to
+		// draw again.
+		const raw = { version: 1, icons: { "C.md": "🌱" }, libraryIcons: { "lucide:star": ARROW } };
+		const repaired = repairAfterOldVersion(raw, known);
+		expect(repaired.icons.get("A.md")).toBe("lucide:rocket");
+		// The file's copies are never replaced; those it lacks are put back.
+		expect(serializeData(repaired).libraryIcons).toEqual({
+			"lucide:rocket": ARROW,
+			"lucide:star": ARROW,
+		});
+	});
+
 	it("uses newer sections that Obsidian Sync merged into a 1.x file", () => {
 		const known = parseData({
 			version: 2,
@@ -330,6 +348,22 @@ describe("compatibility with other versions", () => {
 		});
 	});
 
+	it("doesn't bring back copies of other icon sources that a newer version dropped", () => {
+		const stored = (libraryIcons: Record<string, string>, icons: Record<string, string> = {}) =>
+			serializeData(parseData({ version: 2, icons, libraryIcons }));
+		const base = stored({ "phosphor:star": "<svg/>", "phosphor:x": "<svg/>" });
+		// Here: an unsaved change.
+		const local = stored(
+			{ "phosphor:star": "<svg/>", "phosphor:x": "<svg/>" },
+			{ "A.md": "🚀" },
+		);
+		// The file: a newer version dropped star, which it no longer uses, and added house.
+		const remote = stored({ "phosphor:x": "<svg/>", "phosphor:house": "<svg/>" });
+		const merged = serializeData(parseData(mergeChanges(base, local, remote)));
+		expect(merged.libraryIcons).toEqual({ "phosphor:x": "<svg/>", "phosphor:house": "<svg/>" });
+		expect(merged.icons).toMatchObject({ "A.md": "🚀" });
+	});
+
 	it("saves only the copies of Obsidian icons in use", () => {
 		const data = parseData({
 			version: 2,
@@ -383,8 +417,11 @@ describe("libraryIconsInUse", () => {
 			icons: {},
 			bookmarks: { "C.md": ["lucide:bookmark", { nested: { deeper: "lucide:house" } }] },
 			links: "lucide:Bad Name",
+			// A custom icon in a form this version can't read, made from an Obsidian icon.
+			customIcons: { badge: { icon: "lucide:badge", colour: "#e33" } },
 		});
 		expect([...libraryIconsInUse(data)].sort()).toEqual([
+			"lucide:badge",
 			"lucide:bookmark",
 			"lucide:folder",
 			"lucide:house",

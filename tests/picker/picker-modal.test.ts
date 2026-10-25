@@ -29,6 +29,7 @@ function fakeLibrary(names = ["arrow-left", "arrow-right", "arrow-up-right", "sh
 	return {
 		copies,
 		list: () => names,
+		hasCopy: (name: string) => copies.has(name),
 		storedUrl: (name: string) => copies.get(name),
 	};
 }
@@ -278,7 +279,9 @@ describe("searching", () => {
 	it("explains when nothing matches and ignores Enter", async () => {
 		const picker = await open();
 		picker.type("qqqzzz");
-		expect(picker.query(".notemoji-picker-empty")!.hasClass("is-visible")).toBe(true);
+		const empty = picker.query(".notemoji-picker-empty")!;
+		expect(empty.hasClass("is-visible")).toBe(true);
+		expect(empty.textContent).toBe("Nothing found. You can also paste any emoji here.");
 		expect(picker.tiles()).toHaveLength(0);
 		picker.press("Enter");
 		expect(picker.onSubmit).not.toHaveBeenCalled();

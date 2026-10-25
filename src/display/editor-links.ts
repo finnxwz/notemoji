@@ -65,7 +65,10 @@ export function findEditorLinks(
 		if (start === null || slice(start - 1, start) === "!") return;
 		const before = slice(from - 3, from);
 		if (!before.endsWith("](") && before !== "](<") return;
-		const linktext = markdownLinkTarget(slice(from, to));
+		// With `(<` a token of its own, the URL tokens are what's inside the angle
+		// brackets, where there is no title: `Trip (2)` is a name.
+		const written = slice(from, to);
+		const linktext = markdownLinkTarget(before === "](<" ? `<${written}>` : written);
 		if (linktext !== undefined) links.push({ at: start, linktext });
 	};
 
@@ -119,18 +122,14 @@ export function findEditorLinks(
 }
 
 /**
- * What a Markdown link's URL points to inside the vault (`My%20note.md` →
- * `My note.md`); `undefined` for external links.
+ * What a Markdown link's URL points to inside the vault, still as written
+ * (`My%20note.md`: it is decoded where it is resolved); `undefined` for
+ * external links.
  */
 export function markdownLinkTarget(url: string): string | undefined {
 	// Without a title (`note.md "Title"`) and the angle brackets of `<my note.md>`.
 	let target = url.trim().replace(/\s+("[^"]*"|'[^']*'|\([^)]*\))$/, "");
 	if (target.startsWith("<") && target.endsWith(">")) target = target.slice(1, -1);
 	if (target === "" || EXTERNAL_LINK.test(target)) return undefined;
-	try {
-		return decodeURIComponent(target);
-	} catch {
-		// Not URL-encoded after all (e.g. a lone `%`): as written.
-		return target;
-	}
+	return target;
 }

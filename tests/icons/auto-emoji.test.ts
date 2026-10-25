@@ -110,7 +110,7 @@ describe("lists", () => {
 		}
 	});
 
-	it("has about 150 friendly emoji: no faces, people, body parts, flags or sequences", () => {
+	it("has about 160 friendly emoji: no faces, people, body parts, flags or sequences", () => {
 		expect(friendly.length).toBeGreaterThanOrEqual(140);
 		expect(friendly.length).toBeLessThanOrEqual(180);
 		expect(new Set(friendly).size).toBe(friendly.length);
@@ -185,6 +185,8 @@ describe("key words in the name", () => {
 		// A bank by the river is no bank account: "bank" is a key word, not a clear hit.
 		expect(pick("River bank", {}, () => 0.99).emoji).not.toBe("🏦");
 		expect(theme("meetings")).not.toContain(pick("Retro games").emoji);
+		// A chicken coop is no dinner.
+		expect(pick("Chicken coop").emoji).not.toBe("🍗");
 	});
 
 	it("take the obvious emoji of a clear hit", () => {
@@ -331,6 +333,12 @@ describe("hemisphereOf", () => {
 			"America/Catamarca",
 			"America/Jujuy",
 			"America/Coyhaique",
+			// South of the equator, if only just.
+			"America/Recife",
+			"America/Manaus",
+			"Asia/Jakarta",
+			"Africa/Kinshasa",
+			"Pacific/Tahiti",
 		]) {
 			expect(hemisphereOf(zone), zone).toBe("south");
 		}
@@ -403,6 +411,16 @@ describe("sad or serious notes", () => {
 			"Cancer treatment",
 			"Miscarriage",
 			"Grandpa passed away",
+			"Eating disorder",
+			"Suicidal thoughts",
+			"Feeling depressed",
+			"Bad mood",
+			"School shooting",
+			"Pet loss",
+			"Self-harm",
+			"Divorced parents",
+			"In memoriam",
+			"RIP Bella",
 		]) {
 			expect(isSensitive(name), name).toBe(true);
 			const note = { name, folders: [], neighbours: [], recentPicks: [] };
@@ -412,6 +430,16 @@ describe("sad or serious notes", () => {
 		expect(
 			pickAutoEmoji({ name: "Untitled", ...inFolder, hemisphere: "north" }),
 		).toBeUndefined();
+	});
+
+	it("are found in any folder above, though only the nearest two give a theme", () => {
+		const note = { neighbours: [], recentPicks: [], hemisphere: "north" } as const;
+		const folders = [{ name: "10" }, { name: "2024" }, { name: "Grief journal" }];
+		expect(pickAutoEmoji({ name: "Untitled", folders, ...note })).toBeUndefined();
+		const travel = [{ name: "10" }, { name: "2024" }, { name: "Travel" }];
+		expect(pickAutoEmoji({ name: "Untitled", folders: travel, ...note })?.source).toBe(
+			"fallback",
+		);
 	});
 
 	it("are found by whole words, leaving out words with other common meanings", () => {
@@ -434,6 +462,8 @@ describe("fallback", () => {
 	it("has nothing festive, which would be out of place on a serious note", () => {
 		for (const emoji of ["🎈", "🎁", "🎀", "🎠", "🎡", "🎉"])
 			expect(friendly).not.toContain(emoji);
+		// Nor emoji with other meanings online.
+		for (const emoji of ["🍉", "🌽", "🐮"]) expect(friendly).not.toContain(emoji);
 	});
 
 	it("avoids the neighbours' emoji too", () => {

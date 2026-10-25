@@ -148,7 +148,7 @@ export class CustomIconLibrary {
 		const { bytes } = this.usage();
 		if (bytes + this.shared() + icon.data.length > ICON_STORAGE_LIMIT) {
 			throw new CustomIconError(
-				`There is no room left for "${fileName}": custom icons can use up to 3 MB. ` +
+				`There is no room left for "${fileName}": custom icons and the Obsidian icons you use share 3 MB. ` +
 					"Delete icons you no longer need in Notemoji's settings.",
 			);
 		}

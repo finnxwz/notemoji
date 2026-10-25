@@ -22,7 +22,10 @@ export type Hemisphere = "north" | "south";
 export interface NewNote {
 	/** The note's name without `.md`. */
 	name: string;
-	/** Its folder, then the folder above it; never the vault root. */
+	/**
+	 * Its folders up to the vault root, nearest first, without the root: any of
+	 * them can make it a sad or serious note, the nearest two give it a theme.
+	 */
 	folders: ReadonlyArray<{ name: string; icon?: string }>;
 	/** Icons of the other notes, folders and files directly in the same folder. */
 	neighbours: readonly string[];
@@ -141,17 +144,24 @@ function getIndex(): Index {
 	return index;
 }
 
+/** The phrases of up to `longest` words that start at `words[start]`, longest first. */
+function* phrasesAt(
+	words: readonly string[],
+	start: number,
+	longest: number,
+): Generator<{ phrase: string; length: number }> {
+	for (let length = Math.min(longest, words.length - start); length > 0; length--) {
+		yield { phrase: words.slice(start, start + length).join(" "), length };
+	}
+}
+
 /** Whether a name has a word of sad or serious notes (see `SENSITIVE_WORDS`). */
 export function isSensitive(name: string): boolean {
 	const { sensitive, longestSensitive } = getIndex();
 	const words = nameWords(name);
 	for (let start = 0; start < words.length; start++) {
-		for (
-			let length = 1;
-			length <= longestSensitive && start + length <= words.length;
-			length++
-		) {
-			if (sensitive.has(words.slice(start, start + length).join(" "))) return true;
+		for (const { phrase } of phrasesAt(words, start, longestSensitive)) {
+			if (sensitive.has(phrase)) return true;
 		}
 	}
 	return false;
@@ -163,8 +173,8 @@ function keyWordAt(
 	start: number,
 ): { keyWord: KeyWord; length: number } | undefined {
 	const { keyWords, longest } = getIndex();
-	for (let length = Math.min(longest, words.length - start); length > 0; length--) {
-		const keyWord = keyWords.get(words.slice(start, start + length).join(" "));
+	for (const { phrase, length } of phrasesAt(words, start, longest)) {
+		const keyWord = keyWords.get(phrase);
 		if (keyWord) return { keyWord, length };
 	}
 	return undefined;
@@ -288,8 +298,8 @@ function choose(pool: readonly string[], note: NewNote, random: () => number): s
  *    the folder's own emoji when that stands for a theme;
  * 4. the friendly emoji.
  *
- * `undefined` for a sad or serious note (its name or folder has a word of
- * `SENSITIVE_WORDS`): no emoji fits there.
+ * `undefined` for a sad or serious note (its name or any of its folders has
+ * a word of `SENSITIVE_WORDS`): no emoji fits there.
  */
 export function pickAutoEmoji(
 	note: NewNote,
@@ -312,7 +322,7 @@ export function pickAutoEmoji(
 		return { emoji: choose(seasonEmoji(month, note.hemisphere), note, random), source: "date" };
 	}
 
-	for (const folder of note.folders) {
+	for (const folder of note.folders.slice(0, 2)) {
 		const theme =
 			findKeyWord(folder.name)?.themeEmoji ??
 			(folder.icon === undefined ? undefined : getIndex().themeOf.get(bare(folder.icon)));

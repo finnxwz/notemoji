@@ -97,8 +97,9 @@ describe("findEditorLinks", () => {
 	});
 
 	it("finds Markdown links to notes, but not external ones", () => {
+		// As written: the path is decoded where it is resolved.
 		expect(links("Go ", ...markdown("there", "My%20note.md"))).toEqual([
-			{ at: 3, linktext: "My note.md" },
+			{ at: 3, linktext: "My%20note.md" },
 		]);
 		expect(links(...markdown("web", "https://example.com"))).toEqual([]);
 		expect(links(...markdown("mail", "mailto:me@example.com"))).toEqual([]);
@@ -142,12 +143,29 @@ describe("findEditorLinks", () => {
 			),
 		).toEqual([{ at: 0, linktext: "My note.md" }]);
 	});
+
+	it("reads parentheses inside angle brackets as part of the name, not as a title", () => {
+		expect(links(...markdown("t", "<Trip (2)>"))).toEqual([{ at: 0, linktext: "Trip (2)" }]);
+		expect(
+			links(
+				["[", "formatting formatting-link link"],
+				["t", "link"],
+				["]", "formatting formatting-link link"],
+				["(<", "formatting formatting-link-string string url"],
+				["Trip (2)", "string url"],
+				[">)", "formatting formatting-link-string string url"],
+			),
+		).toEqual([{ at: 0, linktext: "Trip (2)" }]);
+		// Outside them it is one.
+		expect(links(...markdown("t", "Trip (2)"))).toEqual([{ at: 0, linktext: "Trip" }]);
+	});
 });
 
 describe("markdownLinkTarget", () => {
-	it("decodes the path and drops a title", () => {
-		expect(markdownLinkTarget("Trips/My%20trip.md")).toBe("Trips/My trip.md");
+	it("drops a title and angle brackets, and keeps the path as written", () => {
+		expect(markdownLinkTarget("Trips/My%20trip.md")).toBe("Trips/My%20trip.md");
 		expect(markdownLinkTarget('note.md "A title"')).toBe("note.md");
+		expect(markdownLinkTarget("<Trip (2)>")).toBe("Trip (2)");
 		expect(markdownLinkTarget("<My note.md>")).toBe("My note.md");
 		expect(markdownLinkTarget("100%.md")).toBe("100%.md");
 		expect(markdownLinkTarget("#Heading")).toBe("#Heading");

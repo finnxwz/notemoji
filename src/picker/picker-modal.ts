@@ -26,6 +26,8 @@ export interface CustomIcons {
 export interface ObsidianIcons {
 	/** Names of every icon this device's Obsidian has, e.g. `arrow-right`. */
 	list(): readonly string[];
+	/** Whether data.json has a copy of an icon. */
+	hasCopy(name: string): boolean;
 	/** URL of an icon's copy in data.json; `undefined` when there is none. */
 	storedUrl(name: string): string | undefined;
 }
@@ -168,7 +170,7 @@ export class PickerModal extends Modal {
 		);
 		this.emptyEl = gridWrapEl.createDiv({
 			cls: "notemoji-picker-empty",
-			text: "No emoji found. You can also paste any emoji here.",
+			text: "Nothing found. You can also paste any emoji here.",
 		});
 		const gridEl = this.grid.scrollEl;
 		gridEl.addEventListener("click", (event) => {
@@ -238,8 +240,7 @@ export class PickerModal extends Modal {
 			if (icon?.type === "custom") return this.customIds.includes(icon.id);
 			if (icon?.type === "lucide") {
 				return (
-					this.libraryNameSet.has(icon.name) ||
-					this.options.library.storedUrl(icon.name) !== undefined
+					this.libraryNameSet.has(icon.name) || this.options.library.hasCopy(icon.name)
 				);
 			}
 			return icon !== undefined;
@@ -455,7 +456,7 @@ export class PickerModal extends Modal {
 	 */
 	private drawIcon(el: HTMLElement, value: string): void {
 		const icon = parseIcon(value);
-		if (icon?.type === "lucide" && this.options.library.storedUrl(icon.name) === undefined) {
+		if (icon?.type === "lucide" && !this.options.library.hasCopy(icon.name)) {
 			el.empty();
 			setIcon(el, lucideIconId(icon.name));
 			return;

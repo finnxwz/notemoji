@@ -23,6 +23,14 @@ async function newNote(harness: Harness, path: string): Promise<TFile> {
 	return file;
 }
 
+/** Picks an emoji for the note in the picker, as the user does. */
+function choose(harness: Harness, file: TFile, emoji: string): void {
+	harness.fileMenu(file).item("Change note emoji").click();
+	(
+		openModals.at(-1) as unknown as { options: { onSubmit(emoji: string): void } }
+	).options.onSubmit(emoji);
+}
+
 function load(options: HarnessOptions = {}) {
 	return loadPlugin({ data: ON, ...options });
 }
@@ -101,6 +109,20 @@ describe("automatic emoji for new notes", () => {
 		expect(newer.plugin.icons.get("Pizza.md")).toBeUndefined();
 	});
 
+	it("waits while sync has deleted data.json", async () => {
+		const harness = await load();
+		harness.fake.dataJson = null;
+		await harness.plugin.onExternalSettingsChange();
+		await newNote(harness, "Pizza.md");
+		expect(harness.plugin.icons.get("Pizza.md")).toBeUndefined();
+		expect(harness.fake.saved).toEqual([]);
+
+		harness.fake.dataJson = { version: 2, ...ON };
+		await harness.plugin.onExternalSettingsChange();
+		await newNote(harness, "Pizza night.md");
+		expect(harness.plugin.icons.get("Pizza night.md")).toBe("🍕");
+	});
+
 	it("is only for notes", async () => {
 		const harness = await load();
 		await newNote(harness, "Board.canvas");
@@ -151,6 +173,12 @@ describe("automatic emoji for new notes", () => {
 		expect(harness.fake.saved).toEqual([]);
 	});
 
+	it("gives none in a sad or serious folder, however far up", async () => {
+		const harness = await load({ files: ["Grief journal/2024/10"] });
+		await newNote(harness, "Grief journal/2024/10/Untitled.md");
+		expect(harness.plugin.icons.get("Grief journal/2024/10/Untitled.md")).toBeUndefined();
+	});
+
 	it("follows a rename before the note is opened", async () => {
 		const harness = await load();
 		harness.app.vault.create("Untitled.md");
@@ -190,13 +218,13 @@ describe("an untitled note that gets its name", () => {
 		expect(harness.plugin.icons.get("Q3 summary.md")).toBe(firstFriendly);
 	});
 
-	it("only for the first rename", async () => {
+	it("also when a later name within those minutes fits", async () => {
 		const harness = await load();
 		await newNote(harness, "Untitled.md");
 		harness.app.vault.rename("Untitled.md", "Q3 summary.md");
 		harness.app.vault.rename("Q3 summary.md", "Pizza.md");
 		await flush();
-		expect(harness.plugin.icons.get("Pizza.md")).toBe(firstFriendly);
+		expect(harness.plugin.icons.get("Pizza.md")).toBe("🍕");
 	});
 
 	it("only within a few minutes", async () => {
@@ -238,16 +266,40 @@ describe("an untitled note that gets its name", () => {
 		expect(harness.plugin.icons.get("Grandpa passed away.md")).toBeUndefined();
 	});
 
+	it("loses an emoji from its folder too when the name is sad or serious", async () => {
+		const harness = await load({ files: ["Recipes"] });
+		await newNote(harness, "Recipes/Untitled.md");
+		expect(theme("food")).toContain(harness.plugin.icons.get("Recipes/Untitled.md"));
+		harness.app.vault.rename("Recipes/Untitled.md", "Recipes/Funeral lunch.md");
+		await flush();
+		expect(harness.plugin.icons.get("Recipes/Funeral lunch.md")).toBeUndefined();
+	});
+
 	it("keeps an emoji the user chose meanwhile", async () => {
 		const harness = await load();
 		const file = await newNote(harness, "Untitled.md");
-		harness.fileMenu(file).item("Change note emoji").click();
-		(
-			openModals.at(-1) as unknown as { options: { onSubmit(emoji: string): void } }
-		).options.onSubmit("🚀");
+		choose(harness, file, "🚀");
 		harness.app.vault.rename("Untitled.md", "Pizza.md");
 		await flush();
 		expect(harness.plugin.icons.get("Pizza.md")).toBe("🚀");
+	});
+
+	it("keeps the automatic emoji once the user chose it too", async () => {
+		const harness = await load();
+		const file = await newNote(harness, "Untitled.md");
+		choose(harness, file, firstFriendly);
+		harness.app.vault.rename("Untitled.md", "Pizza.md");
+		await flush();
+		expect(harness.plugin.icons.get("Pizza.md")).toBe(firstFriendly);
+	});
+
+	it("gets none back once the user removed it", async () => {
+		const harness = await load();
+		const file = await newNote(harness, "Untitled.md");
+		harness.fileMenu(file).item("Remove note emoji").click();
+		harness.app.vault.rename("Untitled.md", "Pizza.md");
+		await flush();
+		expect(harness.plugin.icons.get("Pizza.md")).toBeUndefined();
 	});
 
 	it("keeps an emoji that already fit its folder", async () => {

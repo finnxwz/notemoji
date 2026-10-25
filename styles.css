@@ -328,15 +328,6 @@ body:not(.show-inline-title) .notemoji-title-icon {
 	display: block;
 	width: 1em;
 	height: 1em;
-	background-color: currentColor;
-	-webkit-mask-image: var(--notemoji-image);
-	mask-image: var(--notemoji-image);
-	-webkit-mask-position: center;
-	mask-position: center;
-	-webkit-mask-size: contain;
-	mask-size: contain;
-	-webkit-mask-repeat: no-repeat;
-	mask-repeat: no-repeat;
 }
 
 /* An icon missing on this device (e.g. not synced yet) shows nothing. */
@@ -358,7 +349,9 @@ body:not(.show-inline-title) .notemoji-title-icon {
 	background: var(--notemoji-image) center / contain no-repeat;
 }
 
-/* Only set with a picture: without one, the mask would fill the space with colour. */
+/* Obsidian icons. At titles and links the attribute is only set with a picture: without one, the
+   mask would fill the space with colour. After the rule above, so the colour replaces the picture. */
+.notemoji-mask,
 .inline-title[data-notemoji-mask]::before,
 .workspace-tab-header-inner-title[data-notemoji-mask]::before,
 .view-header-title[data-notemoji-mask]::before,
@@ -374,8 +367,9 @@ body:not(.show-inline-title) .notemoji-title-icon {
 	mask-repeat: no-repeat;
 }
 
-/* Emoji next to links: an empty element inside the link, drawn like the title emoji, so it is
-   never copied with the text. As an inline block, the link's underline leaves it out. */
+/* Emoji next to links: an empty element drawn like the title emoji, so it is never copied with
+   the text. In reading view it is inside the link, and as an inline block the link's underline
+   leaves it out; in Live Preview it sits right before the link. */
 .notemoji-link-icon {
 	display: inline-block;
 	user-select: none;

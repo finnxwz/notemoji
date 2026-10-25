@@ -37,6 +37,11 @@ function canonical(data: PluginData): string {
 	return JSON.stringify(serializeData(data));
 }
 
+/** Saved data without the copies of Obsidian icons, comparable like `canonical`. */
+function withoutCopies(data: StoredData): string {
+	return JSON.stringify({ ...data, libraryIcons: {} });
+}
+
 /**
  * data.json: loading, saving and reloading after sync, so that no device
  * ever loses data another one wrote.
@@ -64,6 +69,8 @@ export class DataFile {
 	private savePending = false;
 	/** Why nothing may be saved right now. */
 	private readOnly: "newer" | "unreadable" | null = null;
+	/** data.json was deleted after it was read; sync may bring it back. */
+	private missing = false;
 	private noticeShown = false;
 	private backupTimer: number | null = null;
 	private lastBackup = "";
@@ -75,10 +82,10 @@ export class DataFile {
 	 * is data.json as read from disk, and this version may save over it. Not
 	 * while data.json is missing or unreadable (the backup may be shown, and
 	 * nothing is saved until a change is made here; sync may still bring it),
-	 * or written by a newer version.
+	 * also when it was deleted after it was read, or written by a newer version.
 	 */
 	get settled(): boolean {
-		return this.onDisk !== null && this.readOnly === null;
+		return this.onDisk !== null && this.readOnly === null && !this.missing;
 	}
 
 	/** Reads data.json at startup, repairing it from the backup when needed. */
@@ -138,8 +145,10 @@ export class DataFile {
 			if (next.source === "none") {
 				// Deleted: as the unreadable notice suggests, start over.
 				if (this.readOnly === "unreadable") this.readOnly = null;
+				this.missing = true;
 				return;
 			}
+			this.missing = false;
 			if (await this.takeIn(raw, next)) this.save();
 			else this.scheduleBackup();
 		});
@@ -179,12 +188,14 @@ export class DataFile {
 			return;
 		}
 		this.onDisk = canonical(parseData(snapshot));
+		this.missing = false;
 		this.scheduleBackup();
 	}
 
 	/**
 	 * Takes in data.json read from disk (`next`). Returns true when the result
-	 * must be saved (repaired, or combined with changes made here).
+	 * must be saved (repaired, or combined with changes made here other than
+	 * copies of Obsidian icons).
 	 */
 	private async takeIn(raw: unknown, next: PluginData): Promise<boolean> {
 		const base = this.onDisk;
@@ -208,7 +219,9 @@ export class DataFile {
 			// Changes made here are not saved yet: keep them on top of the file.
 			const before = JSON.parse(base) as StoredData;
 			await this.replace(parseData(mergeChanges(before, local, serializeData(next))));
-			return true;
+			// Copies added here after loading go with the next change: syncing
+			// never writes data.json just for them (see LibraryIcons.update).
+			return withoutCopies(local) !== withoutCopies(before);
 		}
 		if (canonical(next) !== JSON.stringify(local)) await this.replace(next);
 		return false;

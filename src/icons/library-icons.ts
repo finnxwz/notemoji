@@ -129,12 +129,14 @@ export class LibraryIcons {
 
 	/**
 	 * @param copies the copies in the current data, by value (data.json may be reloaded)
+	 * @param inUse the Obsidian icons in use, by value; only their copies are saved
 	 * @param save persists data.json after a change
 	 * @param reserved values whose copy is in a form this version can't read (kept for a newer version)
 	 * @param api Obsidian's icon functions
 	 */
 	constructor(
 		private readonly copies: () => Map<string, string>,
+		private readonly inUse: () => ReadonlySet<string>,
 		private readonly save: () => void,
 		private readonly reserved: () => Iterable<string>,
 		private readonly api: IconApi,
@@ -157,11 +159,25 @@ export class LibraryIcons {
 		return svg === undefined ? undefined : this.urlOf(name, svg);
 	}
 
-	/** Number of copies and the room they take in data.json. */
+	/** Whether data.json has a copy of an icon. */
+	hasCopy(name: string): boolean {
+		return this.copies().has(lucideValue(name));
+	}
+
+	/**
+	 * Number of copies and the room they take in data.json. Only copies in
+	 * use count: one whose last use was removed is left out of the next save.
+	 */
 	usage(): { count: number; bytes: number } {
+		const inUse = this.inUse();
+		let count = 0;
 		let bytes = 0;
-		for (const svg of this.copies().values()) bytes += svg.length;
-		return { count: this.copies().size, bytes };
+		for (const [value, svg] of this.copies()) {
+			if (!inUse.has(value)) continue;
+			count++;
+			bytes += svg.length;
+		}
+		return { count, bytes };
 	}
 
 	/** Stores a copy of an icon that was picked here, unless there is one. */
@@ -176,23 +192,20 @@ export class LibraryIcons {
 	 * out of every save anyway, and an added one goes with the next change, so
 	 * starting up or syncing doesn't write data.json just for this.
 	 */
-	update(inUse: ReadonlySet<string>): void {
-		let changed = false;
+	update(): void {
+		const inUse = this.inUse();
 		const copies = this.copies();
 		for (const value of [...copies.keys()]) {
-			if (inUse.has(value)) continue;
-			copies.delete(value);
-			changed = true;
+			if (!inUse.has(value)) copies.delete(value);
 		}
 		const reserved = new Set(this.reserved());
-		for (const value of inUse) {
-			if (this.add(value, reserved)) changed = true;
-		}
-		if (changed) this.releaseStale();
+		for (const value of inUse) this.add(value, reserved);
+		// Also frees the URLs of copies a reload removed, replaced or added.
+		this.releaseStale();
 	}
 
-	/** Frees the URLs of icons whose copy was removed, replaced or added, e.g. after data.json was reloaded. */
-	releaseStale(): void {
+	/** Frees the URLs of icons whose copy was removed, replaced or added. */
+	private releaseStale(): void {
 		for (const [name, cached] of [...this.urls]) {
 			if (this.markupOf(name) !== cached.svg) this.release(name);
 		}
@@ -231,11 +244,7 @@ export class LibraryIcons {
 
 	private urlOf(name: string, svg: string | undefined): string | undefined {
 		const cached = this.urls.get(name);
-		if (cached && cached.svg === svg) {
-			// Same content after a reload: keep the new string, so the next check is instant.
-			cached.svg = svg;
-			return cached.url;
-		}
+		if (cached && cached.svg === svg) return cached.url;
 		this.release(name);
 		if (svg === undefined) return undefined;
 		const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));

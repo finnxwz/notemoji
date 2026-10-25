@@ -637,6 +637,37 @@ describe("emoji next to links", () => {
 		startup.app.workspace.finishLayout();
 		expect(views.map((view) => view.rerendered)).toEqual([0, 0, 0, 0]);
 	});
+
+	it("renders notes in reading view again when turned on or off, also right after installing", async () => {
+		const views: MarkdownView[] = [];
+		// Installed while notes are open, with the setting off: they were rendered without it.
+		const harness = await loadPlugin({
+			beforeLoad: (app: FakeApp) => {
+				for (const mode of ["preview", "source"] as const) {
+					const leaf = new WorkspaceLeaf(app.asApp);
+					const view = new MarkdownView(leaf);
+					view.mode = mode;
+					leaf.view = view;
+					app.workspace.leaves.push(leaf);
+					views.push(view);
+				}
+			},
+		});
+		const rerendered = () => views.map((view) => view.rerendered);
+		expect(rerendered()).toEqual([0, 0]);
+
+		harness.plugin.updateSettings({ showInLinks: true });
+		expect(rerendered()).toEqual([1, 0]);
+		harness.plugin.updateSettings({ showInLinks: true });
+		expect(rerendered()).toEqual([1, 0]);
+		harness.plugin.updateSettings({ showInLinks: false });
+		expect(rerendered()).toEqual([2, 0]);
+
+		// Also when turned on on another device.
+		harness.fake.dataJson = { version: 2, settings: { showInLinks: true } };
+		await harness.plugin.onExternalSettingsChange();
+		expect(rerendered()).toEqual([3, 0]);
+	});
 });
 
 /** Clicks a button of the confirmation dialog that is currently open. */
@@ -1086,6 +1117,28 @@ describe("Obsidian icons", () => {
 		await flush();
 		expect(harness.fake.saved).toHaveLength(1);
 		expect(harness.lastSaved()?.libraryIcons).toEqual({});
+		// Nor is it counted in the storage anymore.
+		expect(harness.plugin.libraryIcons.usage().count).toBe(0);
+	});
+
+	it("doesn't write data.json for a copy added after loading when sync brings another change", async () => {
+		const harness = await loadPlugin({
+			data: { version: 2, icons: { "A.md": "lucide:star" } },
+		});
+		// Another device changed something else, and the file still has no copy of star.
+		harness.fake.dataJson = {
+			version: 2,
+			icons: { [ICONS_MARKER]: "", "A.md": "lucide:star", "B.md": "🚀" },
+		};
+		await harness.plugin.onExternalSettingsChange();
+		await flush();
+		expect(harness.plugin.icons.get("B.md")).toBe("🚀");
+		expect(harness.fake.saved).toEqual([]);
+		// The copy goes with the next change.
+		harness.plugin.updateSettings({ showInTabs: false });
+		await flush();
+		expect(harness.lastSaved()?.icons).toEqual({ "A.md": "lucide:star", "B.md": "🚀" });
+		expect(harness.lastSaved()?.libraryIcons).toEqual({ "lucide:star": drawn("star") });
 	});
 
 	it("shows the copy at the note title, in the text colour", async () => {
