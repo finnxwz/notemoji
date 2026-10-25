@@ -164,12 +164,18 @@ ideas are listed so they are not proposed again without a new reason.
   nobody made must not be what writes the file then. Known limit: a note that arrives by sync and
   is opened within those seconds counts as new; if both devices pick, the emoji changes once when
   `data.json` syncs.
-- **Your own emoji win:** a note that already has an icon (moved there with a rename, or kept from
-  a deleted note at the same path) is left as it is, unless it is this session's automatic pick
-  for that path (`Untitled.md` deleted and made again). The pick is stored like an emoji set in the
-  picker (synced, changeable, removable) but not added to the recently used emoji: nobody chose
-  it. Choosing an emoji in the picker, even the same one, or removing it makes it the user's.
-- **Themed random** (`src/icons/auto-emoji.ts`, lists in `auto-emoji-themes.ts`). The first
+- **Your own emoji win:** a note made with a name that already has an icon (kept from a deleted
+  note at the same path: maybe a restore, or a note sync brought with its emoji) is left as it is,
+  unless it is this session's automatic pick for that path. The pick is stored like an emoji set
+  in the picker (synced, changeable, removable) but not added to the recently used emoji: nobody
+  chose it. Choosing an emoji in the picker, even the same one, or removing it makes it the
+  user's.
+- **Leftovers don't carry over:** every new note starts as `Untitled.md`, so an emoji stored for
+  an untitled name is left from a deleted note; it is removed when a new note gets that name.
+  Obsidian can't rename onto an existing note, so an emoji stored for the name an untitled note
+  then gets is left from a deleted one too, and is replaced by the automatic pick. Before, a
+  leftover 🦁 showed on every new note and moved along to its name.
+- **Themed** (`src/icons/auto-emoji.ts`, lists in `auto-emoji-themes.ts`). The first
   source that fits wins: English key words in the name (whole words only, plurals listed, no
   stemming: loose matching gave "Bank balance" → ☯️-style mistakes); a date the name starts with
   (the season of its month); the note's folder, else the folder above (key words in its name, or
@@ -186,8 +192,11 @@ ideas are listed so they are not proposed again without a new reason.
   gets no emoji; any pick would be out of place. Words with other common meanings (terminal,
   loss, passed) aren't on the list, but phrases with them are (pet loss). Mood words like
   "feeling" are no theme: they come with sad names as often as with happy ones.
-- **Variety:** chosen by chance among the theme's least used emoji: first not used by an item in
-  the same folder, then not among the last 8 automatic picks of the session.
+- **Clearest first, with variety:** each theme lists its clearest emoji first (trip → ✈️, recipes
+  → 🍽️), and the first one not used by an item in the same folder, then not among the last 8
+  automatic picks of the session, is taken; only the friendly emoji are picked by chance.
+  _Rejected:_ chance within a theme too (gave 🏨 for "Trip to Paris", which Windows draws like a
+  hospital). Emoji some systems draw as something else are left out of the lists.
 - **Seasons by hemisphere**, from the time zone (a short list of southern zones; north
   otherwise). Holiday emoji (🎄, 🎃) only in their month.
 - **"Untitled" notes wait for their name:** Obsidian names a new note _Untitled_ (translated:

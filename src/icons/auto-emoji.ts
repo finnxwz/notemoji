@@ -10,9 +10,9 @@ import {
 } from "./auto-emoji-themes";
 
 /**
- * Picks the emoji for a new note ("themed random"): one that fits its name, a
- * date in its name or its folder, else a pleasant one, chosen by chance among
- * those its neighbours don't use yet.
+ * Picks the emoji for a new note: the one that fits its name, a date in its
+ * name or its folder best, among those its neighbours don't use yet, else a
+ * pleasant one by chance.
  *
  * Free of DOM and Obsidian code so it can be unit tested; the source of
  * randomness is passed in.
@@ -285,10 +285,11 @@ export function hemisphereOf(timeZone: string | undefined): Hemisphere {
 }
 
 /**
- * One of the least used emoji of `pool`, by chance: first those no neighbour
- * uses, then those not among the latest automatic picks.
+ * One of the least used emoji of `pool` (first those no neighbour uses, then
+ * those not among the latest automatic picks): the first of them, as a theme
+ * lists its clearest emoji first, or with `random`, one by chance.
  */
-function choose(pool: readonly string[], note: NewNote, random: () => number): string {
+function choose(pool: readonly string[], note: NewNote, random?: () => number): string {
 	const neighbours = new Map<string, number>();
 	for (const icon of note.neighbours)
 		neighbours.set(bare(icon), (neighbours.get(bare(icon)) ?? 0) + 1);
@@ -305,6 +306,7 @@ function choose(pool: readonly string[], note: NewNote, random: () => number): s
 		}
 		if (uses === leastUses) least.push(emoji);
 	}
+	if (!random) return least[0];
 	return least[Math.min(least.length - 1, Math.floor(random() * least.length))];
 }
 
@@ -312,11 +314,12 @@ function choose(pool: readonly string[], note: NewNote, random: () => number): s
  * The emoji for a new note. The first source that fits wins:
  *
  * 1. a key word in its name (see `findKeyWord`): its obvious emoji ("pizza" →
- *    🍕) unless a neighbour has it, else one of its theme;
+ *    🍕) unless a neighbour has it, else its theme's first emoji no neighbour
+ *    has ("trip" → ✈️);
  * 2. a date its name starts with: the season (and holiday) of its month;
  * 3. its folder, else the folder above: a key word in the folder's name, or
  *    the folder's own emoji when that stands for a theme;
- * 4. the friendly emoji.
+ * 4. a friendly emoji, by chance.
  *
  * `undefined` for a sad or serious note (its name or any of its folders has
  * a word of `SENSITIVE_WORDS`): no emoji fits there.
@@ -334,19 +337,19 @@ export function pickAutoEmoji(
 		if (hit !== undefined && !note.neighbours.some((icon) => bare(icon) === bare(hit))) {
 			return { emoji: hit, source: "name" };
 		}
-		return { emoji: choose(keyWord.themeEmoji, note, random), source: "name" };
+		return { emoji: choose(keyWord.themeEmoji, note), source: "name" };
 	}
 
 	const month = monthOfDate(note.name);
 	if (month !== undefined) {
-		return { emoji: choose(seasonEmoji(month, note.hemisphere), note, random), source: "date" };
+		return { emoji: choose(seasonEmoji(month, note.hemisphere), note), source: "date" };
 	}
 
 	for (const folder of note.folders.slice(0, 2)) {
 		const theme =
 			findKeyWord(folder.name)?.themeEmoji ??
 			(folder.icon === undefined ? undefined : getIndex().themeOf.get(bare(folder.icon)));
-		if (theme) return { emoji: choose(theme, note, random), source: "folder" };
+		if (theme) return { emoji: choose(theme, note), source: "folder" };
 	}
 
 	return { emoji: choose(getIndex().friendly, note, random), source: "fallback" };

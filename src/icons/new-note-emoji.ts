@@ -113,7 +113,12 @@ export class NewNoteEmoji {
 		if (this.unnamed.delete(oldPath)) {
 			if (!isNote(file)) return;
 			if (isUntitled(file.basename)) this.unnamed.add(file.path);
-			else if (this.enabled()) this.assign(file);
+			else if (this.enabled()) {
+				// Obsidian can't rename onto an existing note, so an emoji stored for
+				// the new name belonged to a deleted one (deletes never touch data.json).
+				this.dropLeftover(file);
+				this.assign(file);
+			}
 			return;
 		}
 
@@ -142,6 +147,9 @@ export class NewNoteEmoji {
 
 	private assign(file: TFile): void {
 		if (isUntitled(file.basename)) {
+			// Every new note starts as "Untitled", so an emoji stored for that name
+			// is left from a deleted one, not this note's.
+			this.dropLeftover(file);
 			this.unnamed.add(file.path);
 			return;
 		}
@@ -150,6 +158,11 @@ export class NewNoteEmoji {
 		if (current !== undefined && current !== this.picks.get(file.path)?.emoji) return;
 		const pick = this.pick(file);
 		if (pick) this.store(file, pick);
+	}
+
+	private dropLeftover(file: TFile): void {
+		if (this.icons.get(file.path) !== undefined) this.icons.removeIcon(file);
+		this.picks.delete(file.path);
 	}
 
 	/** Stores the emoji like one chosen in the picker, but not as recently used: nobody chose it. */

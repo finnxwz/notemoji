@@ -145,7 +145,7 @@ describe("automatic emoji for new notes", () => {
 		expect(harness.lastSaved()?.icons).toEqual({ "New pizza.md": "🍕" });
 	});
 
-	it("never changes an emoji the note already has", async () => {
+	it("keeps an emoji stored for a note made with its name (a restore, or sync)", async () => {
 		const harness = await load({ data: { ...ON, icons: { "Pizza.md": "🚀" } } });
 		await newNote(harness, "Pizza.md");
 		expect(harness.plugin.icons.get("Pizza.md")).toBe("🚀");
@@ -243,6 +243,23 @@ describe("an untitled note that gets its name", () => {
 		harness.app.vault.rename("Travel/Untitled.md", "Travel/Pizza.md");
 		await flush();
 		expect(harness.plugin.icons.get("Travel/Pizza.md")).toBe("🍕");
+	});
+
+	it("doesn't take over an emoji left at 'Untitled' by a deleted note", async () => {
+		const harness = await load({ data: { ...ON, icons: { "Untitled.md": "🦁" } } });
+		await newNote(harness, "Untitled.md");
+		expect(harness.plugin.icons.get("Untitled.md")).toBeUndefined();
+		harness.app.vault.rename("Untitled.md", "Pizza.md");
+		await flush();
+		expect(harness.plugin.icons.get("Pizza.md")).toBe("🍕");
+	});
+
+	it("doesn't take over an emoji left at its new name by a deleted note", async () => {
+		const harness = await load({ data: { ...ON, icons: { "Pizza.md": "🦁" } } });
+		await newNote(harness, "Untitled.md");
+		harness.app.vault.rename("Untitled.md", "Pizza.md");
+		await flush();
+		expect(harness.plugin.icons.get("Pizza.md")).toBe("🍕");
 	});
 
 	it("also when it gets its name later", async () => {

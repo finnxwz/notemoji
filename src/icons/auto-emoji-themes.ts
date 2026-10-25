@@ -38,27 +38,34 @@ export const HOLIDAY_EMOJI: Readonly<Record<number, string>> = {
 };
 
 /**
- * Specific themes first; the four seasons are last. The first emoji of a
- * theme stands for it: a folder with that emoji counts as the theme's (see
- * `pickAutoEmoji`).
+ * Specific themes first; the four seasons are last. Each list starts with its
+ * clearest emoji, which is picked first (the next ones when neighbours already
+ * have it), so leave out emoji some systems draw as something else (🏨 looks
+ * like a hospital on Windows). The first emoji of a theme also stands for it:
+ * a folder with that emoji counts as the theme's (see `pickAutoEmoji`).
  */
 export const THEMES: readonly Theme[] = [
 	{
 		id: "travel",
 		words: `travel, travels, travelling, traveling, trip, trips, road trip, roadtrip, vacation,
-			vacations, holiday, holidays, journey, journeys, packing, packing list, itinerary,
+			vacations, holiday, holidays, journey, journeys, itinerary,
 			itineraries, backpacking, abroad, passport, airport, getaway, tour, tours, sightseeing,
 			wanderlust, destination, destinations, places, city, cities, booking, bookings,
 			honeymoon`,
-		emoji: "✈️ 🧳 🗺️ 🏝️ 🚆 ⛰️ 🏖️ 🧭 🌍 🏕️ 🗼 🚗 🛫 🏨 🎒 🚢",
-		hits: { "✈️": "flight, flights", "🏨": "hotel, hotels", "🛳️": "cruise, cruises" },
+		emoji: "✈️ 🧳 🗺️ 🌍 🏖️ 🏝️ 🚆 🗼 ⛰️ 🧭 🎒 🚢 🏕️ 🚗 🛫",
+		hits: {
+			"✈️": "flight, flights",
+			"🧳": "packing, packing list, luggage, suitcase",
+			"🛎️": "hotel, hotels",
+			"🛳️": "cruise, cruises",
+		},
 	},
 	{
 		id: "food",
 		words: `food, foods, recipe, recipes, meal, meals, meal plan, meal prep, dinner, dinners,
 			lunch, lunches, breakfast, breakfasts, brunch, snack, snacks, dessert, desserts,
 			restaurant, restaurants, eating, foodie, cuisine`,
-		emoji: "🍕 🍝 🥗 🍜 🍔 🌮 🍣 🥘 🍲 🥐 🍰 🧁 🍩 🍎 🥑 🍳 🥞 🍱 🥨 🧀",
+		emoji: "🍽️ 🍝 🥗 🍲 🍜 🥘 🍕 🍔 🌮 🍣 🍱 🥐 🍰 🧁 🍎 🥑 🍳 🥞 🥨 🧀",
 		hits: {
 			"🍕": "pizza, pizzas",
 			"🍝": "pasta, spaghetti",
@@ -169,7 +176,7 @@ export const THEMES: readonly Theme[] = [
 		id: "games",
 		words: `game, games, gaming, video game, video games, board game, board games, boardgames,
 			rpg, dnd, crossword, crosswords, sudoku`,
-		emoji: "🎮 🕹️ 🎲 ♟️ 🧩 🃏 🎯 👾 🎳 🀄 🪀 🪁 🎴",
+		emoji: "🎮 🕹️ 🎲 ♟️ 🧩 🃏 🎯 👾 🎳 🪀 🪁",
 		hits: {
 			"♟️": "chess",
 			"🧩": "puzzle, puzzles",
@@ -182,11 +189,11 @@ export const THEMES: readonly Theme[] = [
 	},
 	{
 		id: "sport",
-		words: `sport, sports, fitness, workout, workouts, exercise, gym, marathon, marathons,
-			swimming, league, tournament, tournaments, athletics, strength, cardio, pilates,
-			triathlon`,
-		emoji: "⚽ 🏀 🎾 🏐 🏈 ⚾ 🏓 🏸 🥊 🏆 🥇 🏅 👟 🎽 ⛳ 🛹 🥅",
+		words: `sport, sports, marathon, marathons, swimming, league, tournament, tournaments,
+			athletics, cardio, pilates, triathlon`,
+		emoji: "🏅 ⚽ 🏀 🎾 🏐 🏈 ⚾ 🏓 🏸 🥊 🏆 🥇 👟 🎽 ⛳ 🛹 🥅",
 		hits: {
+			"💪": "fitness, workout, workouts, exercise, gym, strength, training plan",
 			"⚽": "football, soccer",
 			"🏀": "basketball",
 			"🎾": "tennis",
@@ -211,7 +218,7 @@ export const THEMES: readonly Theme[] = [
 		words: `health, healthy, medical, medicine, medication, medications, therapy, therapist,
 			wellbeing, well being, wellness, nutrition, diet, diets, symptoms, self care, selfcare,
 			meditation, mindfulness, vitamins, yoga`,
-		emoji: "🩺 🩹 🌡️ 🏥 🍎 🥦 💧 🧴 🍵 🥗 🍋 💤 💚 🛁",
+		emoji: "🩺 💚 🍎 🥦 💧 💤 🥗 🍋 🍵 🧴 🛁 🩹",
 		hits: {
 			"🩺": "doctor, doctors",
 			"🦷": "dentist",
@@ -226,7 +233,7 @@ export const THEMES: readonly Theme[] = [
 			expense, income, salary, bills, accounting, bookkeeping, payment, payments, loan, loans,
 			mortgage, retirement, pension, insurance, debt, debts, price, prices, costs, bank,
 			banks, banking`,
-		emoji: "💰 💵 💶 💷 💴 💳 🏦 📈 🧾 💸 💹 📊 🧮 💎",
+		emoji: "💰 💵 💳 🏦 📈 🧾 💸 💶 💷 💴 💹 📊 🧮 💎",
 		hits: {
 			"📈": "invest, investing, investment, investments, stocks",
 			"🧾": "tax, taxes, invoice, invoices, receipt, receipts",
@@ -250,7 +257,7 @@ export const THEMES: readonly Theme[] = [
 			retrospective, workshop, workshops, conference, conferences, team, teams, people,
 			contacts, contact, networking, discussion, discussions, webinar, webinars, colleagues,
 			coworkers`,
-		emoji: "🤝 👥 💬 🗣️ 📞 ☎️ 📅 🗓️ ☕ 🪑 📢 🎙️ 🗨️",
+		emoji: "🤝 👥 💬 🗣️ 📞 ☎️ 📅 🗓️ ☕ 📢 🎙️ 🗨️",
 		hits: { "📞": "call, calls, phone call" },
 	},
 	{

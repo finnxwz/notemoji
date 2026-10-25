@@ -273,11 +273,19 @@ describe("variety", () => {
 		expect(pick("Trip", { neighbours }, () => 0.9).emoji).toBe(travel[0]);
 	});
 
-	it("picks by the random number among the candidates", () => {
-		expect(pick("Trip", {}, () => 0).emoji).toBe(travel[0]);
-		expect(pick("Trip", {}, () => 0.999).emoji).toBe(travel.at(-1));
-		const random = () => 0.42;
-		expect(pick("Trip", {}, random)).toEqual(pick("Trip", {}, random));
+	it("takes a theme's clearest emoji first, never one by chance", () => {
+		for (const random of [0, 0.5, 0.999]) {
+			expect(pick("Trip to Paris", {}, () => random).emoji).toBe("✈️");
+		}
+		expect(pick("Trip", { neighbours: ["✈️"] }, () => 0.999).emoji).toBe(travel[1]);
+	});
+
+	it("leaves out emoji some systems draw as something else", () => {
+		// 🏨 looks like a hospital on Windows: hotels get the bell instead.
+		expect(travel).not.toContain("🏨");
+		expect(pick("Hotel list").emoji).toBe(`🛎${VARIATION_SELECTOR}`);
+		expect(pick("Workout plan").emoji).toBe("💪");
+		expect(pick("Packing list").emoji).toBe("🧳");
 	});
 });
 
@@ -497,5 +505,10 @@ describe("fallback", () => {
 
 	it("avoids the neighbours' emoji too", () => {
 		expect(pick("Untitled", { neighbours: [friendly[0]] }).emoji).toBe(friendly[1]);
+	});
+
+	it("picks by the random number among the candidates", () => {
+		expect(pick("Untitled", {}, () => 0).emoji).toBe(friendly[0]);
+		expect(pick("Untitled", {}, () => 0.999).emoji).toBe(friendly.at(-1));
 	});
 });
