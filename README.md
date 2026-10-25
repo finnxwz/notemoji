@@ -35,20 +35,6 @@
 
 ![Notemoji on a phone](https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/mobile.png)
 
-## ⚙️ Settings
-
-| Setting                       | Default      | What it does                                                                                            |
-| ----------------------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
-| Emoji at note title           | Inline       | Before the title, _Large, above the title_ (click it to change the emoji), or _Off_                     |
-| Emoji in tab titles           | On           | The emoji in front of each tab's name                                                                   |
-| Emoji in view header title    | Off          | The emoji in front of the title in the bar at the top of a tab                                          |
-| Emoji next to links           | Off          | The linked note's emoji in front of links in your notes, in reading view and Live Preview               |
-| Automatic emoji for new notes | Off          | Gives each note you create an emoji that fits its name; your own emoji always win                       |
-| Emoji style                   | System emoji | Pick a style by its preview: Twemoji, OpenMoji, Noto Color Emoji, Noto Emoji Mono or your own font file |
-| Custom icons                  | –            | Every icon with its size and how often it is used, the storage used (up to 3 MB), and _Delete_          |
-| Picker image cache            | –            | Shows the size of the picker's pre-rendered emoji; _Clear_ deletes them                                 |
-| Remove emoji of missing files | –            | Cleans up emoji of notes, folders and files that no longer exist                                        |
-
 ## ❓ FAQ
 
 <details>
@@ -98,25 +84,9 @@ style fixes that; the real emoji is stored either way.</p>
 </details>
 
 <details>
-<summary><b>How much space does Notemoji use?</b></summary>
-<p>The data file is tiny. The picker keeps pre-rendered images of the emoji in
-<code>.obsidian/plugins/notemoji/cache/</code> (3–7 MB per style), so it opens and scrolls smoothly;
-<em>Clear</em> deletes them. Everything is in the plugin folder and is removed with the plugin.</p>
-</details>
-
-<details>
 <summary><b>Why don't I see the emoji at the note title?</b></summary>
 <p>It is shown before the title while Obsidian's <em>Show inline title</em> setting (Appearance) is
 on. Under <em>Emoji at note title</em> you can make it large, above the title, or turn it off.</p>
-</details>
-
-<details>
-<summary><b>Where do emoji next to links show?</b></summary>
-<p>With <em>Emoji next to links</em> on, links to notes and files in your notes show their emoji: in
-reading view and Live Preview, also in hover previews, embedded notes, tables and callouts; not in
-source mode, and not for embeds (<code>![[…]]</code>). The emoji is only displayed, not added to
-your text, so copying a paragraph copies the links as they are. In reading view, clicking it opens
-the link. If another plugin also shows icons in links, turn those off, or links show two icons.</p>
 </details>
 
 <details>
@@ -129,13 +99,6 @@ emoji always win: notes that have one are never changed, and you can change or r
 one like any other (it is not added to your recently used emoji). Notes that arrive by sync or
 import are normally left alone. Words are recognised in English, and also in German when Obsidian
 (1.8.7 or newer) is set to German.</p>
-</details>
-
-<details>
-<summary><b>I'm upgrading from Notemoji 1.x. Anything to do?</b></summary>
-<p>No, your emoji keep working as they are. If you sync your vault, update Notemoji on all devices:
-a device still on 1.x shows only the emoji, not Obsidian icons or your own images. Meanwhile 2.0
-puts back what 1.x leaves out when it saves.</p>
 </details>
 
 <details>
