@@ -8,9 +8,11 @@ import {
 	type SettingToggleControl,
 } from "obsidian";
 import { confirm } from "../confirm-modal";
+import type { NoteTitleMode } from "../data";
 import type NotemojiPlugin from "../main";
 import { CustomIconsSection } from "./custom-icons-section";
 import { EmojiStyleSection } from "./emoji-style-section";
+import { EMOJI_SETS } from "../style/emoji-sets";
 import { formatBytes, plural } from "../format";
 import { setDestructive } from "../internals";
 
@@ -25,14 +27,24 @@ const CACHE_DESC =
 	"Pre-rendered emoji for each style, so the picker opens and scrolls smoothly. Removed with the plugin.";
 
 /** The settings changed with a toggle or a dropdown. */
-type ControlKey = "noteTitle" | "showInTabs" | "showInViewHeader" | "showInLinks" | "autoEmoji";
-const CONTROL_KEYS: ReadonlySet<string> = new Set<ControlKey>([
+const CONTROL_KEYS = [
 	"noteTitle",
 	"showInTabs",
 	"showInViewHeader",
 	"showInLinks",
 	"autoEmoji",
-]);
+] as const;
+type ControlKey = (typeof CONTROL_KEYS)[number];
+
+const NOTE_TITLE_OPTIONS: Readonly<Record<NoteTitleMode, string>> = {
+	above: "Large, above the title",
+	inline: "Inline, before the title",
+	off: "Off",
+};
+
+function isControlKey(key: string): key is ControlKey {
+	return (CONTROL_KEYS as readonly string[]).includes(key);
+}
 
 interface RowBase {
 	name: string;
@@ -58,6 +70,8 @@ interface Group {
  */
 export class NotemojiSettingTab extends PluginSettingTab {
 	private readonly plugin: NotemojiPlugin;
+	/** The custom icons as drawn last; their uses change when emoji are removed here. */
+	private customIcons: CustomIconsSection | null = null;
 
 	constructor(plugin: NotemojiPlugin) {
 		super(plugin.app, plugin);
@@ -73,14 +87,15 @@ export class NotemojiSettingTab extends PluginSettingTab {
 	}
 
 	getControlValue(key: string): unknown {
-		return CONTROL_KEYS.has(key) ? this.plugin.settings[key as ControlKey] : undefined;
+		return isControlKey(key) ? this.plugin.settings[key] : undefined;
 	}
 
 	/** Through the plugin, which saves all of data.json and shows the change right away. */
 	setControlValue(key: string, value: unknown): void {
-		if (!CONTROL_KEYS.has(key)) return;
-		// A toggle gives a boolean and the dropdown one of its options, as stored.
-		if (typeof value !== typeof this.plugin.settings[key as ControlKey]) return;
+		if (!isControlKey(key)) return;
+		// As stored: a boolean from a toggle, one of the options from the dropdown.
+		if (typeof value !== typeof this.plugin.settings[key]) return;
+		if (key === "noteTitle" && !Object.hasOwn(NOTE_TITLE_OPTIONS, String(value))) return;
 		this.plugin.updateSettings({ [key]: value });
 	}
 
@@ -125,11 +140,7 @@ export class NotemojiSettingTab extends PluginSettingTab {
 						control: {
 							type: "dropdown",
 							key: "noteTitle",
-							options: {
-								above: "Large, above the title",
-								inline: "Inline, before the title",
-								off: "Off",
-							},
+							options: NOTE_TITLE_OPTIONS,
 						},
 					},
 					{
@@ -158,7 +169,13 @@ export class NotemojiSettingTab extends PluginSettingTab {
 				rows: [
 					{
 						name: "Emoji style",
-						aliases: ["Twemoji", "OpenMoji", "Noto", "font", "download"],
+						desc: "How emoji look: your system's emoji, a downloadable style or your own font.",
+						aliases: [
+							"System emoji",
+							...EMOJI_SETS.map((set) => set.name),
+							"Own font file",
+							"Download",
+						],
 						render: (setting) =>
 							this.section(setting, (el) => new EmojiStyleSection(this.plugin, el)),
 					},
@@ -169,9 +186,12 @@ export class NotemojiSettingTab extends PluginSettingTab {
 				rows: [
 					{
 						name: "Custom icons",
-						aliases: ["image", "upload", "storage", "Obsidian icons"],
+						desc: "Your own images and the Obsidian icons you use: storage, uses and deleting.",
+						aliases: ["Images", "Upload", "Storage", "Obsidian icons"],
 						render: (setting) =>
-							this.section(setting, (el) => new CustomIconsSection(this.plugin, el)),
+							this.section(setting, (el) => {
+								this.customIcons = new CustomIconsSection(this.plugin, el);
+							}),
 					},
 				],
 			},
@@ -260,6 +280,7 @@ export class NotemojiSettingTab extends PluginSettingTab {
 				const removed = icons.removeMissing();
 				new Notice(`Removed ${plural(removed, "emoji", "emoji")}.`);
 				show();
+				this.customIcons?.render();
 			});
 			show();
 		});

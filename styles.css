@@ -392,14 +392,20 @@ body.notemoji-custom-font {
    --------------------------------------------------------------------------- */
 
 .setting-item.notemoji-section-row {
-	display: block;
 	padding: 0;
 	border: none;
 }
 
+/* The row keeps its own display, so Obsidian can still hide it (search). */
 .notemoji-section-row > .setting-item-info,
 .notemoji-section-row > .setting-item-control {
 	display: none;
+}
+
+.notemoji-section-row > .notemoji-styles-section,
+.notemoji-section-row > .notemoji-custom-icons-section {
+	flex: 1 1 100%;
+	min-width: 0;
 }
 
 /* ---------------------------------------------------------------------------

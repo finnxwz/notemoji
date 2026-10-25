@@ -91,8 +91,11 @@ export class CustomIconsSection {
 						warning: true,
 					});
 					if (!confirmed) return;
-					for (const id of unused) library.remove(id);
-					plugin.icons.forgetCustomIcons(unused);
+					// Sync may have brought a use while the dialog was open.
+					const usesNow = plugin.icons.customUses();
+					const remove = unused.filter((id) => !usesNow.has(id));
+					for (const id of remove) library.remove(id);
+					plugin.icons.forgetCustomIcons(remove);
 					this.render();
 				}),
 			);
@@ -144,7 +147,8 @@ export class CustomIconsSection {
 							warning: true,
 						});
 						if (!confirmed) return;
-						plugin.icons.forgetCustomIcons(missing);
+						// Sync may have brought an icon back while the dialog was open.
+						plugin.icons.forgetCustomIcons(missing.filter((id) => !library.get(id)));
 						this.render();
 					}),
 				);

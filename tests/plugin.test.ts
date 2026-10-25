@@ -985,6 +985,28 @@ describe("custom icons", () => {
 			expect(harness.plugin.customIcons.list()).toEqual(["logo"]);
 		});
 
+		it("keeps an unused icon that sync gives a use while the dialog is open", async () => {
+			const { harness, button } = await openSettings(library);
+			void button("Storage", "Delete 1 unused").click();
+			await flush();
+			const file = harness.app.vault.add("C.md") as TFile;
+			harness.plugin.icons.setIcon(file as never, "custom:spare");
+			await answer("Delete");
+			expect(harness.plugin.customIcons.list()).toEqual(["logo", "spare"]);
+			expect(harness.plugin.icons.get("C.md")).toBe("custom:spare");
+		});
+
+		it("shows new uses after removing emoji of missing files", async () => {
+			const { button } = await openSettings(library);
+			void button("Remove emoji of missing files", "Remove 3").click();
+			await flush();
+			await answer("Remove");
+			const logo = settingsCreated
+				.filter((entry) => entry.nameEl.textContent === "logo")
+				.at(-1);
+			expect(logo?.descEl.textContent).toBe("PNG · 88 B · Not used");
+		});
+
 		it("deletes all after confirmation", async () => {
 			const { harness, button } = await openSettings(library);
 			void button("Storage", "Delete all").click();

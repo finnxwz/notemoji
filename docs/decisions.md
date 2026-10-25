@@ -284,15 +284,15 @@ ideas are listed so they are not proposed again without a new reason.
   `src/internals.ts`, always defensive.
 - `npm run check` (Prettier, ESLint with the Obsidian rules, TypeScript, Vitest, build) must pass;
   `src/` is linted with Obsidian's recommended rules exactly as the community directory's
-  scorecard runs them.
+  scorecard runs them. CI runs it with read-only permissions. A test keeps `manifest.json`,
+  `package.json`, the lock file and `versions.json` in step.
 - **Settings as setting definitions** (Obsidian 1.13), so every setting is in Obsidian's settings
   search. One list of groups and rows serves both: 1.13 reads it from `getSettingDefinitions()`,
   older versions get the same rows drawn by `display()`. The emoji style cards and custom icons are
   drawn by Notemoji inside a row each; rows that change (cache size, missing files) update
-  themselves. Settings are read and written through the plugin (`getControlValue` and
-  `setControlValue`), never by Obsidian saving the settings alone over `data.json`.
-  CI runs it with read-only permissions. A test keeps `manifest.json`, `package.json`, the lock
-  file and `versions.json` in step.
+  themselves, and removing emoji of missing files redraws the custom icons (their uses). Settings
+  are read and written through the plugin (`getControlValue` and `setControlValue`), never by
+  Obsidian saving the settings alone over `data.json`.
 - **Releases are made by hand with a workflow** (`.github/workflows/release.yml`), never on a
   push: it builds the version in `manifest.json`, runs `npm run check`, signs where the three
   release files come from (artifact attestations, which the community directory's scorecard
