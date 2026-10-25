@@ -17,6 +17,7 @@ import {
 	getLinkpath,
 	MarkdownPostProcessorContext,
 	MarkdownRenderChild,
+	MarkdownView,
 } from "obsidian";
 import { parseIcon } from "../icons/icon-value";
 import { findEditorLinks, LinkToken } from "./editor-links";
@@ -30,6 +31,19 @@ const REFRESH_DELAY_MS = 30;
 
 /** The rendered key of each icon element, so unchanged icons are left alone. */
 const renderedKeys = new WeakMap<HTMLElement, string>();
+
+/** The icon element of a link in reading view, from the link. */
+const ICON_IN_LINK = `:scope > .${LINK_ICON_CLASS}`;
+
+/** A link's path as written in a Markdown link (`My%20note`), decoded; `undefined` if it isn't encoded. */
+function decodedPath(path: string): string | undefined {
+	try {
+		const decoded = decodeURIComponent(path);
+		return decoded === path ? undefined : decoded;
+	} catch {
+		return undefined;
+	}
+}
 
 /**
  * The element an icon next to a link is drawn on: empty, drawn by CSS from
@@ -81,7 +95,13 @@ export class LinkIcons {
 		const path = getLinkpath(linktext);
 		// `[[#heading]]` points into the note itself.
 		if (path === "") return undefined;
-		const file = this.app.metadataCache.getFirstLinkpathDest(path, sourcePath);
+		const { metadataCache } = this.app;
+		const decoded = path.includes("%") ? decodedPath(path) : undefined;
+		const file =
+			metadataCache.getFirstLinkpathDest(path, sourcePath) ??
+			(decoded === undefined
+				? null
+				: metadataCache.getFirstLinkpathDest(decoded, sourcePath));
 		if (!file) return undefined;
 		const value = this.source.get(file.path);
 		const icon = parseIcon(value);
@@ -95,8 +115,11 @@ export class LinkIcons {
 	/** The Markdown post-processor: every rendered part of a note passes through it. */
 	readonly postProcessor = (el: HTMLElement, ctx: MarkdownPostProcessorContext): void => {
 		if (this.disposed || !el.querySelector("a.internal-link")) return;
+		// The note may be moved while it is shown: its links are then resolved from where it is.
+		const file = this.app.vault.getFileByPath(ctx.sourcePath);
+		const sourcePath = () => file?.path ?? ctx.sourcePath;
 		// Also while turned off, so turning it on shows icons without re-rendering.
-		const section = new LinkSection(el, ctx.sourcePath, this, this.sections);
+		const section = new LinkSection(el, sourcePath, this, this.sections);
 		// Right away: some renderers of other plugins never load their children.
 		section.update();
 		ctx.addChild(section);
@@ -119,17 +142,43 @@ export class LinkIcons {
 		refreshEditors(this.editors);
 	}
 
+	/**
+	 * Renders the notes open in reading view again. For when the plugin starts
+	 * while they are open (turned on, or updated): their links never passed
+	 * through the post-processor.
+	 */
+	rerenderReadingViews(): void {
+		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+			const view = leaf.view;
+			if (view instanceof MarkdownView && view.getMode() === "preview") {
+				view.previewMode.rerender(true);
+			}
+		}
+	}
+
 	/** Removes every icon shown in reading view (the editor extension goes with the plugin). */
 	dispose(): void {
 		this.disposed = true;
 		if (this.timer !== null) window.clearTimeout(this.timer);
-		for (const section of this.sections) section.clear();
 		this.sections.clear();
+		// From the whole page, also parts never loaded and so never tracked
+		// (some plugins render without loading what they render).
+		const documents = new Set([document]);
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			documents.add(leaf.view.containerEl.ownerDocument);
+		});
+		for (const doc of documents) {
+			for (const el of Array.from(
+				doc.querySelectorAll(`a.internal-link > .${LINK_ICON_CLASS}`),
+			)) {
+				el.remove();
+			}
+		}
 	}
 
 	/** Shows, updates or removes the icon of one link in reading view. */
 	showIcon(anchor: HTMLElement, sourcePath: string): void {
-		const existing = anchor.querySelector<HTMLElement>(`:scope > .${LINK_ICON_CLASS}`);
+		const existing = anchor.querySelector<HTMLElement>(ICON_IN_LINK);
 		const linktext = anchor.getAttribute("data-href") ?? anchor.getAttribute("href") ?? "";
 		const value =
 			this.disposed || !this.enabled() ? undefined : this.iconOf(linktext, sourcePath);
@@ -148,13 +197,20 @@ export class LinkIcons {
 
 /** A rendered part of a note with links; Obsidian unloads it when the part goes away. */
 class LinkSection extends MarkdownRenderChild {
+	/**
+	 * The links found when the part was rendered. Kept, because some plugins
+	 * move rendered content elsewhere (Dataview unwraps paragraphs).
+	 */
+	private readonly rendered: HTMLElement[];
+
 	constructor(
 		containerEl: HTMLElement,
-		private readonly sourcePath: string,
+		private readonly sourcePath: () => string,
 		private readonly links: LinkIcons,
 		private readonly sections: Set<LinkSection>,
 	) {
 		super(containerEl);
+		this.rendered = this.inContainer();
 	}
 
 	onload(): void {
@@ -167,17 +223,14 @@ class LinkSection extends MarkdownRenderChild {
 	}
 
 	update(): void {
-		for (const anchor of this.anchors()) this.links.showIcon(anchor, this.sourcePath);
-	}
-
-	clear(): void {
-		for (const anchor of this.anchors()) {
-			anchor.querySelector(`:scope > .${LINK_ICON_CLASS}`)?.remove();
+		const sourcePath = this.sourcePath();
+		for (const anchor of new Set([...this.rendered, ...this.inContainer()])) {
+			this.links.showIcon(anchor, sourcePath);
 		}
 	}
 
-	/** The links of this part; those of a note embedded here belong to that note's own part. */
-	private anchors(): HTMLElement[] {
+	/** The links in the part now; those of a note embedded here belong to that note's own part. */
+	private inContainer(): HTMLElement[] {
 		const embed = this.containerEl.closest(".markdown-embed");
 		return Array.from(this.containerEl.querySelectorAll<HTMLElement>("a.internal-link")).filter(
 			(anchor) => anchor.closest(".markdown-embed") === embed,

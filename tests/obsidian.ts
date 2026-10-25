@@ -701,8 +701,16 @@ export class FileView extends View {
 }
 
 export class MarkdownView extends FileView {
+	mode: "source" | "preview" = "source";
+	/** How often the reading view was rendered again. */
+	rerendered = 0;
+	previewMode = { rerender: () => (this.rerendered += 1) };
+
 	getViewType(): string {
 		return "markdown";
+	}
+	getMode(): "source" | "preview" {
+		return this.mode;
 	}
 }
 

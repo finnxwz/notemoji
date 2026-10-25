@@ -131,7 +131,8 @@ ideas are listed so they are not proposed again without a new reason.
   part with links (also while off), and updates it until Obsidian unloads it. Live Preview: one
   editor extension, always registered, with widgets that compare equal while the icon is the
   same, so typing never redraws them; rebuilt for the visible text on edits, scrolling, further
-  parsing and mode switches.
+  parsing and mode switches. Only when the plugin starts while notes are open (turned on or
+  updated), notes in reading view are rendered again once, since they were rendered without it.
 - **Links in the editor are found from the syntax tokens' classes** (`hmd-internal-link`, `url`,
   …), checked against the text (`[[` before the target, `](` before the URL), so a token split
   differently in another Obsidian version gives no icon rather than a wrong one. Markdown links

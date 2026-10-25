@@ -106,7 +106,9 @@ export default class NotemojiPlugin extends Plugin {
 		this.addSettingTab(new NotemojiSettingTab(this));
 		this.registerCommands();
 		this.registerEvents();
-		this.app.workspace.onLayoutReady(() => this.initialize());
+		// Turned on or updated while notes are open, rather than at startup.
+		const late = this.app.workspace.layoutReady;
+		this.app.workspace.onLayoutReady(() => this.initialize(late));
 	}
 
 	onunload(): void {
@@ -156,10 +158,12 @@ export default class NotemojiPlugin extends Plugin {
 		this.refresh();
 	}
 
-	private initialize(): void {
+	private initialize(late: boolean): void {
 		this.explorer.attach();
 		this.scheduleTitleSync();
 		this.style.start();
+		// Notes already shown in reading view were rendered without the emoji at their links.
+		if (late && this.data.settings.showInLinks) this.links.rerenderReadingViews();
 	}
 
 	// ------------------------------------------------------------------ wiring

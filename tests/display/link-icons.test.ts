@@ -177,6 +177,42 @@ describe("reading view", () => {
 		expect(added).toBe(0);
 	});
 
+	it("resolves encoded paths of Markdown links", () => {
+		app.vault.add("Trips/Day one.md");
+		icons.set("Trips/Day one.md", "1️⃣");
+		expect(emojiOf(render(["Trips/Day%20one.md"]).anchors[0])).toBe("1️⃣");
+		expect(iconOf(render(["Trips/100%.md"]).anchors[0])).toBeNull();
+	});
+
+	it("resolves from where the note is now, after it was moved", () => {
+		const { anchors } = render(["Rome"], "Trips/Paris.md");
+		expect(emojiOf(anchors[0])).toBe("🍝");
+		app.vault.rename("Trips/Paris.md", "Paris.md");
+		links.refresh();
+		expect(emojiOf(anchors[0])).toBe("🏛️");
+	});
+
+	it("keeps following links that were moved out of their part", () => {
+		const { el, anchors } = render(["Rome"]);
+		// Like Dataview, which unwraps the paragraph it rendered.
+		el.parentElement!.append(...Array.from(el.childNodes));
+		icons.set("Rome.md", "🏟️");
+		links.refresh();
+		expect(emojiOf(anchors[0])).toBe("🏟️");
+	});
+
+	it("removes icons on unload also where the part was never loaded", () => {
+		const el = document.body.createEl("p");
+		const anchor = el.createEl("a", { cls: "internal-link", attr: { "data-href": "Rome" } });
+		links.postProcessor(
+			el,
+			context("Index.md", () => undefined),
+		);
+		expect(emojiOf(anchor)).toBe("🏛️");
+		links.dispose();
+		expect(iconOf(anchor)).toBeNull();
+	});
+
 	it("removes every icon when the plugin unloads", () => {
 		const { anchors } = render(["Rome", "Trips/Paris"]);
 		links.dispose();

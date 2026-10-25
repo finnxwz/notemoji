@@ -5,7 +5,7 @@
 import type { PluginManifest } from "obsidian";
 import { ICONS_MARKER } from "../src/data";
 import NotemojiPlugin from "../src/main";
-import { createFakeApp, FakeAppOptions, flush } from "./fake-app";
+import { createFakeApp, FakeApp, FakeAppOptions, flush } from "./fake-app";
 import { Menu, Plugin as FakePlugin, TAbstractFile } from "./obsidian";
 
 export interface HarnessOptions extends FakeAppOptions {
@@ -15,6 +15,8 @@ export interface HarnessOptions extends FakeAppOptions {
 	damaged?: boolean;
 	/** Files already on the device (e.g. from an earlier run), by path. */
 	adapterFiles?: ReadonlyMap<string, ArrayBuffer>;
+	/** Runs before the plugin loads, e.g. to open notes. */
+	beforeLoad?: (app: FakeApp) => void;
 }
 
 export async function loadPlugin(options: HarnessOptions = {}) {
@@ -36,6 +38,7 @@ export async function loadPlugin(options: HarnessOptions = {}) {
 	// Fixtures written as version 2 count as saved by this version (see ICONS_MARKER).
 	const load = fake.loadData.bind(fake);
 	fake.loadData = async () => withMarker(await load());
+	options.beforeLoad?.(app);
 	fake.load();
 	await flush();
 

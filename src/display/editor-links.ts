@@ -42,8 +42,10 @@ export function findEditorLinks(
 	let target: { from: number; to: number } | null = null;
 	/** The URL of the Markdown link being read: adjacent URL tokens. */
 	let url: { from: number; to: number } | null = null;
-	/** Start of the last `[` that may open a Markdown link. */
+	/** Start of the `[` that may open the Markdown link being read. */
 	let bracket: number | null = null;
+	/** Where the previous token ended. */
+	let lastTo = -1;
 
 	const endTarget = () => {
 		if (target === null) return;
@@ -69,6 +71,13 @@ export function findEditorLinks(
 
 	for (const token of tokens) {
 		const { classes } = token;
+		// Every part of a Markdown link is a link or URL token, right after the
+		// one before; anything else in between means the `[` opened none
+		// (`[foo]`, a footnote), so it can't be taken for a later link's.
+		const inMarkdownLink =
+			token.from === lastTo && (classes.includes("link") || classes.includes("url"));
+		if (!inMarkdownLink) bracket = null;
+		lastTo = token.to;
 		const isTarget =
 			classes.includes("hmd-internal-link") &&
 			!classes.includes("link-alias") &&

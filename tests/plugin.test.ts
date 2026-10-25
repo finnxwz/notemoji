@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from "vitest";
-import { flush } from "./fake-app";
+import { FakeApp, flush } from "./fake-app";
 import {
 	ButtonComponent,
 	DropdownComponent,
@@ -608,6 +608,34 @@ describe("emoji next to links", () => {
 		harness.unload();
 		expect(document.querySelector(".notemoji-link-icon")).toBeNull();
 		expect(harness.fake.postProcessors).toHaveLength(0);
+	});
+
+	it("renders notes open in reading view again when it starts while they are shown", async () => {
+		const views: MarkdownView[] = [];
+		const open = (app: FakeApp, mode: "source" | "preview") => {
+			const leaf = new WorkspaceLeaf(app.asApp);
+			const view = new MarkdownView(leaf);
+			view.mode = mode;
+			leaf.view = view;
+			app.workspace.leaves.push(leaf);
+			views.push(view);
+		};
+		const openBoth = (app: FakeApp) => {
+			open(app, "preview");
+			open(app, "source");
+		};
+		const on = { version: 2, settings: { showInLinks: true } };
+
+		// Turned on or updated while Obsidian runs: reading views only.
+		await loadPlugin({ data: on, beforeLoad: openBoth });
+		expect(views.map((view) => view.rerendered)).toEqual([1, 0]);
+
+		// Not while the setting is off, and not at startup, where notes are rendered later.
+		views.length = 0;
+		await loadPlugin({ beforeLoad: openBoth });
+		const startup = await loadPlugin({ data: on, layoutReady: false, beforeLoad: openBoth });
+		startup.app.workspace.finishLayout();
+		expect(views.map((view) => view.rerendered)).toEqual([0, 0, 0, 0]);
 	});
 });
 

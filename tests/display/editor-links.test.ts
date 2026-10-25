@@ -105,6 +105,28 @@ describe("findEditorLinks", () => {
 		expect(links(...markdown("app", "obsidian://open?file=A"))).toEqual([]);
 	});
 
+	it("never takes a `[` of something else for the start of a later link", () => {
+		// `[foo]` before an image: the image's own `[` is marked as an image, not as a link.
+		const bracketed: Part[] = [
+			["[", "formatting formatting-link link"],
+			["foo", "link"],
+			["]", "formatting formatting-link link"],
+		];
+		const image: Part[] = [
+			["!", "formatting formatting-image image image-marker"],
+			["[", "formatting formatting-image image image-alt-text link"],
+			["]", "formatting formatting-image image image-alt-text link"],
+			["(", "formatting formatting-link-string string url"],
+			["photo.png", "string url"],
+			[")", "formatting formatting-link-string string url"],
+		];
+		expect(links(...bracketed, " and ", ...image)).toEqual([]);
+		expect(links(...bracketed, ...image)).toEqual([]);
+		expect(links(...bracketed, " and ", ...markdown("t", "note.md"))).toEqual([
+			{ at: 10, linktext: "note.md" },
+		]);
+	});
+
 	it("finds Markdown links with angle brackets", () => {
 		expect(links(...markdown("t", "<My note.md>"))).toEqual([
 			{ at: 0, linktext: "My note.md" },
