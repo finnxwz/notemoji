@@ -1,5 +1,5 @@
-import type { App, TAbstractFile, TFile, TFolder } from "obsidian";
-import { AutoPick, hemisphereOf, isUntitled, pickAutoEmoji } from "./auto-emoji";
+import type { App, TAbstractFile, TFile } from "obsidian";
+import { AutoPick, isUntitled, pickAutoEmoji } from "./auto-emoji";
 import { IconService, isNote } from "./icon-service";
 
 /** How soon after it was created a note must be opened to count as made on this device (ms). */
@@ -7,9 +7,6 @@ const OPEN_WITHIN_MS = 5000;
 
 /** How long after its automatic emoji a new name of the note may still change it (ms). */
 const RENAME_WITHIN_MS = 5 * 60 * 1000;
-
-/** How many automatic picks of this session the next one tries to differ from. */
-const RECENT_PICKS = 8;
 
 interface Pick extends AutoPick {
 	/** When it was picked. */
@@ -66,8 +63,6 @@ export class NewNoteEmoji {
 	 * otherwise count as having one of its own.
 	 */
 	private readonly picks = new Map<string, Pick>();
-	/** The latest automatic picks, most recent first. */
-	private recentPicks: string[] = [];
 
 	constructor(app: App, icons: IconService, enabled: () => boolean) {
 		this.app = app;
@@ -170,29 +165,13 @@ export class NewNoteEmoji {
 		if (!this.icons.setIcon(file, pick.emoji) && this.icons.get(file.path) !== pick.emoji)
 			return;
 		this.picks.set(file.path, { ...pick, time: Date.now() });
-		this.recentPicks = [pick.emoji, ...this.recentPicks].slice(0, RECENT_PICKS);
 	}
 
 	private pick(file: TFile): AutoPick | undefined {
-		// Its folders up to the vault root, nearest first.
-		const folders: TFolder[] = [];
+		const folders: string[] = [];
 		for (let folder = file.parent; folder && !folder.isRoot(); folder = folder.parent) {
-			folders.push(folder);
+			folders.push(folder.name);
 		}
-		const neighbours: string[] = [];
-		for (const item of file.parent?.children ?? []) {
-			const icon = item === file ? undefined : this.icons.get(item.path);
-			if (icon !== undefined) neighbours.push(icon);
-		}
-		return pickAutoEmoji({
-			name: file.basename,
-			folders: folders.map((folder) => ({
-				name: folder.name,
-				icon: this.icons.get(folder.path),
-			})),
-			neighbours,
-			recentPicks: this.recentPicks,
-			hemisphere: hemisphereOf(Intl.DateTimeFormat().resolvedOptions().timeZone),
-		});
+		return pickAutoEmoji({ name: file.basename, folders });
 	}
 }

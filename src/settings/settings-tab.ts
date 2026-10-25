@@ -159,7 +159,7 @@ export class NotemojiSettingTab extends PluginSettingTab {
 					},
 					{
 						name: "Automatic emoji for new notes",
-						desc: "Give each new note an emoji that fits its name or folder, with a bit of chance so notes next to each other differ. Your own emoji always win.",
+						desc: "Give each new note an emoji that fits its name, or one that suits any note. Your own emoji always win.",
 						control: { type: "toggle", key: "autoEmoji" },
 					},
 				],

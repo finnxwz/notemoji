@@ -175,41 +175,41 @@ ideas are listed so they are not proposed again without a new reason.
   Obsidian can't rename onto an existing note, so an emoji stored for the name an untitled note
   then gets is left from a deleted one too, and is replaced by the automatic pick. Before, a
   leftover 🦁 showed on every new note and moved along to its name.
-- **Themed** (`src/icons/auto-emoji.ts`, lists in `auto-emoji-themes.ts`). The first
-  source that fits wins: English key words in the name (whole words only, plurals listed, no
-  stemming: loose matching gave "Bank balance" → ☯️-style mistakes); a date the name starts with
-  (the season of its month); the note's folder, else the folder above (key words in its name, or
-  its emoji when that stands for a theme: the theme's first emoji, else an emoji in only one
-  theme; 🏆, in sport and goals, says nothing); otherwise about 160 friendly emoji (no flags,
-  people, skin tones, sequences, nothing ambiguous, religious, political or festive; no 🍉, 🌽
-  or 🐮, which mean other things online). A key word
-  with one obvious emoji (pizza → 🍕) beats other key words and is taken unless a neighbour has it.
-  Words in camel case stay one word ("MacBook" isn't about books). Left out on purpose: words that
-  often mean something else (map, as in Obsidian's maps of content; German "Chef"; chicken, a
-  dinner or a bird).
+- **Simple on purpose** (`src/icons/auto-emoji.ts`, lists in `auto-emoji-themes.ts`), from the
+  name only, in this order:
+  1. a word with one obvious emoji (pizza → 🍕, dentist → 🦷), or the name of a listed emoji in
+     the title (brain → 🧠, mountain → ⛰️): that emoji;
+  2. a key word of a theme (trip, meeting, budget): one of the theme's 3–6 emoji, by chance;
+  3. otherwise one of about 45 emoji that suit any note (📝 💡 🌱 ✨ …), by chance.
+
+  An obvious emoji anywhere in the name beats a theme word ("Pizza with the team" → 🍕); of two
+  of a kind, the first in the name wins; a phrase counts as one ("cover letter" is no letter).
+  English key words, whole words only, plurals listed, no stemming (loose matching gave
+  "Bank balance" → ☯️-style mistakes); words in camel case stay one word ("MacBook" isn't about
+  books). Left out on purpose: words that often mean something else (map, as in Obsidian's maps
+  of content; German "Chef"; chicken, a dinner or a bird). Emoji names only count for listed
+  emoji: the picker's full list has emoji no note should get ("bomb" → 💣). Groups only hold
+  emoji that fit every note of the theme, and none some systems draw as something else (🏨 looks
+  like a hospital on Windows; hotels get 🛎️).
+  - _Rejected (too complex for what it adds):_ the folder's theme or emoji, seasons for daily
+    notes by hemisphere, neighbours getting different emoji, official emoji keywords as an extra
+    layer, other languages. A daily note gets an emoji that suits any note.
+
 - **Sad or serious notes get none:** a name, or any folder above it (`Grief journal/2024/10`),
   with a word such as funeral, death, cancer, divorce, suicidal, eating disorder or depressed
   gets no emoji; any pick would be out of place. Words with other common meanings (terminal,
   loss, passed) aren't on the list, but phrases with them are (pet loss). Mood words like
   "feeling" are no theme: they come with sad names as often as with happy ones.
-- **Clearest first, with variety:** each theme lists its clearest emoji first (trip → ✈️, recipes
-  → 🍽️), and the first one not used by an item in the same folder, then not among the last 8
-  automatic picks of the session, is taken; only the friendly emoji are picked by chance.
-  _Rejected:_ chance within a theme too (gave 🏨 for "Trip to Paris", which Windows draws like a
-  hospital). Emoji some systems draw as something else are left out of the lists.
-- **Seasons by hemisphere**, from the time zone (a short list of southern zones; north
-  otherwise). Holiday emoji (🎄, 🎃) only in their month.
 - **"Untitled" notes wait for their name:** Obsidian names a new note _Untitled_ (translated:
   _Unbenannt_, _Sans titre_ …, from all of Obsidian's translations, also numbered) until it gets
   a name, which is what says what the note is about. Such a note gets no emoji until then, and once
-  named, its emoji is picked as for any new note (name, folder, friendly), however long that takes
-  in this session; one left untitled gets none. An emoji the user sets meanwhile wins. _Rejected:_
+  named, its emoji is picked as for any new note, however long that takes in this session; one left untitled gets none. An emoji the user sets meanwhile wins. _Rejected:_
   a friendly emoji right away, replaced when the name fits (looked random, and stayed random for
   names in other languages than English).
 - **Renamed soon after:** each automatic pick is remembered for this session; when the note gets
   another name within 5 minutes of it and still has that emoji, a sad or serious name removes it,
-  and a pick from the friendly emoji makes way for one that fits the new name. Picks that already
-  fit (name, date or folder) stay. Moving the note or renaming a folder above it is no new name.
+  and an emoji picked because nothing fit makes way for one that fits the new name. Picks that
+  already fit the name stay. Moving the note or renaming a folder above it is no new name.
 - Every listed emoji is in the picker's list, written as the list writes it, so emoji styles can
   draw it, and from Emoji 12.0 or older, so the system emoji of Windows 10 and older phones can
   draw it too: nobody chose these emoji, so nobody would know why a box shows instead. Tests check

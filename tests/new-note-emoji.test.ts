@@ -189,13 +189,10 @@ describe("automatic emoji for new notes", () => {
 		expect(harness.plugin.icons.get("Pizza.md")).toBe("🍕");
 	});
 
-	it("uses the folder and differs from the notes next to it", async () => {
-		const harness = await load({ files: ["Travel"] });
-		for (const name of ["A", "B", "C", "D", "E"]) await newNote(harness, `Travel/${name}.md`);
-		const picked = ["A", "B", "C", "D", "E"].map((name) =>
-			harness.plugin.icons.get(`Travel/${name}.md`),
-		);
-		expect(picked).toEqual(theme("travel").slice(0, 5));
+	it("gives a theme word one of the theme's emoji", async () => {
+		const harness = await load();
+		await newNote(harness, "Trip to Rome.md");
+		expect(harness.plugin.icons.get("Trip to Rome.md")).toBe(theme("travel")[0]);
 	});
 });
 
@@ -212,14 +209,11 @@ describe("an untitled note that gets its name", () => {
 		expect(harness.lastSaved()?.recent).toEqual([]);
 	});
 
-	it("gets one from its folder, else a friendly one, when the name fits nothing", async () => {
-		const harness = await load({ files: ["Recipes"] });
-		await newNote(harness, "Recipes/Untitled.md");
-		harness.app.vault.rename("Recipes/Untitled.md", "Recipes/Q3 summary.md");
+	it("gets one that suits any note when the name fits nothing", async () => {
+		const harness = await load();
 		await newNote(harness, "Untitled.md");
 		harness.app.vault.rename("Untitled.md", "Q3 summary.md");
 		await flush();
-		expect(theme("food")).toContain(harness.plugin.icons.get("Recipes/Q3 summary.md"));
 		expect(harness.plugin.icons.get("Q3 summary.md")).toBe(firstFriendly);
 	});
 
@@ -317,22 +311,20 @@ describe("a renamed note soon after its automatic emoji", () => {
 		expect(harness.plugin.icons.get("Pizza.md")).toBe(firstFriendly);
 	});
 
-	it("keeps an emoji that already fit its folder", async () => {
-		const harness = await load({ files: ["Recipes"] });
-		await newNote(harness, "Recipes/Q3.md");
-		const picked = harness.plugin.icons.get("Recipes/Q3.md");
-		expect(theme("food")).toContain(picked);
-		harness.app.vault.rename("Recipes/Q3.md", "Recipes/Coffee.md");
+	it("keeps an emoji that already fit its name", async () => {
+		const harness = await load();
+		await newNote(harness, "Trip.md");
+		harness.app.vault.rename("Trip.md", "Coffee.md");
 		await flush();
-		expect(harness.plugin.icons.get("Recipes/Coffee.md")).toBe(picked);
+		expect(harness.plugin.icons.get("Coffee.md")).toBe(theme("travel")[0]);
 	});
 
 	it("loses its emoji when the new name is sad or serious", async () => {
-		const harness = await load({ files: ["Recipes"] });
-		await newNote(harness, "Recipes/Q3.md");
-		harness.app.vault.rename("Recipes/Q3.md", "Recipes/Funeral lunch.md");
+		const harness = await load();
+		await newNote(harness, "Lunch.md");
+		harness.app.vault.rename("Lunch.md", "Funeral lunch.md");
 		await flush();
-		expect(harness.plugin.icons.get("Recipes/Funeral lunch.md")).toBeUndefined();
+		expect(harness.plugin.icons.get("Funeral lunch.md")).toBeUndefined();
 	});
 
 	it("keeps the automatic emoji once the user chose it too", async () => {

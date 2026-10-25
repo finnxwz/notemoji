@@ -69,7 +69,7 @@ right-click.
 | Emoji in tab titles           | On           | The emoji in front of each tab's name                                                                   |
 | Emoji in view header title    | Off          | The emoji in front of the title in the bar at the top of a tab                                          |
 | Emoji next to links           | Off          | The linked note's emoji in front of links in your notes, in reading view and Live Preview               |
-| Automatic emoji for new notes | Off          | Gives each note you create an emoji that fits its name or folder; your own emoji always win             |
+| Automatic emoji for new notes | Off          | Gives each note you create an emoji that fits its name; your own emoji always win                       |
 | Emoji style                   | System emoji | Pick a style by its preview: Twemoji, OpenMoji, Noto Color Emoji, Noto Emoji Mono or your own font file |
 | Custom icons                  | –            | Every icon with its size and how often it is used, the storage used (up to 3 MB), and _Delete_          |
 | Picker image cache            | –            | Shows the size of the picker's pre-rendered emoji; _Clear_ deletes them                                 |
@@ -170,14 +170,13 @@ copying a paragraph copies the links as they are. In reading view, clicking it o
 <details>
 <summary><b>How does the automatic emoji for new notes choose?</b></summary>
 
-With _Automatic emoji for new notes_ on, each note you create on this device gets an emoji that
-fits an English word in its name (`Pizza night` → 🍕, `Trip to Rome` → a travel emoji), the season
-of a daily note's date, or its folder; otherwise a pleasant one by chance. Notes next to each other
-get different emoji. A new _Untitled_ note gets its emoji once you've named it. Sad or
-serious notes (a funeral, an illness) get none. Your own emoji always win: notes that have one are
-never changed, and you can change or remove the automatic one like any other (it is not added to
-your recently used emoji). Notes that arrive by sync or import are left alone, so your devices
-hardly ever pick different emoji for the same note.
+With _Automatic emoji for new notes_ on, each note you create on this device gets an emoji from
+its name: the obvious one for a word like `pizza` (🍕) or `dentist` (🦷), one of a few fitting
+emoji for a word like `trip` (✈️, 🧳, 🗺️ …), otherwise one that suits any note (📝, 💡, 🌱 …). A
+new _Untitled_ note gets its emoji once you've named it. Sad or serious notes (a funeral, an
+illness) get none. Your own emoji always win: notes that have one are never changed, and you can
+change or remove the automatic one like any other (it is not added to your recently used emoji).
+Notes that arrive by sync or import are left alone. Only English words are recognised for now.
 
 </details>
 
