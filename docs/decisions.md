@@ -41,8 +41,14 @@ the code comments.
   `lucide:<name>` (one of Obsidian's icons). Other prefixes are reserved for future icon sources.
 - **`data.json` is versioned (v2)** and always read leniently: older files (1.x) keep working.
   When sync changed the file while this device has unsaved changes, both are combined entry by
-  entry, never dropped (`src/data-file.ts`). A deleted, empty or unreadable file during sync is
-  ignored: the complete file follows.
+  entry, never dropped (`src/data-file.ts`); a custom icon added on both sides under one name
+  keeps both (`logo-2`). A deleted, empty or unreadable file during sync is ignored: the complete
+  file follows.
+- **Changes saved on two devices before they sync** are not combined, for now: Obsidian Sync
+  merges `data.json` by its top-level entries (its own keys over the other's), so one device's
+  emoji and settings win and the other's changes since they last synced are lost; other sync
+  tools keep one whole file. Combining them would need a change time per entry, a bigger change
+  for a rare case: both devices changed while apart.
 - **Compatible in both directions.** Changes to `data.json` only add entries. Everything a
   version doesn't understand (entries, settings, values, icon formats, fields of an icon) is kept
   and written back, so an older version never drops a newer one's data. The version number goes
@@ -170,9 +176,7 @@ the code comments.
 
 - **Custom icons live in `data.json`** (by name), so they sync exactly when the emoji that use
   them sync. Uploaded in the picker; listed in the settings with size and uses. Deleting asks
-  first. Same names from two devices are kept apart: when both add a different image under one
-  name before syncing, the file's keeps it and this device's gets a new one (`logo-2`), which its
-  changes then use.
+  first.
   - _Rejected:_ the plugin folder (Obsidian Sync copies only `manifest.json`, `main.js`,
     `styles.css` and `data.json` of a plugin); a vault folder (visible, easy to delete by
     accident); dot folders and folders in `.obsidian/` (never synced); a setting to choose

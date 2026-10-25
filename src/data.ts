@@ -194,8 +194,11 @@ function sourceOf(raw: Record<string, unknown>): DataSource {
 	if (typeof version === "number") {
 		if (version > DATA_VERSION) return "newer";
 		if (version < DATA_VERSION) return "old";
-		// Current, unless its emoji came from a 1.x copy (see ICONS_MARKER).
-		return isRecord(raw.icons) && !Object.hasOwn(raw.icons, ICONS_MARKER) ? "old" : "current";
+		// Current only with the marker this version always writes. Without it the
+		// emoji came from a 1.x copy (see ICONS_MARKER), or the file is damaged
+		// (e.g. no emoji section at all): repaired like a 1.x file, from what this
+		// device knows, instead of trusted (and backed up) as it is.
+		return isRecord(raw.icons) && Object.hasOwn(raw.icons, ICONS_MARKER) ? "current" : "old";
 	}
 	// Without a version: hand-written, or the early plain `{ path: emoji }` map.
 	if (NEW_TOP.some((key) => key in raw)) return "current";

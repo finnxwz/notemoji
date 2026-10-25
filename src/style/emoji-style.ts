@@ -43,6 +43,7 @@ export class EmojiStyle {
 		this.sprites = new EmojiSprites({
 			categories: getCatalog,
 			fontFamily: resolvedEmojiFont,
+			textColor: () => window.getComputedStyle(document.body).color,
 			cache: this.spriteCache,
 			cacheKey: (details) => this.cacheKey(details),
 		});
@@ -70,6 +71,11 @@ export class EmojiStyle {
 		await this.fonts.apply(emojiStyle, emojiFont);
 		// The picker's images show the style: prepare them again (unless the plugin unloaded meanwhile).
 		if (this.warmedUp && !this.unloaded) this.sprites.rebuild();
+	}
+
+	/** Obsidian's CSS changed (theme, dark or light mode): the picker's images follow its text colour. */
+	themeChanged(): void {
+		if (this.warmedUp && !this.unloaded) this.sprites.refreshColor();
 	}
 
 	async select(style: string): Promise<void> {

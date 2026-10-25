@@ -30,8 +30,11 @@ function manualScheduler(timePerSlice: number) {
 
 function setup(overrides: Partial<SpriteOptions> = {}) {
 	const drawn: string[] = [];
+	/** The fill colour of each drawn emoji. */
+	const fills: string[] = [];
 	const context = {
 		font: "",
+		fillStyle: "",
 		textAlign: "",
 		textBaseline: "",
 		measureText: () => ({
@@ -40,10 +43,16 @@ function setup(overrides: Partial<SpriteOptions> = {}) {
 			actualBoundingBoxAscent: 22,
 			actualBoundingBoxDescent: 4,
 		}),
-		fillText: (text: string) => drawn.push(text),
-		// Pixels of the probe emoji: they depend on the font, like on a real device.
+		fillText: (text: string) => {
+			drawn.push(text);
+			fills.push(context.fillStyle);
+		},
+		// Pixels of the probe emoji: they depend on the font, like on a real device,
+		// and on the colour, like black-and-white glyphs.
 		getImageData: () => ({
-			data: Uint8ClampedArray.from(context.font, (char) => char.charCodeAt(0)),
+			data: Uint8ClampedArray.from(context.font + context.fillStyle, (char) =>
+				char.charCodeAt(0),
+			),
 		}),
 	};
 	const canvases: Array<{ width: number; height: number }> = [];
@@ -65,7 +74,7 @@ function setup(overrides: Partial<SpriteOptions> = {}) {
 		...overrides,
 	};
 	const sprites = new EmojiSprites(options);
-	return { sprites, drawn, context, canvases, revoked };
+	return { sprites, drawn, fills, context, canvases, revoked };
 }
 
 describe("EmojiSprites", () => {
@@ -197,6 +206,56 @@ describe("EmojiSprites", () => {
 		expect(new TextDecoder().decode(stored.get(pathA))).toBe("png");
 		expect(second.sprites.slot("😀")?.image).toBe('url("blob:image-2")');
 		expect(second.sprites.slot("🐻")?.image).toBe('url("blob:image-3")');
+	});
+
+	it("draws and uses the images when the cache can't be read or written", async () => {
+		const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+		const cache = {
+			read: () => Promise.reject(new Error("Can't read")),
+			write: () => Promise.reject(new Error("Disk full")),
+		};
+		const { sprites, drawn } = setup({ cache, cacheKey: (details) => `twemoji/${details}` });
+		sprites.rebuild();
+		await flush(10);
+		expect(drawn.slice(4)).toEqual(["😀", "😃", "😄", "🐻"]);
+		expect(sprites.slot("😀")).toBeDefined();
+		expect(sprites.slot("🐻")).toBeDefined();
+		expect(logged).toHaveBeenCalled();
+		logged.mockRestore();
+	});
+
+	it("draws black-and-white glyphs in the theme's text colour, and again when it changes", async () => {
+		let color = "rgb(218, 218, 218)";
+		const stored = new Map<string, ArrayBuffer>();
+		const cache = {
+			read: (key: string, id: string) => Promise.resolve(stored.get(`${key}/${id}`) ?? null),
+			write: (key: string, id: string, data: ArrayBuffer) => {
+				stored.set(`${key}/${id}`, data);
+				return Promise.resolve();
+			},
+		};
+		const { sprites, fills } = setup({
+			textColor: () => color,
+			cache,
+			cacheKey: (details) => `noto-mono/${details}`,
+		});
+		// Nothing to follow before the images were prepared.
+		sprites.refreshColor();
+		expect(fills).toEqual([]);
+
+		sprites.rebuild();
+		await flush(10);
+		expect(new Set(fills)).toEqual(new Set([color]));
+		sprites.refreshColor();
+		await flush(10);
+		expect(fills).toHaveLength(8);
+
+		// Switched to light mode: drawn again in its colour, and cached apart.
+		color = "rgb(34, 34, 34)";
+		sprites.refreshColor();
+		await flush(10);
+		expect(fills.slice(8)).toEqual(Array(8).fill(color));
+		expect(stored.size).toBe(4);
 	});
 
 	it("does nothing without a canvas context", async () => {

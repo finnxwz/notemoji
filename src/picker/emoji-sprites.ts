@@ -69,6 +69,11 @@ export interface SpriteOptions {
 	/** CSS font-family list of the active emoji style, already loaded. */
 	fontFamily: () => string;
 	/**
+	 * Colour of black-and-white glyphs: the theme's text colour, as emoji are
+	 * shown everywhere else. Colour emoji keep their own colours.
+	 */
+	textColor?: () => string;
+	/**
 	 * The cache key for images that look like this: style, device, emoji list
 	 * and the given `details`: pixel density, drawing format and a fingerprint
 	 * of how this device draws the font, e.g. "2x-f1-1kq7xy".
@@ -117,6 +122,14 @@ const canvasToPng = (canvas: HTMLCanvasElement): Promise<Blob> =>
 		),
 	);
 
+/** Logs a cache error and goes on without the cache (null: nothing read). */
+const cacheFailed =
+	(action: "read" | "written") =>
+	(error: unknown): null => {
+		console.error(`[notemoji] The picker image cache could not be ${action}.`, error);
+		return null;
+	};
+
 const decodeImage = async (url: string): Promise<boolean> => {
 	const image = new Image();
 	image.src = url;
@@ -136,6 +149,8 @@ export class EmojiSprites implements SpriteSource {
 	private readonly listeners = new Set<() => void>();
 	/** Increased by every rebuild; stale builds stop at their next step. */
 	private generation = 0;
+	/** Text colour of the current images; null before the first build. */
+	private color: string | null = null;
 
 	constructor(private readonly options: SpriteOptions) {}
 
@@ -154,6 +169,7 @@ export class EmojiSprites implements SpriteSource {
 	 */
 	rebuild(): void {
 		const generation = ++this.generation;
+		this.color = this.options.textColor?.() || "#000";
 		this.clear();
 		this.notify();
 		const ratio = Math.min(
@@ -176,6 +192,17 @@ export class EmojiSprites implements SpriteSource {
 				}
 			}
 		})();
+	}
+
+	/**
+	 * Prepares the images again when the theme's text colour changed (e.g.
+	 * switched to dark mode), once they were prepared at all. The fingerprint
+	 * changes only for black-and-white glyphs, so colour emoji come from the cache.
+	 */
+	refreshColor(): void {
+		if (this.color !== null && (this.options.textColor?.() || "#000") !== this.color) {
+			this.rebuild();
+		}
 	}
 
 	dispose(): void {
@@ -207,6 +234,7 @@ export class EmojiSprites implements SpriteSource {
 		const context = canvas.getContext("2d", { willReadFrequently: true });
 		if (!context) return "0";
 		context.font = `${PROBE_PX - 4}px ${this.options.fontFamily()}`;
+		context.fillStyle = this.color ?? "#000";
 		context.textBaseline = "bottom";
 		PROBE_EMOJI.forEach((emoji, i) => context.fillText(emoji, i * PROBE_PX, PROBE_PX));
 		const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
@@ -227,7 +255,10 @@ export class EmojiSprites implements SpriteSource {
 		const createUrl = this.options.createUrl ?? ((blob: Blob) => URL.createObjectURL(blob));
 		const revoke = this.options.revokeUrl ?? ((value: string) => URL.revokeObjectURL(value));
 		const decode = this.options.decode ?? decodeImage;
-		const cached = key && cache ? await cache.read(key, category.id) : null;
+		// The cache only saves drawing: when it can't be read or written, the
+		// images are drawn and used all the same.
+		const cached =
+			key && cache ? await cache.read(key, category.id).catch(cacheFailed("read")) : null;
 		if (generation !== this.generation) return;
 		let url = cached ? createUrl(new Blob([cached], { type: "image/png" })) : null;
 		if (url && !(await decode(url))) {
@@ -239,7 +270,11 @@ export class EmojiSprites implements SpriteSource {
 		if (!url) {
 			const png = await this.draw(category, ratio, generation);
 			if (!png) return;
-			if (key && cache) await cache.write(key, category.id, await png.arrayBuffer());
+			if (key && cache) {
+				await cache
+					.write(key, category.id, await png.arrayBuffer())
+					.catch(cacheFailed("written"));
+			}
 			if (generation !== this.generation) return;
 			url = createUrl(png);
 			// Used even if decoding ahead fails: drawing it again would not help.
@@ -276,6 +311,7 @@ export class EmojiSprites implements SpriteSource {
 		const context = canvas.getContext("2d");
 		if (!context) return null;
 		context.font = `${EMOJI_PX * ratio}px ${this.options.fontFamily()}`;
+		context.fillStyle = this.color ?? "#000";
 		context.textAlign = "left";
 		context.textBaseline = "alphabetic";
 

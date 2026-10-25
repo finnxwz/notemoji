@@ -258,6 +258,18 @@ describe("data safety", () => {
 		expect(harness.lastSaved()?.version).toBe(2);
 	});
 
+	it("doesn't trust a version 2 file without its emoji section, nor back it up", async () => {
+		const first = await loadPlugin({ data: v2 });
+		first.plugin.updateSettings({ showInTabs: true });
+		await flush();
+		const harness = await loadPluginWith(first, { version: 2 });
+		expect(harness.plugin.icons.get("A.md")).toBe("🚀");
+		expect(harness.plugin.settings.noteTitle).toBe("above");
+		harness.unload();
+		await flush();
+		expect((await readBackup(harness)).icons).toMatchObject({ "A.md": "🚀" });
+	});
+
 	it("starts normally after updating from 1.x, when there is no backup yet", async () => {
 		const harness = await loadPlugin({ data: { version: 1, icons: { "A.md": "🎉" } } });
 		expect(harness.plugin.icons.get("A.md")).toBe("🎉");
@@ -1676,6 +1688,19 @@ describe("picker image cache", () => {
 });
 
 describe("picker preparation", () => {
+	it("follows a theme change once the picker's images are prepared", async () => {
+		const harness = await loadPlugin();
+		const { sprites } = harness.plugin.style;
+		const refresh = vi.spyOn(sprites, "refreshColor");
+		vi.spyOn(sprites, "rebuild").mockImplementation(() => undefined);
+		harness.app.workspace.trigger("css-change");
+		expect(refresh).not.toHaveBeenCalled();
+		harness.plugin.style.warmUp();
+		harness.app.workspace.trigger("css-change");
+		expect(refresh).toHaveBeenCalledTimes(1);
+		harness.unload();
+	});
+
 	it("prepares the picker after startup, also while the workspace keeps changing", async () => {
 		vi.useFakeTimers();
 		try {

@@ -192,6 +192,7 @@ export default class NotemojiPlugin extends Plugin {
 		);
 		this.registerEvent(workspace.on("active-leaf-change", () => this.scheduleTitleSync()));
 		// Pop-out windows need the emoji font too.
+		this.registerEvent(workspace.on("css-change", () => this.style.themeChanged()));
 		this.registerEvent(
 			workspace.on("window-open", (_window, win) => this.style.fonts.attach(win.document)),
 		);
