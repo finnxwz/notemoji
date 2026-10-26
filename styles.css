@@ -1,3 +1,9 @@
+body {
+	/* Prefer colour emoji over text glyphs on every platform. */
+	--notemoji-font:
+		"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+}
+
 /* ---------------------------------------------------------------------------
    Emoji icon in the file explorer.
 
@@ -17,76 +23,566 @@
 	margin-inline-end: 0.3em;
 	font-size: 1.1em;
 	line-height: 1;
-	font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+	font-family: var(--notemoji-font);
 	/* Clicks should keep selecting the item, not hit the icon. */
 	pointer-events: none;
 }
 
 /* ---------------------------------------------------------------------------
-   Emoji input modal
+   Emoji picker
+
+   The grid is virtualized: rows are absolutely positioned inside a canvas as
+   tall as the whole grid, and only the rows on screen exist (virtual-grid.ts).
+   Tiles are plain elements, not buttons, to keep them as light as possible.
    --------------------------------------------------------------------------- */
 
-.modal.notemoji-modal {
-	width: min(26rem, 90vw);
+.modal.notemoji-picker-modal {
+	width: min(30rem, 94vw);
 }
 
-.notemoji-modal .notemoji-description {
-	margin-block-end: 0.9em;
+.notemoji-picker {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.notemoji-picker-description {
+	margin-block-start: calc(var(--size-4-2) * -1);
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 	overflow-wrap: anywhere;
 }
 
-.notemoji-modal .notemoji-input-row {
+.notemoji-picker-toolbar {
 	display: flex;
 	align-items: center;
-	gap: 0.6em;
+	gap: var(--size-4-2);
 }
 
-.notemoji-modal .notemoji-preview {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex: 0 0 auto;
-	width: 2.4em;
-	height: 2.4em;
-	font-size: 1.4em;
-	line-height: 1;
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
-	background-color: var(--background-secondary);
-	font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
-}
-
-.notemoji-modal .notemoji-preview.is-empty {
-	color: var(--text-faint);
-	font-family: inherit;
-	font-size: 1.1em;
-}
-
-.notemoji-modal .notemoji-input {
+.notemoji-picker-search {
 	flex: 1 1 auto;
 	min-width: 6em;
 }
 
-.notemoji-modal .notemoji-hint {
-	min-height: 1.5em;
-	margin-block-start: 0.6em;
+.notemoji-picker-tabs {
+	display: flex;
+	border-block-end: 1px solid var(--background-modifier-border);
+}
+
+.notemoji-picker.is-searching .notemoji-picker-tabs {
+	opacity: 0.5;
+}
+
+.notemoji-picker .notemoji-picker-tab {
+	flex: 1 1 0;
+	height: auto;
+	padding: var(--size-4-2) 0;
+	font-family: var(--notemoji-font);
+	font-size: 1.15em;
+	line-height: 1;
+	background: none;
+	border: none;
+	border-block-end: 2px solid transparent;
+	border-radius: 0;
+	box-shadow: none;
+	filter: grayscale(1);
+	opacity: 0.6;
+	cursor: var(--cursor);
+}
+
+.notemoji-picker .notemoji-picker-tab:hover,
+.notemoji-picker .notemoji-picker-tab.is-active {
+	filter: none;
+	opacity: 1;
+}
+
+.notemoji-picker .notemoji-picker-tab.is-active {
+	border-block-end-color: var(--interactive-accent);
+}
+
+/* The Obsidian icons tab shows one of Obsidian's icons, as large as the emoji next to it. */
+.notemoji-picker-tab .svg-icon {
+	--icon-size: 1em;
+}
+
+.notemoji-picker-grid-wrap {
+	position: relative;
+}
+
+.notemoji-picker-body {
+	height: min(18rem, 45vh);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	/* Changes inside never affect layout outside, keeping each frame cheap. */
+	contain: strict;
+}
+
+.notemoji-picker-canvas {
+	position: relative;
+	height: var(--notemoji-grid-height, 0);
+}
+
+.notemoji-picker-row,
+.notemoji-picker-section-title {
+	position: absolute;
+	inset-inline: 0;
+	top: 0;
+	height: var(--notemoji-row-height);
+	transform: translateY(var(--notemoji-row-top));
+}
+
+.notemoji-picker-row {
+	display: grid;
+	grid-template-columns: repeat(var(--notemoji-columns), 1fr);
+}
+
+.notemoji-picker-section-title,
+.notemoji-picker-sticky {
+	display: flex;
+	align-items: flex-end;
+	padding-block-end: 6px;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+}
+
+/* The current section's name, pinned once its own header scrolled away.
+   It stops where the scrollbar starts, so the scrollbar stays fully visible. */
+.notemoji-picker-sticky {
+	position: absolute;
+	inset-inline: 0 var(--notemoji-scrollbar-width, 0);
+	top: 0;
+	z-index: 1;
+	height: 30px;
+	visibility: hidden;
+	background-color: var(--modal-background, var(--background-primary));
+	pointer-events: none;
+}
+
+.notemoji-picker-sticky.is-visible {
+	visibility: visible;
+}
+
+.notemoji-picker-emoji {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-family: var(--notemoji-font);
+	font-size: 1.5rem;
+	line-height: 1;
+	border-radius: var(--radius-s);
+	cursor: var(--cursor);
+	user-select: none;
+	/* A long-press opens Notemoji's menu, not the system's image menu (iOS). */
+	-webkit-touch-callout: none;
+}
+
+/* A pre-rendered emoji: one 32 px cell of a sprite sheet (see emoji-sprites.ts). */
+.notemoji-sprite {
+	width: 32px;
+	height: 32px;
+	background-image: var(--notemoji-sprite-image);
+	background-position: var(--notemoji-sprite-position);
+	background-size: var(--notemoji-sprite-size);
+	background-repeat: no-repeat;
+	pointer-events: none;
+}
+
+/* Reads the resolved emoji font for drawing the sprites. */
+.notemoji-font-probe {
+	position: absolute;
+	visibility: hidden;
+	font-family: var(--notemoji-font);
+}
+
+.notemoji-picker-emoji:hover,
+.notemoji-picker-emoji.is-active {
+	background-color: var(--background-modifier-hover);
+}
+
+.notemoji-picker-emoji.is-active {
+	box-shadow: inset 0 0 0 2px var(--interactive-accent);
+}
+
+.notemoji-picker-emoji.is-current {
+	background-color: var(--background-modifier-active-hover);
+}
+
+.notemoji-picker-emoji.is-upload {
+	margin: 4px;
+	color: var(--text-muted);
+	border: 1px dashed var(--background-modifier-border);
+}
+
+.notemoji-picker-emoji.is-upload:hover {
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+}
+
+/* Obsidian's icons, drawn by Obsidian, as large as the emoji. */
+.notemoji-picker-emoji.is-lucide .svg-icon {
+	--icon-size: 1em;
+}
+
+.notemoji-picker-empty {
+	display: none;
+	padding: var(--size-4-8) var(--size-4-4);
+	color: var(--text-muted);
+	text-align: center;
+}
+
+.notemoji-picker-empty.is-visible {
+	display: block;
+}
+
+.notemoji-picker-footer {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-height: 2.6em;
+	padding-block-start: var(--size-4-2);
+	border-block-start: 1px solid var(--background-modifier-border);
+}
+
+.notemoji-picker-footer-emoji {
+	font-family: var(--notemoji-font);
+	font-size: 1.8em;
+	line-height: 1;
+}
+
+.notemoji-picker-footer-emoji .svg-icon {
+	display: block;
+	--icon-size: 1em;
+}
+
+.notemoji-picker-footer-name {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------
+   Titles: note title, tab title, view header title
+
+   Display-only emoji are drawn from the `data-notemoji` attribute, so they are
+   never part of Obsidian's (editable) title text.
+   --------------------------------------------------------------------------- */
+
+.inline-title[data-notemoji]::before,
+.workspace-tab-header-inner-title[data-notemoji]::before,
+.view-header-title[data-notemoji]::before,
+.notemoji-link-icon[data-notemoji]::before {
+	content: attr(data-notemoji);
+	margin-inline-end: 0.3em;
+	font-family: var(--notemoji-font);
+	font-weight: normal;
+}
+
+/* Large emoji above the note title ("Large, above the title"). */
+.notemoji-title-icon {
+	display: flex;
+	margin-block: 0.5em 0.1em;
+	user-select: none;
+}
+
+.notemoji-title-icon .notemoji-title-icon-button {
+	height: auto;
+	padding: 0 0.05em;
+	background: none;
+	border: none;
+	box-shadow: none;
+	font-family: var(--notemoji-font);
+	font-size: calc(var(--inline-title-size, 2em) * 1.6);
+	line-height: 1.15;
+	border-radius: var(--radius-m);
+	cursor: var(--cursor);
+	transition: background-color 120ms ease;
+}
+
+.notemoji-title-icon .notemoji-title-icon-button:hover,
+.notemoji-title-icon .notemoji-title-icon-button:focus-visible {
+	background-color: var(--background-modifier-hover);
+}
+
+/* Follows Obsidian's "Show inline title" setting. */
+body:not(.show-inline-title) .notemoji-title-icon {
+	display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Pictures: custom icons (images) and Obsidian icons
+
+   An Obsidian icon (its copy in data.json, or Obsidian's own drawing) is a
+   mask filled with the text colour, so it follows the theme like Obsidian's
+   own icons. The -webkit- names are for Obsidian on iPhone and iPad.
+   --------------------------------------------------------------------------- */
+
+.notemoji-image {
+	display: block;
+	width: 1em;
+	height: 1em;
+	object-fit: contain;
+}
+
+.notemoji-mask {
+	display: block;
+	width: 1em;
+	height: 1em;
+}
+
+/* An icon missing on this device (e.g. not synced yet) shows nothing. */
+.notemoji-image.is-missing,
+.notemoji-mask.is-missing {
+	visibility: hidden;
+}
+
+.inline-title[data-notemoji-image]::before,
+.workspace-tab-header-inner-title[data-notemoji-image]::before,
+.view-header-title[data-notemoji-image]::before,
+.notemoji-link-icon[data-notemoji-image]::before {
+	content: "";
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	margin-inline-end: 0.3em;
+	vertical-align: -0.125em;
+	background: var(--notemoji-image) center / contain no-repeat;
+}
+
+/* Obsidian icons. At titles and links the attribute is only set with a picture: without one, the
+   mask would fill the space with colour. After the rule above, so the colour replaces the picture. */
+.notemoji-mask,
+.inline-title[data-notemoji-mask]::before,
+.workspace-tab-header-inner-title[data-notemoji-mask]::before,
+.view-header-title[data-notemoji-mask]::before,
+.notemoji-link-icon[data-notemoji-mask]::before {
+	background: currentColor;
+	-webkit-mask-image: var(--notemoji-image);
+	mask-image: var(--notemoji-image);
+	-webkit-mask-position: center;
+	mask-position: center;
+	-webkit-mask-size: contain;
+	mask-size: contain;
+	-webkit-mask-repeat: no-repeat;
+	mask-repeat: no-repeat;
+}
+
+/* Emoji next to links: an empty element drawn like the title emoji, so it is never copied with
+   the text. In reading view it is inside the link, and as an inline block the link's underline
+   leaves it out; in Live Preview it sits right before the link. */
+.notemoji-link-icon {
+	display: inline-block;
+	user-select: none;
+}
+
+/* Emoji style: an emoji font chosen in the settings, with the system's emoji as fallback. */
+body.notemoji-custom-font {
+	--notemoji-font:
+		var(--notemoji-custom-family), "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+		"Segoe UI Symbol", sans-serif;
+}
+
+.notemoji-hidden-input {
+	display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Settings: a part Notemoji draws itself (style cards, custom icons) fills a
+   whole row; the row's name only serves Obsidian's settings search.
+   --------------------------------------------------------------------------- */
+
+.setting-item.notemoji-section-row {
+	padding: 0;
+	border: none;
+}
+
+/* The row keeps its own display, so Obsidian can still hide it (search). */
+.notemoji-section-row > .setting-item-info,
+.notemoji-section-row > .setting-item-control {
+	display: none;
+}
+
+.notemoji-section-row > .notemoji-styles-section,
+.notemoji-section-row > .notemoji-custom-icons-section {
+	flex: 1 1 100%;
+	min-width: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   Settings: emoji style cards
+   --------------------------------------------------------------------------- */
+
+.notemoji-styles {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+	gap: var(--size-4-2);
+	padding-block: var(--size-4-2);
+}
+
+.notemoji-styles .notemoji-style-card {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--size-4-2);
+	height: auto;
+	padding: var(--size-4-2) var(--size-4-3);
+	color: var(--text-normal);
+	text-align: start;
+	white-space: normal;
+	background-color: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	box-shadow: none;
+	cursor: var(--cursor);
+}
+
+.notemoji-styles .notemoji-style-card:hover {
+	border-color: var(--background-modifier-border-hover);
+}
+
+.notemoji-styles .notemoji-style-card.is-selected {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+
+.notemoji-style-header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+}
+
+.notemoji-style-name {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-weight: var(--font-semibold);
+}
+
+.notemoji-style-meta {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.notemoji-style-preview {
+	display: flex;
+	align-items: center;
+	min-height: 24px;
+	overflow: hidden;
+}
+
+.notemoji-style-image {
+	height: 24px;
+	width: auto;
+	max-width: 100%;
+	object-fit: contain;
+	object-position: left;
+}
+
+/* The black-and-white set is rendered white; dark glyphs read better on light themes. */
+.theme-light .notemoji-style-image.is-monochrome {
+	filter: invert(1);
+}
+
+.notemoji-style-sample {
+	font-size: 20px;
+	letter-spacing: 2px;
+	line-height: 1;
+	white-space: nowrap;
+}
+
+/* Always the device's own emoji, whatever style is active. */
+.notemoji-style-sample.is-system {
+	font-family:
+		"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+}
+
+.notemoji-style-sample.is-own {
+	font-family: var(--notemoji-custom-family), sans-serif;
+}
+
+.notemoji-style-hint {
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+}
+
+.notemoji-styles .notemoji-style-card:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 1px;
+}
+
+.notemoji-styles .notemoji-style-card.is-busy {
+	cursor: progress;
+	opacity: 0.7;
+}
+
+.notemoji-style-actions {
+	display: flex;
+	gap: 2px;
+	margin-block: -4px;
+}
+
+.notemoji-style-actions .notemoji-style-action {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	height: auto;
+	padding: 2px 6px;
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 }
 
-.notemoji-modal .notemoji-hint.is-error {
-	color: var(--text-error);
+.notemoji-style-actions .notemoji-style-action:hover {
+	color: var(--text-normal);
 }
 
-.notemoji-modal .notemoji-actions {
+.notemoji-style-action-icon {
+	display: inline-flex;
+	--icon-size: var(--icon-xs);
+}
+
+.notemoji-styles-caption {
+	padding-block-end: var(--size-4-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* ------------------------------------------------------------------
+   Settings: custom icons
+   ------------------------------------------------------------------ */
+
+.notemoji-icon-storage .setting-item-description {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.notemoji-storage-bar {
+	height: 6px;
+	max-width: 24rem;
+	overflow: hidden;
+	border-radius: 3px;
+	background-color: var(--background-modifier-border);
+}
+
+.notemoji-storage-bar-fill {
+	width: var(--notemoji-storage-used, 0);
+	height: 100%;
+	background-color: var(--interactive-accent);
+}
+
+.notemoji-icon-row .setting-item-name {
 	display: flex;
 	align-items: center;
-	gap: 0.6em;
-	margin-block-start: 0.4em;
+	gap: var(--size-4-2);
+	overflow-wrap: anywhere;
 }
 
-.notemoji-modal .notemoji-actions .notemoji-remove {
-	margin-inline-end: auto;
+.notemoji-icon-row-image {
+	flex: none;
+	width: 28px;
+	height: 28px;
+	object-fit: contain;
 }
