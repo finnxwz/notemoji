@@ -1,7 +1,7 @@
 {
 	"id": "notemoji",
 	"name": "Notemoji",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"minAppVersion": "1.7.2",
 	"description": "Assign emoji icons to notes and folders in the file explorer to make your vault feel a little cozier.",
 	"author": "Finn-Christopher Krause",
