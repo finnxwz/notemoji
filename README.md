@@ -23,6 +23,7 @@
 ## 💻 You might also like some other plugins I've made:
 
 - **[TidyTasks](obsidian://show-plugin?id=tidytasks)** - Automatically move completed tasks to the bottom of each Markdown task list, keeping subtasks attached and surrounding text in place.
+- **[Cloudboard](obsidian://show-plugin?id=cloudboard)** - Create Pinterest-style image boards with both local and online images, without requiring the use of Obsidian Canvas.
 
 Thank you for using my plugins and supporting my work! My plugins are designed to work across Windows, macOS, Android, and iOS.
 
