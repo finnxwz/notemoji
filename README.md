@@ -1,4 +1,4 @@
-# Notemoji
+![Notemoji Banner](https://raw.githubusercontent.com/finnxwz/notemoji/main/notemoji-banner.png)
 
 **Assign emoji icons to notes and folders in the file explorer to make your vault feel a little cozier.**
 
