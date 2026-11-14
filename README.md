@@ -15,15 +15,12 @@
 
 ## 💡 Additional info
 
-- **More than the file explorer:** Icons can also appear in note titles and tabs. They can optionally be shown in the view header and next to internal links in reading view and Live Preview.
-- **Custom image icons:** Upload your own PNG, SVG or other supported image files directly from the picker. Custom icons are stored with the plugin data so they can sync between devices.
-- **Obsidian icons:** Choose from Obsidian's built-in icons. They automatically follow the text colour of your theme.
-- **Emoji styles:** Use your system emoji, Twemoji, OpenMoji, Noto Color Emoji, Noto Emoji Mono or your own emoji font. Optional styles are downloaded only after you select them and affect only Notemoji icons.
-- **Automatic emoji:** Notemoji can optionally assign a suitable emoji to newly created notes based on their names. This is disabled by default and currently supports English and German note names.
-- **Made for every device:** Notemoji works on Windows, macOS, Linux, Android and iOS. Settings, recently used emoji and custom icons can sync with your vault.
-- **Your notes stay untouched:** Icons are display-only. Notemoji never modifies note names or note contents.
-- **Renames and moves:** Icons stay assigned when notes, files or folders are renamed or moved inside Obsidian.
-- **Safe synchronization:** Deleted paths are retained to avoid losing assignments during synchronization. Entries for files that no longer exist can be removed manually in the settings.
+- Icons can be shown in the file explorer, note titles, tabs, view headers and next to internal links. You can choose exactly where they appear in the settings.
+- Choose from the full emoji picker, upload your own image icons, use Obsidian's built-in icons, and customize the appearance with system emoji, Twemoji, OpenMoji, Noto Color Emoji, Noto Emoji Mono or your own emoji font.
+- Notemoji can optionally assign a suitable emoji to newly created notes based on their names. This is disabled by default and currently supports English and German note names.
+- Icons are display-only. Notemoji never modifies note names or note contents.
+- Icons stay assigned when notes, files or folders are renamed or moved inside Obsidian.
+- Deleted paths are retained to avoid losing assignments during synchronization. Entries for files that no longer exist can be removed manually in the settings.
 
 ## 💻 You might also like some other plugins I've made:
 
