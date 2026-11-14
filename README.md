@@ -1,8 +1,4 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/finnxwz/notemoji/main/docs/media/logo.png" alt="" width="96">
-</p>
-
-<h1 align="center">Notemoji</h1>
+![Notemoji Banner](https://raw.githubusercontent.com/finnxwz/notemoji/main/notemoji-banner.png)
 
 <p align="center">
   <b>Assign emoji and your own icons to notes, folders and files to make your vault feel a little cozier.</b>
@@ -131,6 +127,7 @@ Obsidian icons are [Lucide](https://lucide.dev) icons (ISC), which come with Obs
 ## 💻 You might also like some other plugins I've made:
 
 - **[TidyTasks](obsidian://show-plugin?id=tidytasks)** - Automatically move completed tasks to the bottom of each Markdown task list, keeping subtasks attached and surrounding text in place.
+- **[Cloudboard](obsidian://show-plugin?id=cloudboard)** - Create Pinterest-style image boards with both local and online images, without requiring the use of Obsidian Canvas.
 
 Thank you for using my plugins and supporting my work! My plugins are designed to work across Windows, macOS, Android, and iOS.
 
