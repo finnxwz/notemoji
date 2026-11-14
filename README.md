@@ -19,14 +19,12 @@
 - Icons stay with their note, also if renamed or moved, but deleting an item also removes its emoji (it can be re-assigned in just two clicks).
 - Emoji come from your operating system and the fonts you have installed.
 
-
 ## 💻 You might also like some other plugins I've made:
 
 - **[TidyTasks](obsidian://show-plugin?id=tidytasks)** - Automatically move completed tasks to the bottom of each Markdown task list, keeping subtasks attached and surrounding text in place.
 - **[Cloudboard](obsidian://show-plugin?id=cloudboard)** - Create Pinterest-style image boards with both local and online images, without requiring the use of Obsidian Canvas.
 
 Thank you for using my plugins and supporting my work! My plugins are designed to work across Windows, macOS, Android, and iOS.
-
 
 ## ⚠️ Feedback and support
 
@@ -35,4 +33,3 @@ Found a bug or have a suggestion? Open an issue in this repository's **GitHub I
 Thanks for using my plugins and supporting my work! - Finn
 
 ![Notemoji Demo](https://raw.githubusercontent.com/finnxwz/notemoji/main/notemoji-meme.png)
-

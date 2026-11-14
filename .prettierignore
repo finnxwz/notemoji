@@ -1,0 +1,6 @@
+main.js
+package-lock.json
+.test-build/
+src/picker/emoji-data.ts
+docs/media/
+src/style/emoji-set-previews.ts

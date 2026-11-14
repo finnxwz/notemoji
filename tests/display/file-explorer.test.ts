@@ -1,0 +1,276 @@
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { FileExplorerRenderer } from "../../src/display/file-explorer";
+import { IconStore } from "../../src/icons/icon-store";
+import { createFakeApp, flush } from "../fake-app";
+import { View, WorkspaceLeaf } from "../obsidian";
+
+/** Waits longer than the renderer's coalescing window. */
+const settle = () => flush(80);
+
+interface Item {
+	root: HTMLElement;
+	selfEl: HTMLElement;
+	innerEl?: HTMLElement;
+}
+
+/** Mirrors Obsidian's file explorer: `fileItems` (path → item) plus `tree-item` markup. */
+class FakeExplorer {
+	readonly fileItems: Record<string, Item> = {};
+	readonly containerEl = document.body.createDiv({ cls: "nav-files-container" });
+
+	add(
+		path: string,
+		kind: "file" | "folder" = "file",
+		parent: HTMLElement = this.containerEl,
+	): Item {
+		const root = parent.createDiv({ cls: `tree-item nav-${kind}` });
+		const selfEl = root.createDiv({ cls: `tree-item-self nav-${kind}-title` });
+		if (kind === "folder") selfEl.createDiv({ cls: "tree-item-icon collapse-icon" });
+		const innerEl = selfEl.createDiv({
+			cls: "tree-item-inner",
+			text: path.slice(path.lastIndexOf("/") + 1),
+		});
+		const item = { root, selfEl, innerEl };
+		this.fileItems[path] = item;
+		return item;
+	}
+
+	/** Obsidian moves the `fileItems` entries of a renamed item and its descendants. */
+	move(oldPath: string, newPath: string): void {
+		for (const key of Object.keys(this.fileItems)) {
+			if (key !== oldPath && !key.startsWith(`${oldPath}/`)) continue;
+			this.fileItems[newPath + key.slice(oldPath.length)] = this.fileItems[key];
+			delete this.fileItems[key];
+		}
+	}
+
+	icons(): HTMLElement[] {
+		return Array.from(this.containerEl.querySelectorAll<HTMLElement>(".notemoji-icon"));
+	}
+}
+
+function iconOf(item: Item): HTMLElement | null {
+	return item.selfEl.querySelector(":scope > .notemoji-icon");
+}
+
+let explorer: FakeExplorer;
+let store: IconStore;
+let renderer: FileExplorerRenderer;
+
+/** Image URL of each custom icon and Obsidian icon; tests change them to simulate sync. */
+let urlOf: (id: string) => string | undefined;
+let lucideUrlOf: (name: string) => string | undefined;
+
+beforeEach(() => {
+	document.body.empty();
+	urlOf = (id) => `app://icons/${id}`;
+	lucideUrlOf = (name) => `blob:lucide-${name}`;
+	explorer = new FakeExplorer();
+	store = new IconStore();
+
+	const app = createFakeApp();
+	const leaf = new WorkspaceLeaf(app.asApp);
+	const view = new View(leaf);
+	Object.assign(view, { containerEl: explorer.containerEl, fileItems: explorer.fileItems });
+	view.getViewType = () => "file-explorer";
+	leaf.view = view;
+	app.workspace.leaves.push(leaf);
+
+	renderer = new FileExplorerRenderer(app.asApp, {
+		get: (path) => store.get(path),
+		entries: () => store.entries(),
+		url: (icon) => (icon.type === "custom" ? urlOf(icon.id) : lucideUrlOf(icon.name)),
+	});
+});
+
+afterEach(() => renderer.dispose());
+
+describe("file explorer", () => {
+	it("renders icons after the chevron and before the name", async () => {
+		const folder = explorer.add("Projects", "folder");
+		const note = explorer.add("Projects/Website.md");
+		const plain = explorer.add("Plain.md");
+		store.set("Projects", "📁");
+		store.set("Projects/Website.md", "🚀");
+
+		renderer.attach();
+		await settle();
+
+		expect(iconOf(folder)?.textContent).toBe("📁");
+		expect(folder.selfEl.children[0].hasClass("collapse-icon")).toBe(true);
+		expect(iconOf(folder)?.nextElementSibling).toBe(folder.innerEl);
+		expect(iconOf(note)?.nextElementSibling).toBe(note.innerEl);
+		expect(iconOf(plain)).toBeNull();
+		expect(plain.selfEl.children.length).toBe(1);
+	});
+
+	it("is idempotent and survives label updates", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "🎉");
+		renderer.attach();
+		renderer.attach();
+		await settle();
+		note.innerEl!.textContent = "Renamed.md";
+		await settle();
+
+		expect(explorer.icons()).toHaveLength(1);
+		expect(iconOf(note)?.textContent).toBe("🎉");
+	});
+
+	it("follows renames of folders and their descendants", async () => {
+		const folder = explorer.add("Projects", "folder");
+		const note = explorer.add("Projects/A.md");
+		store.set("Projects", "📁");
+		store.set("Projects/A.md", "🚀");
+		renderer.attach();
+		await settle();
+
+		// Obsidian updates the explorer first, then reports the rename.
+		explorer.move("Projects", "Work");
+		renderer.scheduleSync();
+		await settle();
+		store.rename("Projects", "Work");
+		renderer.scheduleSync();
+		await settle();
+
+		expect(iconOf(folder)?.textContent).toBe("📁");
+		expect(iconOf(note)?.textContent).toBe("🚀");
+		expect(explorer.icons()).toHaveLength(2);
+	});
+
+	it("decorates items Obsidian adds or re-creates later", async () => {
+		store.set("New.md", "✨");
+		renderer.attach();
+		await settle();
+
+		const first = explorer.add("New.md");
+		await settle();
+		expect(iconOf(first)?.textContent).toBe("✨");
+
+		first.root.remove();
+		const replacement = explorer.add("New.md");
+		await settle();
+		expect(iconOf(replacement)?.textContent).toBe("✨");
+		expect(explorer.icons()).toHaveLength(1);
+	});
+
+	it("updates in place and removes without leaving placeholders", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "🚀");
+		renderer.attach();
+		await settle();
+		const node = iconOf(note);
+
+		store.set("A.md", "🛰️");
+		renderer.scheduleSync();
+		await settle();
+		expect(iconOf(note)).toBe(node);
+		expect(node?.textContent).toBe("🛰️");
+
+		store.remove("A.md");
+		renderer.scheduleSync();
+		await settle();
+		expect(iconOf(note)).toBeNull();
+		expect(note.selfEl.children.length).toBe(1);
+	});
+
+	it("handles items without a name element", async () => {
+		const odd = explorer.add("Odd.md");
+		odd.innerEl!.remove();
+		delete odd.innerEl;
+		store.set("Odd.md", "🌀");
+		renderer.attach();
+		await settle();
+		expect(iconOf(odd)?.textContent).toBe("🌀");
+	});
+
+	it("shows custom icons as images and switches between kinds in place", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "custom:logo.svg");
+		renderer.attach();
+		await settle();
+		const img = iconOf(note)?.querySelector("img");
+		expect(img?.getAttribute("src")).toBe("app://icons/logo.svg");
+		expect(iconOf(note)?.nextElementSibling).toBe(note.innerEl);
+
+		store.set("A.md", "🚀");
+		renderer.scheduleSync();
+		await settle();
+		expect(iconOf(note)?.querySelector("img")).toBeNull();
+		expect(iconOf(note)?.textContent).toBe("🚀");
+	});
+
+	it("keeps the space of a missing icon and shows it once sync brings it", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "custom:logo");
+		urlOf = () => undefined;
+		renderer.attach();
+		await settle();
+		const missing = iconOf(note)?.querySelector("img");
+		expect(missing?.hasClass("is-missing")).toBe(true);
+		expect(missing?.hasAttribute("src")).toBe(false);
+
+		urlOf = () => "blob:logo-1";
+		renderer.scheduleSync();
+		await settle();
+		const img = iconOf(note)?.querySelector("img");
+		expect(img?.getAttribute("src")).toBe("blob:logo-1");
+		expect(img?.hasClass("is-missing")).toBe(false);
+
+		// Replaced on another device: same value, new image.
+		urlOf = () => "blob:logo-2";
+		renderer.scheduleSync();
+		await settle();
+		expect(iconOf(note)?.querySelector("img")?.getAttribute("src")).toBe("blob:logo-2");
+		expect(explorer.icons()).toHaveLength(1);
+	});
+
+	it("shows Obsidian icons as a mask in the text colour, and switches kinds in place", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "lucide:star");
+		renderer.attach();
+		await settle();
+		const mask = iconOf(note)?.querySelector<HTMLElement>(".notemoji-mask");
+		expect(mask?.style.getPropertyValue("--notemoji-image")).toBe('url("blob:lucide-star")');
+		expect(mask?.hasClass("is-missing")).toBe(false);
+		expect(iconOf(note)?.querySelector("img, svg")).toBeNull();
+		expect(iconOf(note)?.nextElementSibling).toBe(note.innerEl);
+
+		store.set("A.md", "custom:logo.svg");
+		renderer.scheduleSync();
+		await settle();
+		expect(iconOf(note)?.querySelector(".notemoji-mask")).toBeNull();
+		expect(iconOf(note)?.querySelector("img")?.getAttribute("src")).toBe(
+			"app://icons/logo.svg",
+		);
+	});
+
+	it("keeps the space of an Obsidian icon it can't draw, and follows its copy", async () => {
+		const note = explorer.add("A.md");
+		store.set("A.md", "lucide:rocket");
+		lucideUrlOf = () => undefined;
+		renderer.attach();
+		await settle();
+		const missing = iconOf(note)?.querySelector<HTMLElement>(".notemoji-mask");
+		expect(missing?.hasClass("is-missing")).toBe(true);
+		expect(missing?.style.getPropertyValue("--notemoji-image")).toBe("");
+
+		// Sync brought a copy.
+		lucideUrlOf = () => "blob:rocket-1";
+		renderer.scheduleSync();
+		await settle();
+		const mask = iconOf(note)?.querySelector<HTMLElement>(".notemoji-mask");
+		expect(mask?.hasClass("is-missing")).toBe(false);
+		expect(mask?.style.getPropertyValue("--notemoji-image")).toBe('url("blob:rocket-1")');
+		expect(explorer.icons()).toHaveLength(1);
+	});
+
+	it("removes every icon on dispose", async () => {
+		explorer.add("A.md");
+		store.set("A.md", "🚀");
+		renderer.attach();
+		await settle();
+		renderer.dispose();
+		expect(explorer.icons()).toHaveLength(0);
+	});
+});

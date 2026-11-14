@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Notemoji">
+	<defs>
+		<linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#9B7BFF"/>
+			<stop offset="1" stop-color="#6A45E8"/>
+		</linearGradient>
+		<linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="#FFFFFF"/>
+			<stop offset="1" stop-color="#F1ECFF"/>
+		</linearGradient>
+		<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+			<feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#2A1470" flood-opacity="0.35"/>
+		</filter>
+	</defs>
+	<rect width="512" height="512" rx="116" fill="url(#background)"/>
+	<g filter="url(#shadow)">
+		<path d="M170 96h138l94 94v196a30 30 0 0 1-30 30H170a30 30 0 0 1-30-30V126a30 30 0 0 1 30-30z" fill="url(#page)"/>
+		<path d="M308 96v64a30 30 0 0 0 30 30h64z" fill="#D5C8FF"/>
+	</g>
+	<ellipse cx="200" cy="318" rx="22" ry="13" fill="#FF9EC4" opacity="0.7"/>
+	<ellipse cx="342" cy="318" rx="22" ry="13" fill="#FF9EC4" opacity="0.7"/>
+	<circle cx="222" cy="270" r="21" fill="#2B1A66"/>
+	<circle cx="320" cy="270" r="21" fill="#2B1A66"/>
+	<path d="M218 326c18 34 88 34 106 0" fill="none" stroke="#2B1A66" stroke-width="22" stroke-linecap="round"/>
+</svg>
