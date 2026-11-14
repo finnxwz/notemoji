@@ -22,6 +22,8 @@
 - Icons stay assigned when notes, files or folders are renamed or moved inside Obsidian.
 - Deleted paths are retained to avoid losing assignments during synchronization. Entries for files that no longer exist can be removed manually in the settings.
 
+![Changing the emoji style](docs/media/styles.gif)
+
 ## 💻 You might also like some other plugins I've made:
 
 - **[TidyTasks](obsidian://show-plugin?id=tidytasks)** - Automatically move completed tasks to the bottom of each Markdown task list, keeping subtasks attached and surrounding text in place.
