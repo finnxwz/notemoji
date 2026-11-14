@@ -4,20 +4,26 @@
 
 ## 🖱️ How to use
 
-- Simply right-click the item in the file explorer → **Set / Change / Remove … emoji**
+- Right-click a note, folder or file in the file explorer → **Set emoji**.
+- Search the full emoji picker by name, keyword or shortcode, browse categories and recent emoji, or paste any emoji directly.
+- Use the arrow keys to navigate the picker and press Enter to select an icon.
+- Choose between emoji, your own uploaded images and Obsidian's built-in icons.
+- Right-click the item again to change or remove its icon.
+- You can also set or remove the icon of the active note from the command palette.
 
-![Notemoji Demo](https://raw.githubusercontent.com/finnxwz/notemoji/main/notemoji-demo.gif)
+![Setting an emoji in Notemoji](docs/media/set-emoji.gif)
 
 ## 💡 Additional info
 
-- Icons are shown in the **file explorer** only. Tabs, the note title, search
-  results and bookmarks are intentionally left untouched.
-- A minimal input that works with your operating system's emoji picker
-  (Windows: `Win + .`, macOS: `Control + Command + Space`) and with pasting.
-- Multi code point emoji are supported: flags, skin tones, variation selectors,
-  keycaps and ZWJ families.
-- Icons stay with their note, also if renamed or moved, but deleting an item also removes its emoji (it can be re-assigned in just two clicks).
-- Emoji come from your operating system and the fonts you have installed.
+- **More than the file explorer:** Icons can also appear in note titles and tabs. They can optionally be shown in the view header and next to internal links in reading view and Live Preview.
+- **Custom image icons:** Upload your own PNG, SVG or other supported image files directly from the picker. Custom icons are stored with the plugin data so they can sync between devices.
+- **Obsidian icons:** Choose from Obsidian's built-in icons. They automatically follow the text colour of your theme.
+- **Emoji styles:** Use your system emoji, Twemoji, OpenMoji, Noto Color Emoji, Noto Emoji Mono or your own emoji font. Optional styles are downloaded only after you select them and affect only Notemoji icons.
+- **Automatic emoji:** Notemoji can optionally assign a suitable emoji to newly created notes based on their names. This is disabled by default and currently supports English and German note names.
+- **Made for every device:** Notemoji works on Windows, macOS, Linux, Android and iOS. Settings, recently used emoji and custom icons can sync with your vault.
+- **Your notes stay untouched:** Icons are display-only. Notemoji never modifies note names or note contents.
+- **Renames and moves:** Icons stay assigned when notes, files or folders are renamed or moved inside Obsidian.
+- **Safe synchronization:** Deleted paths are retained to avoid losing assignments during synchronization. Entries for files that no longer exist can be removed manually in the settings.
 
 ## 💻 You might also like some other plugins I've made:
 
